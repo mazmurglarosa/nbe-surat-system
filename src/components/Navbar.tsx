@@ -61,99 +61,54 @@ export const Navbar: React.FC<NavbarProps> = ({
       >
         {/* Brand / Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-          {/* NBE Burst Icon SVG */}
+          {/* Logo Perusahaan +BG */}
           <div
             style={{
-              width: '44px',
-              height: '44px',
+              width: '46px',
+              height: '46px',
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, #0a2540 0%, #00223e 100%)',
+              overflow: 'hidden',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              background: 'rgba(255, 255, 255, 0.05)',
               border: '1px solid var(--border-accent)',
-              boxShadow: '0 4px 12px rgba(0, 212, 178, 0.15)',
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.25)',
+              flexShrink: 0,
             }}
           >
-            <svg
-              width="30"
-              height="30"
-              viewBox="0 0 100 100"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Radial Energy Burst rays */}
-              <circle cx="50" cy="50" r="10" fill="#00d4b2" opacity="0.3" />
-              <path
-                d="M50 15L50 28"
-                stroke="#00d4b2"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M75 25L65 35"
-                stroke="#00d4b2"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M85 50L72 50"
-                stroke="#0284c7"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M75 75L65 65"
-                stroke="#38bdf8"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M50 85L50 72"
-                stroke="#10b981"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M25 75L35 65"
-                stroke="#10b981"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M15 50L28 50"
-                stroke="#00d4b2"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M25 25L35 35"
-                stroke="#0284c7"
-                strokeWidth="5"
-                strokeLinecap="round"
-              />
-            </svg>
+            <img
+              src="/+BG.png"
+              alt="Logo PT Nirwana Bhumi Energi"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+              }}
+            />
           </div>
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span
                 style={{
-                  fontSize: '1.15rem',
+                  fontSize: '1.2rem',
                   fontWeight: 800,
                   letterSpacing: '-0.02em',
-                  background: 'linear-gradient(90deg, #ffffff 0%, var(--primary) 100%)',
+                  color: '#2563eb',
+                  background: 'linear-gradient(90deg, #38bdf8 0%, #2563eb 100%)',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
+                  textShadow: '0 2px 10px rgba(37, 99, 235, 0.2)',
                 }}
               >
                 PT Nirwana Bhumi Energi
               </span>
-              <span className="badge badge-primary" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
+              <span className="badge badge-blue" style={{ fontSize: '0.68rem', padding: '0.15rem 0.45rem' }}>
                 NBE IMS
               </span>
             </div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 500 }}>
+            <p style={{ fontSize: '0.75rem', color: '#0284c7', fontWeight: 500 }}>
               Documents and Records Control & Numbering System
             </p>
           </div>
