@@ -85,54 +85,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </div>
 
-        {/* User Profile Card */}
-        <div
-          style={{
-            background: 'rgba(2, 132, 199, 0.05)',
-            border: '1px solid rgba(2, 132, 199, 0.15)',
-            borderRadius: '12px',
-            padding: '0.85rem 1rem',
-          }}
-        >
-          <div
-            style={{
-              fontSize: '0.72rem',
-              color: 'var(--text-muted)',
-              fontWeight: 500,
-              marginBottom: '0.2rem',
-            }}
-          >
-            Login Sebagai
-          </div>
-          <div
-            style={{
-              fontSize: '0.925rem',
-              fontWeight: 700,
-              color: 'var(--text-main)',
-              lineHeight: 1.3,
-              marginBottom: '0.45rem',
-            }}
-          >
-            Mazmur Gusti Agung Larosa
-          </div>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.4rem',
-              padding: '0.2rem 0.6rem',
-              borderRadius: '9999px',
-              background: 'rgba(37, 99, 235, 0.1)',
-              border: '1px solid rgba(37, 99, 235, 0.25)',
-              fontSize: '0.72rem',
-              color: '#2563eb',
-              fontWeight: 600,
-            }}
-          >
-            <Briefcase size={12} color="#2563eb" />
-            <span>Direktur Keuangan</span>
-          </div>
-        </div>
 
         {/* Menu Items List */}
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
