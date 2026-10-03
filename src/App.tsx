@@ -30,6 +30,7 @@ import {
   X,
   Bell,
   Search,
+  Bot,
 } from 'lucide-react';
 
 export function App() {
@@ -220,14 +221,14 @@ export function App() {
 
           {/* Right Action Icons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {/* Google Drive Shortcut */}
+            {/* Bot & Google Drive Shortcut */}
             <button
               onClick={() => setIsDriveModalOpen(true)}
               className="btn btn-secondary btn-sm"
-              title="Folder Google Drive Dokumen"
+              title="Folder Google Drive Dokumen & Pengaturan Bot"
             >
-              <HardDrive size={15} color="#38bdf8" />
-              <span>Google Drive</span>
+              <Bot size={15} color="#38bdf8" />
+              <span>Bot Google Drive</span>
             </button>
 
             {/* Pedoman PDF */}
@@ -279,6 +280,7 @@ export function App() {
               onSaveDocument={handleSaveDocument}
               driveSettings={driveSettings}
               onNavigateToDocuments={() => setActiveTab('dashboard')}
+              onOpenDriveSettings={() => setIsDriveModalOpen(true)}
             />
           )}
 
@@ -352,6 +354,8 @@ export function App() {
           allDocuments={documents}
           onClose={() => setEditingDoc(null)}
           onSave={handleUpdateDocument}
+          driveSettings={driveSettings}
+          onOpenDriveSettings={() => setIsDriveModalOpen(true)}
         />
       )}
 

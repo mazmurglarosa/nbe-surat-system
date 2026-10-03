@@ -8,13 +8,16 @@ export interface GoogleDriveSettings {
   folderId?: string;
   driveDatabaseSheetUrl?: string;
   autoOpenDriveOnUpload: boolean;
+  botWebhookUrl?: string;
 }
 
 export const DEFAULT_DRIVE_SETTINGS: GoogleDriveSettings = {
-  folderUrl: 'https://drive.google.com/drive/my-drive',
-  folderId: '',
+  folderUrl:
+    'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing',
+  folderId: '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF',
   driveDatabaseSheetUrl: '',
-  autoOpenDriveOnUpload: false,
+  autoOpenDriveOnUpload: true,
+  botWebhookUrl: '',
 };
 
 // Initial Seed Document based on the PDF in the folder

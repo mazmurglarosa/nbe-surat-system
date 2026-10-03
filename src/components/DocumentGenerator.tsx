@@ -18,6 +18,9 @@ import {
   X,
   Eye,
   CheckCircle2,
+  Bot,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
@@ -36,12 +39,14 @@ import {
   getRomanMonth,
 } from '../utils/numbering';
 import { GoogleDriveSettings } from '../services/storage';
+import { uploadFileToDriveViaBot, TARGET_FOLDER_URL } from '../services/googleDriveBot';
 
 interface DocumentGeneratorProps {
   documents: DocumentRecord[];
   onSaveDocument: (doc: DocumentRecord) => Promise<void>;
   driveSettings: GoogleDriveSettings;
   onNavigateToDocuments: () => void;
+  onOpenDriveSettings?: () => void;
 }
 
 export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
@@ -49,6 +54,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   onSaveDocument,
   driveSettings,
   onNavigateToDocuments,
+  onOpenDriveSettings,
 }) => {
   // Step selections
   const [selectedType, setSelectedType] = useState<string>('SOP');
@@ -149,10 +155,20 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     }
   };
 
+  // Bot Upload State
+  const [isBotUploading, setIsBotUploading] = useState<boolean>(false);
+  const [botUploadSuccess, setBotUploadSuccess] = useState<{
+    viewUrl: string;
+    fileName: string;
+  } | null>(null);
+  const [botUploadError, setBotUploadError] = useState<string | null>(null);
+
   // File Upload Handler
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setBotUploadSuccess(null);
+      setBotUploadError(null);
       const reader = new FileReader();
       reader.onload = () => {
         setUploadedFile({
@@ -163,6 +179,54 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  // Bot Upload Handler to Target Google Drive
+  const handleUploadViaBot = async () => {
+    if (!uploadedFile || !uploadedFile.dataUrl) {
+      setBotUploadError('Pilih file dokumen terlebih dahulu sebelum mengunggah via Bot.');
+      return;
+    }
+
+    if (!driveSettings.botWebhookUrl) {
+      if (onOpenDriveSettings) {
+        onOpenDriveSettings();
+      } else {
+        alert(
+          'URL Webhook Bot Google Apps Script belum disetel. Silakan buka Pengaturan Google Drive untuk memasang script bot.'
+        );
+      }
+      return;
+    }
+
+    setIsBotUploading(true);
+    setBotUploadError(null);
+    try {
+      const result = await uploadFileToDriveViaBot(
+        uploadedFile.dataUrl,
+        uploadedFile.name,
+        uploadedFile.type,
+        driveSettings.botWebhookUrl,
+        {
+          documentCode: activeCode,
+          uploadedBy: createdBy.trim() || 'Staff NBE',
+        }
+      );
+
+      if (result.success && result.viewUrl) {
+        setGoogleDriveLink(result.viewUrl);
+        setBotUploadSuccess({
+          viewUrl: result.viewUrl,
+          fileName: uploadedFile.name,
+        });
+      } else {
+        setBotUploadError(result.error || 'Bot Google Drive gagal memproses unggahan file.');
+      }
+    } catch (err: any) {
+      setBotUploadError(`Koneksi bot bermasalah: ${err.message}`);
+    } finally {
+      setIsBotUploading(false);
     }
   };
 
@@ -1066,6 +1130,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                       onClick={(e) => {
                         e.stopPropagation();
                         setUploadedFile(null);
+                        setBotUploadSuccess(null);
+                        setBotUploadError(null);
                       }}
                       className="btn btn-ghost btn-sm"
                       style={{ padding: '0.2rem', color: 'var(--danger)' }}
@@ -1085,6 +1151,112 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Tombol Upload ke Google Drive via Bot */}
+              {uploadedFile && (
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={handleUploadViaBot}
+                    disabled={isBotUploading}
+                    className="btn btn-sm"
+                    style={{
+                      background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      padding: '0.65rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      boxShadow: '0 2px 8px rgba(2, 132, 199, 0.25)',
+                      cursor: isBotUploading ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {isBotUploading ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Bot sedang mengunggah dokumen ke Google Drive...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot size={16} />
+                        <span>🤖 Upload ke Google Drive via Bot</span>
+                      </>
+                    )}
+                  </button>
+
+                  {botUploadSuccess && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.6rem 0.85rem',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'rgba(16, 185, 129, 0.1)',
+                        border: '1px solid var(--success)',
+                        color: 'var(--success)',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <CheckCircle2 size={16} />
+                        <span>Berhasil diunggah oleh Bot ke Google Drive!</span>
+                      </div>
+                      <a
+                        href={botUploadSuccess.viewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          color: '#38bdf8',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem',
+                          textDecoration: 'underline',
+                        }}
+                      >
+                        <ExternalLink size={12} /> Buka di Drive
+                      </a>
+                    </div>
+                  )}
+
+                  {botUploadError && (
+                    <div
+                      style={{
+                        padding: '0.6rem 0.85rem',
+                        borderRadius: 'var(--radius-md)',
+                        background: 'rgba(239, 68, 68, 0.1)',
+                        border: '1px solid var(--danger)',
+                        color: '#fca5a5',
+                        fontSize: '0.8rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.5rem',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <AlertCircle size={15} />
+                        <span>{botUploadError}</span>
+                      </div>
+                      {onOpenDriveSettings && (
+                        <button
+                          type="button"
+                          onClick={onOpenDriveSettings}
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                        >
+                          Pasang Bot
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Integrasi Database Google Drive */}

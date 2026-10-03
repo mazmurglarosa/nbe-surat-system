@@ -9,15 +9,22 @@ import {
   ExternalLink,
   Unlock,
   CheckCircle2,
+  Bot,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { DocumentRecord, DocumentStatus } from '../types';
 import { isCodeDuplicate, validateDocumentCode } from '../utils/numbering';
+import { GoogleDriveSettings } from '../services/storage';
+import { uploadFileToDriveViaBot } from '../services/googleDriveBot';
 
 interface EditDocumentModalProps {
   document: DocumentRecord;
   allDocuments: DocumentRecord[];
   onClose: () => void;
   onSave: (updatedDoc: DocumentRecord) => Promise<void>;
+  driveSettings?: GoogleDriveSettings;
+  onOpenDriveSettings?: () => void;
 }
 
 export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
@@ -25,6 +32,8 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
   allDocuments,
   onClose,
   onSave,
+  driveSettings,
+  onOpenDriveSettings,
 }) => {
   const [code, setCode] = useState(initialDoc.code);
   const [title, setTitle] = useState(initialDoc.title);
@@ -58,9 +67,15 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
       )
     : null;
 
+  const [isBotUploading, setIsBotUploading] = useState(false);
+  const [botUploadSuccess, setBotUploadSuccess] = useState(false);
+  const [botUploadError, setBotUploadError] = useState<string | null>(null);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setBotUploadSuccess(false);
+      setBotUploadError(null);
       const reader = new FileReader();
       reader.onload = () => {
         setUploadedFile({
@@ -71,6 +86,46 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadViaBot = async () => {
+    if (!uploadedFile || !uploadedFile.dataUrl) return;
+    if (!driveSettings?.botWebhookUrl) {
+      if (onOpenDriveSettings) {
+        onOpenDriveSettings();
+      } else {
+        alert(
+          'URL Webhook Bot Google Apps Script belum disetel. Silakan buka Pengaturan Google Drive untuk memasang bot.'
+        );
+      }
+      return;
+    }
+
+    setIsBotUploading(true);
+    setBotUploadError(null);
+    try {
+      const result = await uploadFileToDriveViaBot(
+        uploadedFile.dataUrl,
+        uploadedFile.name,
+        uploadedFile.type,
+        driveSettings.botWebhookUrl,
+        {
+          documentCode: code.trim().toUpperCase(),
+          uploadedBy: createdBy.trim() || 'Admin NBE',
+        }
+      );
+
+      if (result.success && result.viewUrl) {
+        setGoogleDriveLink(result.viewUrl);
+        setBotUploadSuccess(true);
+      } else {
+        setBotUploadError(result.error || 'Bot gagal mengunggah file.');
+      }
+    } catch (err: any) {
+      setBotUploadError(err.message);
+    } finally {
+      setIsBotUploading(false);
     }
   };
 
@@ -325,9 +380,55 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                 className="form-input"
               />
               {uploadedFile && (
-                <span style={{ fontSize: '0.78rem', color: 'var(--primary)', marginTop: '0.35rem', display: 'block' }}>
-                  File baru dipilih: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
-                </span>
+                <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--primary)' }}>
+                    File baru dipilih: {uploadedFile.name} ({(uploadedFile.size / 1024).toFixed(1)} KB)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleUploadViaBot}
+                    disabled={isBotUploading}
+                    className="btn btn-sm"
+                    style={{
+                      background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+                      color: '#ffffff',
+                      border: 'none',
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      width: 'fit-content',
+                      cursor: isBotUploading ? 'wait' : 'pointer',
+                    }}
+                  >
+                    {isBotUploading ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Mengunggah via Bot ke Google Drive...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Bot size={14} />
+                        <span>🤖 Upload File Baru ke Google Drive via Bot</span>
+                      </>
+                    )}
+                  </button>
+
+                  {botUploadSuccess && (
+                    <span style={{ fontSize: '0.78rem', color: 'var(--success)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <CheckCircle2 size={14} /> Berhasil diunggah ke Google Drive oleh Bot! Link dokumen diperbarui.
+                    </span>
+                  )}
+
+                  {botUploadError && (
+                    <span style={{ fontSize: '0.78rem', color: '#fca5a5', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <AlertCircle size={14} /> {botUploadError}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
