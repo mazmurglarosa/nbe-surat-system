@@ -40,7 +40,12 @@ import {
   getRomanMonth,
 } from '../utils/numbering';
 import { GoogleDriveSettings } from '../services/storage';
-import { uploadFileToDriveViaBot, TARGET_FOLDER_URL } from '../services/googleDriveBot';
+import {
+  uploadFileToDriveViaBot,
+  registerDocumentInDriveViaBot,
+  TARGET_FOLDER_URL,
+  TARGET_FOLDER_ID,
+} from '../services/googleDriveBot';
 
 interface DocumentGeneratorProps {
   documents: DocumentRecord[];
@@ -109,6 +114,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   // UI States
   const [copied, setCopied] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submittingStatus, setSubmittingStatus] = useState<string>('Menyimpan dokumen...');
+  const [autoDriveUploaded, setAutoDriveUploaded] = useState<boolean>(false);
   const [savedSuccessDoc, setSavedSuccessDoc] = useState<DocumentRecord | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -289,8 +296,61 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     }
 
     setIsSubmitting(true);
+    setSubmittingStatus('Menyiapkan dokumen...');
+    setAutoDriveUploaded(false);
+
     try {
       const romanMonth = getRomanMonth(monthNumber);
+
+      // Auto Bot Google Drive upload / registration
+      let finalDriveLink = googleDriveLink.trim();
+      let wasBotRegistered = false;
+
+      if (driveSettings.botWebhookUrl) {
+        setSubmittingStatus('🤖 Bot sedang mendaftarkan dokumen ke Google Drive...');
+        try {
+          const botResult = await registerDocumentInDriveViaBot(
+            {
+              code: activeCode,
+              title: title.trim(),
+              typeCode: selectedType,
+              divisionCode: selectedDivision,
+              approverCode: selectedApprover,
+              createdBy: createdBy.trim(),
+              approvedBy: approvedBy.trim() || undefined,
+              issueDate: issueDate,
+              description: description.trim() || undefined,
+            },
+            uploadedFile
+              ? {
+                  dataUrl: uploadedFile.dataUrl,
+                  name: uploadedFile.name,
+                  type: uploadedFile.type,
+                }
+              : null,
+            driveSettings.botWebhookUrl,
+            driveSettings.folderId || TARGET_FOLDER_ID
+          );
+
+          if (botResult.success && botResult.viewUrl) {
+            finalDriveLink = botResult.viewUrl;
+            wasBotRegistered = true;
+            setAutoDriveUploaded(true);
+          } else {
+            console.warn('Bot Drive info:', botResult.error);
+          }
+        } catch (botErr) {
+          console.warn('Bot Drive communication error:', botErr);
+        }
+      } else {
+        // Fallback to company folder if no direct link entered
+        if (!finalDriveLink) {
+          finalDriveLink = driveSettings.folderUrl || TARGET_FOLDER_URL;
+        }
+      }
+
+      setSubmittingStatus('Menyimpan ke sistem...');
+
       const newDoc: DocumentRecord = {
         id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         code: activeCode,
@@ -312,7 +372,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         fileSize: uploadedFile?.size,
         fileType: uploadedFile?.type,
         fileData: uploadedFile?.dataUrl,
-        googleDriveLink: googleDriveLink.trim() || undefined,
+        googleDriveLink: finalDriveLink || undefined,
         isManualCode: isManualOverride,
         legacyNotes: legacyNotes.trim() || undefined,
         revisions: [
@@ -389,10 +449,31 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 <CheckCircle2 size={24} />
               </div>
               <div>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--success)' }}>
-                  Dokumen Berhasil Didaftarkan & Disimpan!
-                </h3>
-                <p style={{ marginTop: '0.25rem', color: 'var(--text-main)', fontSize: '0.95rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--success)' }}>
+                    Dokumen Berhasil Didaftarkan & Disimpan!
+                  </h3>
+                  {autoDriveUploaded && (
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        fontWeight: 700,
+                        background: 'rgba(16, 185, 129, 0.2)',
+                        border: '1px solid rgba(16, 185, 129, 0.5)',
+                        color: '#34d399',
+                        padding: '0.15rem 0.6rem',
+                        borderRadius: '12px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                      }}
+                    >
+                      <Bot size={13} /> Bot Terdaftar ke Google Drive
+                    </span>
+                  )}
+                </div>
+
+                <p style={{ marginTop: '0.35rem', color: 'var(--text-main)', fontSize: '0.95rem' }}>
                   Kode Dokumen:{' '}
                   <span
                     className="mono"
@@ -411,6 +492,46 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Judul: <strong>{savedSuccessDoc.title}</strong> | Dibuat oleh:{' '}
                   {savedSuccessDoc.createdBy}
                 </p>
+
+                {savedSuccessDoc.googleDriveLink && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                    <a
+                      href={savedSuccessDoc.googleDriveLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-sm"
+                      style={{
+                        background: 'rgba(5, 150, 105, 0.25)',
+                        border: '1px solid rgba(16, 185, 129, 0.5)',
+                        color: '#34d399',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        fontWeight: 600,
+                      }}
+                    >
+                      <HardDrive size={14} />
+                      <span>Buka File di Google Drive</span>
+                      <ExternalLink size={12} />
+                    </a>
+
+                    <a
+                      href={TARGET_FOLDER_URL}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: '0.82rem',
+                        color: 'var(--text-secondary)',
+                        textDecoration: 'underline',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                    >
+                      Buka Folder NBE Drive <ExternalLink size={11} />
+                    </a>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1369,19 +1490,121 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         )}
 
         {/* Action Submit */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '1rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1.25rem',
+            flexWrap: 'wrap',
+            marginTop: '2rem',
+            paddingTop: '1.5rem',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          {/* Bot Status Indicator */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.65rem',
+              background: 'rgba(255, 255, 255, 0.03)',
+              padding: '0.6rem 1rem',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+            }}
+          >
+            <div
+              style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                background: driveSettings.botWebhookUrl ? '#10b981' : '#f59e0b',
+                boxShadow: driveSettings.botWebhookUrl
+                  ? '0 0 10px rgba(16, 185, 129, 0.8)'
+                  : '0 0 10px rgba(245, 158, 11, 0.8)',
+                flexShrink: 0,
+              }}
+            />
+            <div style={{ fontSize: '0.85rem' }}>
+              {driveSettings.botWebhookUrl ? (
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  <strong style={{ color: '#34d399' }}>🤖 Bot Drive Aktif:</strong> Saat tombol ditekan, bot langsung mendaftarkan ke Google Drive NBE.
+                </span>
+              ) : (
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  <strong style={{ color: '#fbbf24' }}>Bot Belum Terhubung:</strong>{' '}
+                  <button
+                    type="button"
+                    onClick={onOpenDriveSettings}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--primary)',
+                      textDecoration: 'underline',
+                      cursor: 'pointer',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      padding: 0,
+                    }}
+                  >
+                    Atur Webhook Bot di sini
+                  </button>{' '}
+                  agar upload langsung otomatis.
+                </span>
+              )}
+            </div>
+          </div>
+
           <button
             type="submit"
             disabled={isSubmitting || duplicate}
-            className="btn btn-primary btn-lg"
             style={{
+              background: duplicate
+                ? '#374151'
+                : 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              color: '#ffffff',
+              border: '1px solid rgba(16, 185, 129, 0.4)',
+              boxShadow: duplicate
+                ? 'none'
+                : '0 4px 16px rgba(5, 150, 105, 0.4)',
+              borderRadius: '10px',
+              padding: '0.85rem 2rem',
+              fontSize: '1.02rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.65rem',
+              cursor: duplicate || isSubmitting ? 'not-allowed' : 'pointer',
               opacity: duplicate ? 0.6 : 1,
-              cursor: duplicate ? 'not-allowed' : 'pointer',
-              minWidth: '220px',
+              transition: 'all 0.2s ease',
+              minWidth: '240px',
+            }}
+            onMouseEnter={(e) => {
+              if (!duplicate && !isSubmitting) {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px rgba(5, 150, 105, 0.55)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!duplicate && !isSubmitting) {
+                e.currentTarget.style.transform = 'none';
+                e.currentTarget.style.boxShadow = '0 4px 16px rgba(5, 150, 105, 0.4)';
+              }
             }}
           >
-            <CheckCircle2 size={20} />
-            <span>{isSubmitting ? 'Menyimpan...' : 'Daftarkan & Simpan Dokumen'}</span>
+            {isSubmitting ? (
+              <>
+                <Loader2 size={20} className="animate-spin" />
+                <span>{submittingStatus}</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 size={20} />
+                <span>Daftarkan & Simpan Dokumen</span>
+              </>
+            )}
           </button>
         </div>
       </form>

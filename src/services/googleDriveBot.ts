@@ -126,12 +126,103 @@ export async function testBotConnection(webhookUrl: string): Promise<{
 }
 
 /**
+ * Register a document to Google Drive automatically via Bot.
+ * If file is uploaded, writes the file directly to folder 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF.
+ * If no file is uploaded, creates an official document registration record in the folder.
+ */
+export async function registerDocumentInDriveViaBot(
+  doc: {
+    code: string;
+    title: string;
+    typeCode: string;
+    divisionCode: string;
+    approverCode: string;
+    createdBy: string;
+    approvedBy?: string;
+    issueDate: string;
+    description?: string;
+  },
+  fileData: {
+    dataUrl?: string;
+    name?: string;
+    type?: string;
+  } | null,
+  webhookUrl: string,
+  folderId: string = TARGET_FOLDER_ID
+): Promise<BotUploadResult> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return {
+      success: false,
+      error: 'URL Webhook Bot Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  try {
+    let cleanBase64 = '';
+    if (fileData?.dataUrl) {
+      cleanBase64 = fileData.dataUrl.includes(',')
+        ? fileData.dataUrl.split(',')[1]
+        : fileData.dataUrl;
+    }
+
+    const payload = {
+      action: fileData?.dataUrl ? 'upload' : 'register',
+      folderId: folderId,
+      documentCode: doc.code,
+      title: doc.title,
+      typeCode: doc.typeCode,
+      divisionCode: doc.divisionCode,
+      approverCode: doc.approverCode,
+      createdBy: doc.createdBy,
+      approvedBy: doc.approvedBy || '',
+      issueDate: doc.issueDate,
+      description: doc.description || '',
+      fileName: fileData?.name || `${doc.code}_Registrasi.txt`,
+      mimeType: fileData?.type || (fileData?.dataUrl ? 'application/pdf' : 'text/plain'),
+      base64: cleanBase64,
+      uploadedBy: doc.createdBy,
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (result.status === 'success' || result.success) {
+      return {
+        success: true,
+        fileId: result.fileId,
+        viewUrl:
+          result.viewUrl ||
+          `https://drive.google.com/file/d/${result.fileId}/view`,
+        downloadUrl: result.downloadUrl,
+        message: result.message || 'Dokumen berhasil didaftarkan langsung ke Google Drive oleh Bot!',
+      };
+    } else {
+      return {
+        success: false,
+        error: result.message || 'Bot Google Drive gagal memproses pendaftaran dokumen.',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Koneksi ke Bot Google Drive bermasalah: ${err.message}`,
+    };
+  }
+}
+
+/**
  * Ready-to-deploy Google Apps Script Code for the Bot Account
  */
 export const GOOGLE_APPS_SCRIPT_BOT_CODE = `/**
  * ============================================================
  * BOT GOOGLE DRIVE - PT NIRWANA BHUMI ENERGI (NBE)
- * Mengatur upload dokumen otomatis ke folder:
+ * Mengatur upload & pendaftaran dokumen otomatis ke folder:
  * https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF
  * ============================================================
  */
@@ -151,26 +242,44 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
     var folderId = data.folderId || TARGET_FOLDER_ID;
     var folder = DriveApp.getFolderById(folderId);
-    
-    // Decode base64 file
-    var decoded = Utilities.base64Decode(data.base64);
-    var mimeType = data.mimeType || 'application/pdf';
-    var fileName = data.fileName || 'dokumen-nbe.pdf';
-    
-    // Beri prefix kode surat pada nama file jika belum ada
-    if (data.documentCode && !fileName.startsWith(data.documentCode)) {
-      fileName = data.documentCode + "_" + fileName;
+    var file;
+    var fileName = data.fileName || (data.documentCode ? data.documentCode + ".pdf" : "dokumen-nbe.pdf");
+
+    // Jika ada lampiran berkas (base64)
+    if (data.base64 && data.base64.length > 0) {
+      var decoded = Utilities.base64Decode(data.base64);
+      var mimeType = data.mimeType || 'application/pdf';
+      
+      // Beri prefix kode surat pada nama file jika belum ada
+      if (data.documentCode && !fileName.startsWith(data.documentCode)) {
+        fileName = data.documentCode + "_" + fileName;
+      }
+      
+      var blob = Utilities.newBlob(decoded, mimeType, fileName);
+      file = folder.createFile(blob);
+    } else {
+      // Jika surat didaftarkan tanpa lampiran berkas fisik, buat berkas bukti registrasi resmi
+      var regFileName = (data.documentCode || "DOC") + "_Registrasi_Sistem.txt";
+      var summaryText = "========================================================\\n" +
+                        "BUKTI REGISTRASI DOKUMEN RESMI - PT NIRWANA BHUMI ENERGI\\n" +
+                        "========================================================\\n\\n" +
+                        "Kode Dokumen      : " + (data.documentCode || "-") + "\\n" +
+                        "Judul Dokumen     : " + (data.title || "-") + "\\n" +
+                        "Kategori (Type)   : " + (data.typeCode || "-") + "\\n" +
+                        "Divisi Penerbit   : " + (data.divisionCode || "-") + "\\n" +
+                        "Otoritas Pengesah : " + (data.approverCode || "-") + "\\n" +
+                        "Dibuat Oleh       : " + (data.createdBy || "-") + "\\n" +
+                        "Tanggal Terbit    : " + (data.issueDate || "-") + "\\n" +
+                        "Deskripsi         : " + (data.description || "-") + "\\n" +
+                        "Waktu Pendaftaran : " + new Date().toISOString() + "\\n";
+      file = folder.createFile(regFileName, summaryText, MimeType.PLAIN_TEXT);
     }
-    
-    var blob = Utilities.newBlob(decoded, mimeType, fileName);
-    
-    // Simpan file ke Google Drive
-    var file = folder.createFile(blob);
-    
+
     // Tambahkan keterangan dokumen
     var desc = "Dokumen Resmi PT Nirwana Bhumi Energi\\n" +
                "Kode Surat: " + (data.documentCode || "-") + "\\n" +
-               "Diupload oleh: " + (data.uploadedBy || "Staff") + "\\n" +
+               "Judul: " + (data.title || "-") + "\\n" +
+               "Didaftarkan oleh: " + (data.uploadedBy || data.createdBy || "Staff") + "\\n" +
                "Waktu: " + new Date().toISOString();
     file.setDescription(desc);
     
@@ -184,7 +293,7 @@ function doPost(e) {
       fileName: file.getName(),
       viewUrl: file.getUrl(),
       downloadUrl: file.getDownloadUrl(),
-      message: "File berhasil diunggah ke Google Drive oleh NBE Bot!"
+      message: "Dokumen (" + (data.documentCode || "NBE") + ") berhasil didaftarkan langsung ke Google Drive oleh Bot!"
     };
     
     return ContentService.createTextOutput(JSON.stringify(response))
