@@ -1,0 +1,7 @@
+Perhatikan file yang ada dalam folder "SURAT" yang saya lampirkan, kemudian
+1. buat web untuk pencatatan dokumen dan penomoran dokumen sesuai dengan file yang ada dalam folder "SURAT" tersebut, dimana web ini bisa terus update tanpa ada data yang hilang, dan terus mencatat setiap dokumen, cara kerja web ini (Pilih Kategori Surat "Document Type code" > Pilih Penerbit surat "Division code" > Orang yang menyetujui "Approving Authority (position) code", kemudian sistem web akan langsung mengenerate kode sesuai seperti di "Example". Buat tombol copy untuk mencopy kode yang sudah di generate. Kemudian berikan tombol Upload dokumen untuk mengupload dokumen yang sudah dibuat dengan kode tersebut, buatkan data base di Google drive, agar saya bisa menelusuri kembali dokumen yang sudah lama, atau sudah pernah diterbitkan. 1 kode surat hanya berlakuuntuk 1 dokumen saja, tidak boleh lebih, berikan saya akses untuk mengubah kode dokumen, jika suatuhari initi saya mengupload dokumen yang sebenarnya sudah ada sejak sebelum pemcatatan dokumen ini hadir, tetapi belum sempat terdata.
+2. instalkan mcp untuk github
+3. buatkan repositori di github dan upload di repo tersebut
+4. buatkan data base convex dan buatkan juga di cloudlfare agar bisa di lihat orang
+5. tolong base code on react
+6. Web menggunakan vercel 
