@@ -3,7 +3,6 @@ import { Sidebar, SidebarTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { DocumentGenerator } from './components/DocumentGenerator';
 import { ActivityLogsView } from './components/ActivityLogsView';
-import { JobDeskView, AgendaView, FinanceView, DataView } from './components/DirectorPortalViews';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { EditDocumentModal } from './components/EditDocumentModal';
 import { GoogleDriveModal } from './components/GoogleDriveModal';
@@ -211,11 +210,6 @@ export function App() {
             <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {activeTab === 'dashboard' && 'Dashboard Dokumen'}
               {activeTab === 'create' && 'Daftarkan Surat Baru'}
-              {activeTab === 'jobdesk' && 'Job Desk Direksi'}
-              {activeTab === 'agenda' && 'Agenda Kegiatan'}
-              {activeTab === 'finance' && 'Laporan Keuangan (FNC)'}
-              {activeTab === 'personal' && 'Data Pribadi'}
-              {activeTab === 'shared' && 'Data Bersama'}
               {activeTab === 'dir-ceo' && 'Direktur Utama'}
               {activeTab === 'dir-cto' && 'Direktur Engineering'}
               {activeTab === 'dir-coo' && 'Direktur Operation'}
@@ -291,18 +285,6 @@ export function App() {
           {activeTab === 'logs' && (
             <ActivityLogsView logs={activityLogs} />
           )}
-
-          {activeTab === 'jobdesk' && <JobDeskView />}
-          {activeTab === 'agenda' && <AgendaView />}
-          {activeTab === 'finance' && (
-            <FinanceView
-              documents={documents}
-              onNavigateToCreate={() => setActiveTab('create')}
-              onViewDocument={(doc) => setViewingDoc(doc)}
-            />
-          )}
-          {activeTab === 'personal' && <DataView type="personal" />}
-          {activeTab === 'shared' && <DataView type="shared" />}
 
           {/* Director Divisions Filters */}
           {activeTab === 'dir-ceo' && (

@@ -2,27 +2,16 @@ import React from 'react';
 import {
   LayoutGrid,
   FilePlus,
-  ClipboardCheck,
-  Calendar,
-  FileSpreadsheet,
-  FolderLock,
-  Users,
   Briefcase,
   History,
   Settings,
   LogOut,
   ChevronRight,
-  Shield,
 } from 'lucide-react';
 
 export type SidebarTab =
   | 'dashboard'
   | 'create'
-  | 'jobdesk'
-  | 'agenda'
-  | 'finance'
-  | 'personal'
-  | 'shared'
   | 'dir-ceo'
   | 'dir-cto'
   | 'dir-coo'
@@ -225,151 +214,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Daftarkan Surat</span>
             </div>
             {activeTab === 'create' && <ChevronRight size={16} />}
-          </button>
-
-          {/* 3. Job Desk Direksi */}
-          <button
-            onClick={() => onSelectTab('jobdesk')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.7rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'jobdesk'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'jobdesk' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'jobdesk' ? 700 : 500,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <ClipboardCheck size={18} />
-              <span>Job Desk Direksi</span>
-            </div>
-            {activeTab === 'jobdesk' && <ChevronRight size={16} />}
-          </button>
-
-          {/* 4. Agenda Kegiatan */}
-          <button
-            onClick={() => onSelectTab('agenda')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.7rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'agenda'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'agenda' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'agenda' ? 700 : 500,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Calendar size={18} />
-              <span>Agenda Kegiatan</span>
-            </div>
-            {activeTab === 'agenda' && <ChevronRight size={16} />}
-          </button>
-
-          {/* 5. Laporan Keuangan */}
-          <button
-            onClick={() => onSelectTab('finance')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.7rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'finance'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'finance' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'finance' ? 700 : 500,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <FileSpreadsheet size={18} />
-              <span>Laporan Keuangan</span>
-            </div>
-            {activeTab === 'finance' && <ChevronRight size={16} />}
-          </button>
-
-          {/* 6. Data Pribadi */}
-          <button
-            onClick={() => onSelectTab('personal')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.7rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'personal'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'personal' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'personal' ? 700 : 500,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <FolderLock size={18} />
-              <span>Data Pribadi</span>
-            </div>
-            {activeTab === 'personal' && <ChevronRight size={16} />}
-          </button>
-
-          {/* 7. Data Bersama */}
-          <button
-            onClick={() => onSelectTab('shared')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.7rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'shared'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'shared' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'shared' ? 700 : 500,
-              fontSize: '0.875rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-              transition: 'all 0.15s ease',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Users size={18} />
-              <span>Data Bersama</span>
-            </div>
-            {activeTab === 'shared' && <ChevronRight size={16} />}
           </button>
 
           {/* Section Divider: DIVISI DIREKSI */}
