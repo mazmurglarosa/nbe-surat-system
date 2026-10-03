@@ -51,6 +51,17 @@ export interface DocumentRecord {
   updatedAt: string;
 }
 
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  details: string;
+  documentCode?: string;
+  type: 'create' | 'update' | 'delete' | 'export' | 'system';
+}
+
 export interface CodeDefinition {
   code: string;
   label: string;
