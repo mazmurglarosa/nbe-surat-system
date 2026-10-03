@@ -44,7 +44,8 @@ export const INITIAL_SEED_DOCUMENTS: DocumentRecord[] = [
     fileSize: 852122,
     fileType: 'application/pdf',
     fileUrl: '/0001-SOP-GNR-CEO-IX-2026.pdf',
-    googleDriveLink: 'https://drive.google.com/file/d/sample-nbe-sop-0001/view',
+    googleDriveLink:
+      'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing',
     revisions: [
       {
         revision: 0,

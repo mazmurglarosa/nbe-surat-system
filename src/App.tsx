@@ -8,7 +8,8 @@ import { EditDocumentModal } from './components/EditDocumentModal';
 import { GoogleDriveModal } from './components/GoogleDriveModal';
 import { BackupRestoreModal } from './components/BackupRestoreModal';
 import { PdfGuideModal } from './components/PdfGuideModal';
-import { DocumentRecord, ActivityLog } from './types';
+import { MasterCategoriesView } from './components/MasterCategoriesView';
+import { DocumentRecord, ActivityLog, CodeDefinition, MasterCodesState } from './types';
 import {
   loadDocuments,
   saveDocument,
@@ -20,6 +21,19 @@ import {
   getStoredDocumentsSync,
 } from './services/storage';
 import { loadActivityLogs, addActivityLog } from './services/activityLogs';
+import {
+  getMasterCodes,
+  addDocumentType,
+  updateDocumentType,
+  deleteDocumentType,
+  addDivision,
+  updateDivision,
+  deleteDivision,
+  addApprover,
+  updateApprover,
+  deleteApprover,
+  resetMasterCodesToDefaults,
+} from './services/masterCodes';
 import {
   Moon,
   Sun,
@@ -43,6 +57,9 @@ export function App() {
   );
   const [driveSettings, setDriveSettings] = useState<GoogleDriveSettings>(() =>
     getGoogleDriveSettings()
+  );
+  const [masterCodes, setMasterCodes] = useState<MasterCodesState>(() =>
+    getMasterCodes()
   );
 
   // Modals state
@@ -157,6 +174,147 @@ export function App() {
     setActivityLogs(updatedLogs);
   };
 
+  // Master Categories & Codes Handlers
+  const handleAddDocType = (item: CodeDefinition) => {
+    const updated = addDocumentType(item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Tambah Kategori Surat',
+        details: `Menambahkan kategori dokumen baru: [${item.code}] ${item.label}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleUpdateDocType = (code: string, item: Partial<CodeDefinition>) => {
+    const updated = updateDocumentType(code, item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Ubah Kategori Surat',
+        details: `Memperbarui kategori dokumen: [${code}] ${item.label || ''}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleDeleteDocType = (code: string) => {
+    const updated = deleteDocumentType(code);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Hapus Kategori Surat',
+        details: `Menghapus kategori dokumen: [${code}]`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleAddDivision = (item: CodeDefinition) => {
+    const updated = addDivision(item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Tambah Divisi Penerbit',
+        details: `Menambahkan divisi penerbit baru: [${item.code}] ${item.label}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleUpdateDivision = (code: string, item: Partial<CodeDefinition>) => {
+    const updated = updateDivision(code, item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Ubah Divisi Penerbit',
+        details: `Memperbarui divisi penerbit: [${code}] ${item.label || ''}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleDeleteDivision = (code: string) => {
+    const updated = deleteDivision(code);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Hapus Divisi Penerbit',
+        details: `Menghapus divisi penerbit: [${code}]`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleAddApprover = (item: CodeDefinition) => {
+    const updated = addApprover(item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Tambah Otoritas Pengesahan',
+        details: `Menambahkan otoritas pengesahan baru: [${item.code}] ${item.label}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleUpdateApprover = (code: string, item: Partial<CodeDefinition>) => {
+    const updated = updateApprover(code, item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Ubah Otoritas Pengesahan',
+        details: `Memperbarui otoritas pengesahan: [${code}] ${item.label || ''}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleDeleteApprover = (code: string) => {
+    const updated = deleteApprover(code);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Hapus Otoritas Pengesahan',
+        details: `Menghapus otoritas pengesahan: [${code}]`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleResetMasterCodes = () => {
+    const updated = resetMasterCodesToDefaults();
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Reset Master Kategori & Kode',
+        details: 'Mengembalikan master kategori, divisi, dan otoritas ke standar bawaan SOP NBE',
+        type: 'system',
+      })
+    );
+  };
+
   const handleLogout = () => {
     if (confirm('Apakah Anda ingin keluar dari sesi sistem?')) {
       alert('Anda telah keluar dari sesi kerja. Untuk masuk kembali silakan muat ulang halaman.');
@@ -211,6 +369,7 @@ export function App() {
             <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {activeTab === 'dashboard' && 'Dashboard Dokumen'}
               {activeTab === 'create' && 'Daftarkan Surat Baru'}
+              {activeTab === 'master-categories' && 'Kelola Master Kategori & Kode'}
               {activeTab === 'dir-ceo' && 'Direktur Utama'}
               {activeTab === 'dir-cto' && 'Direktur Engineering'}
               {activeTab === 'dir-coo' && 'Direktur Operation'}
@@ -281,6 +440,26 @@ export function App() {
               driveSettings={driveSettings}
               onNavigateToDocuments={() => setActiveTab('dashboard')}
               onOpenDriveSettings={() => setIsDriveModalOpen(true)}
+              documentTypes={masterCodes.documentTypes}
+              divisions={masterCodes.divisions}
+              approvers={masterCodes.approvers}
+              onNavigateToMasterCategories={() => setActiveTab('master-categories')}
+            />
+          )}
+
+          {activeTab === 'master-categories' && (
+            <MasterCategoriesView
+              masterCodes={masterCodes}
+              onAddDocumentType={handleAddDocType}
+              onUpdateDocumentType={handleUpdateDocType}
+              onDeleteDocumentType={handleDeleteDocType}
+              onAddDivision={handleAddDivision}
+              onUpdateDivision={handleUpdateDivision}
+              onDeleteDivision={handleDeleteDivision}
+              onAddApprover={handleAddApprover}
+              onUpdateApprover={handleUpdateApprover}
+              onDeleteApprover={handleDeleteApprover}
+              onResetDefaults={handleResetMasterCodes}
             />
           )}
 

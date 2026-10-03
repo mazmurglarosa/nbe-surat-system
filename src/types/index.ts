@@ -66,6 +66,13 @@ export interface CodeDefinition {
   code: string;
   label: string;
   description: string;
+  isCustom?: boolean;
+}
+
+export interface MasterCodesState {
+  documentTypes: CodeDefinition[];
+  divisions: CodeDefinition[];
+  approvers: CodeDefinition[];
 }
 
 export const DOCUMENT_TYPES: CodeDefinition[] = [

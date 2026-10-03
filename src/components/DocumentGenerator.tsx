@@ -29,6 +29,7 @@ import {
   ROMAN_MONTHS,
   DocumentRecord,
   DocumentStatus,
+  CodeDefinition,
 } from '../types';
 import {
   generateDocumentCode,
@@ -47,6 +48,10 @@ interface DocumentGeneratorProps {
   driveSettings: GoogleDriveSettings;
   onNavigateToDocuments: () => void;
   onOpenDriveSettings?: () => void;
+  documentTypes?: CodeDefinition[];
+  divisions?: CodeDefinition[];
+  approvers?: CodeDefinition[];
+  onNavigateToMasterCategories?: () => void;
 }
 
 export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
@@ -55,11 +60,19 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   driveSettings,
   onNavigateToDocuments,
   onOpenDriveSettings,
+  documentTypes,
+  divisions,
+  approvers,
+  onNavigateToMasterCategories,
 }) => {
+  const docTypes = documentTypes && documentTypes.length > 0 ? documentTypes : DOCUMENT_TYPES;
+  const divs = divisions && divisions.length > 0 ? divisions : DIVISIONS;
+  const apprvs = approvers && approvers.length > 0 ? approvers : APPROVERS;
+
   // Step selections
-  const [selectedType, setSelectedType] = useState<string>('SOP');
-  const [selectedDivision, setSelectedDivision] = useState<string>('GNR');
-  const [selectedApprover, setSelectedApprover] = useState<string>('CEO');
+  const [selectedType, setSelectedType] = useState<string>(docTypes[0]?.code || 'SOP');
+  const [selectedDivision, setSelectedDivision] = useState<string>(divs[0]?.code || 'GNR');
+  const [selectedApprover, setSelectedApprover] = useState<string>(apprvs[0]?.code || 'CEO');
 
   // Date selections
   const currentDate = new Date();
@@ -125,11 +138,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
   // Update approver title when approver code changes
   useEffect(() => {
-    const approverObj = APPROVERS.find((a) => a.code === selectedApprover);
+    const approverObj = apprvs.find((a) => a.code === selectedApprover);
     if (approverObj) {
       setApprovedBy(approverObj.label);
     }
-  }, [selectedApprover]);
+  }, [selectedApprover, apprvs]);
 
   // Sync date changes with month and year
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -702,33 +715,45 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.65rem',
+                justifyContent: 'space-between',
                 marginBottom: '1rem',
               }}
             >
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'var(--primary)',
-                  color: '#000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                }}
-              >
-                1
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'var(--primary)',
+                    color: '#000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  1
+                </div>
+                <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
+                  Pilih Kategori Surat (Document Type)
+                </h2>
               </div>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                Pilih Kategori Surat (Document Type)
-              </h2>
+              {onNavigateToMasterCategories && (
+                <button
+                  type="button"
+                  onClick={onNavigateToMasterCategories}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: 'var(--primary)' }}
+                >
+                  + Tambah
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {DOCUMENT_TYPES.map((dt) => (
+              {docTypes.map((dt) => (
                 <div
                   key={dt.code}
                   onClick={() => setSelectedType(dt.code)}
@@ -781,33 +806,45 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.65rem',
+                justifyContent: 'space-between',
                 marginBottom: '1rem',
               }}
             >
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'var(--accent-blue)',
-                  color: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                }}
-              >
-                2
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'var(--accent-blue)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  2
+                </div>
+                <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
+                  Pilih Penerbit Surat (Division)
+                </h2>
               </div>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                Pilih Penerbit Surat (Division)
-              </h2>
+              {onNavigateToMasterCategories && (
+                <button
+                  type="button"
+                  onClick={onNavigateToMasterCategories}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                >
+                  + Tambah
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {DIVISIONS.map((div) => (
+              {divs.map((div) => (
                 <div
                   key={div.code}
                   onClick={() => setSelectedDivision(div.code)}
@@ -860,33 +897,45 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.65rem',
+                justifyContent: 'space-between',
                 marginBottom: '1rem',
               }}
             >
-              <div
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  background: 'var(--warning)',
-                  color: '#000',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                }}
-              >
-                3
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'var(--warning)',
+                    color: '#000',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                  }}
+                >
+                  3
+                </div>
+                <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
+                  Orang Yang Menyetujui (Approver)
+                </h2>
               </div>
-              <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                Orang Yang Menyetujui (Approver)
-              </h2>
+              {onNavigateToMasterCategories && (
+                <button
+                  type="button"
+                  onClick={onNavigateToMasterCategories}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#f59e0b' }}
+                >
+                  + Tambah
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {APPROVERS.map((app) => (
+              {apprvs.map((app) => (
                 <div
                   key={app.code}
                   onClick={() => setSelectedApprover(app.code)}

@@ -7,11 +7,13 @@ import {
   Settings,
   LogOut,
   ChevronRight,
+  FolderKanban,
 } from 'lucide-react';
 
 export type SidebarTab =
   | 'dashboard'
   | 'create'
+  | 'master-categories'
   | 'dir-ceo'
   | 'dir-cto'
   | 'dir-coo'
@@ -166,6 +168,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Daftarkan Surat</span>
             </div>
             {activeTab === 'create' && <ChevronRight size={16} />}
+          </button>
+
+          {/* 3. Kelola Kategori & Kode */}
+          <button
+            onClick={() => onSelectTab('master-categories')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.7rem 0.9rem',
+              borderRadius: '10px',
+              border: 'none',
+              background:
+                activeTab === 'master-categories'
+                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
+                  : 'transparent',
+              color: activeTab === 'master-categories' ? '#ffffff' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'master-categories' ? 700 : 500,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+              boxShadow:
+                activeTab === 'master-categories'
+                  ? '0 4px 12px rgba(2, 132, 199, 0.35)'
+                  : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <FolderKanban size={18} />
+              <span>Kelola Kategori & Kode</span>
+            </div>
+            {activeTab === 'master-categories' && <ChevronRight size={16} />}
           </button>
 
           {/* Section Divider: DIVISI DIREKSI */}
