@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Copy,
   Check,
@@ -7,16 +7,12 @@ import {
   AlertTriangle,
   Lock,
   Unlock,
-  Calendar,
-  User,
   ShieldCheck,
   HardDrive,
   ExternalLink,
   Sparkles,
-  Info,
   FileText,
   X,
-  Eye,
   CheckCircle2,
   Bot,
   Loader2,
@@ -26,7 +22,6 @@ import {
   DOCUMENT_TYPES,
   DIVISIONS,
   APPROVERS,
-  ROMAN_MONTHS,
   DocumentRecord,
   DocumentStatus,
   CodeDefinition,
@@ -43,9 +38,26 @@ import { GoogleDriveSettings } from '../services/storage';
 import {
   uploadFileToDriveViaBot,
   registerDocumentInDriveViaBot,
+  createFolderInDriveViaBot,
   TARGET_FOLDER_URL,
   TARGET_FOLDER_ID,
 } from '../services/googleDriveBot';
+
+function generateDocumentId(): string {
+  return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function getNowIsoString(): string {
+  return new Date().toISOString();
+}
+
+function formatIssueDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('id-ID', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
 
 interface DocumentGeneratorProps {
   documents: DocumentRecord[];
@@ -80,12 +92,13 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [selectedApprover, setSelectedApprover] = useState<string>(apprvs[0]?.code || 'CEO');
 
   // Date selections
-  const currentDate = new Date();
-  const [issueDate, setIssueDate] = useState<string>(
-    currentDate.toISOString().slice(0, 10)
+  const [issueDate, setIssueDate] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10)
   );
-  const [monthNumber, setMonthNumber] = useState<number>(currentDate.getMonth() + 1);
-  const [year, setYear] = useState<number>(currentDate.getFullYear());
+  const [monthNumber, setMonthNumber] = useState<number>(() =>
+    new Date().getMonth() + 1
+  );
+  const [year, setYear] = useState<number>(() => new Date().getFullYear());
 
   // Manual / Backdating Override Mode
   const [isManualOverride, setIsManualOverride] = useState<boolean>(false);
@@ -97,7 +110,9 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [createdBy, setCreatedBy] = useState<string>('');
-  const [approvedBy, setApprovedBy] = useState<string>('President Director (CEO)');
+  const [approvedBy, setApprovedBy] = useState<string>(
+    () => apprvs.find((a) => a.code === (approvers?.[0]?.code || 'CEO'))?.label || 'President Director (CEO)'
+  );
   const [verifiedBy, setVerifiedBy] = useState<string>('Management Representative (MR)');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
@@ -143,13 +158,97 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     ? documents.find((d) => d.code.toUpperCase() === activeCode.toUpperCase())
     : null;
 
-  // Update approver title when approver code changes
-  useEffect(() => {
-    const approverObj = apprvs.find((a) => a.code === selectedApprover);
-    if (approverObj) {
-      setApprovedBy(approverObj.label);
+  // Fixed Code and Dedicated Google Drive Folder State (1-Click Fix Rule)
+  const [fixedFoldersMap, setFixedFoldersMap] = useState<
+    Record<string, { id: string; url: string; name: string }>
+  >({});
+  const [isFixingCode, setIsFixingCode] = useState<boolean>(false);
+  const [fixNotification, setFixNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+
+  // 1-Click Fix Rule: can only be clicked once per new letter code
+  const currentFixedFolder = fixedFoldersMap[activeCode] || null;
+  const isCodeFixed = Boolean(currentFixedFolder);
+
+  // Handler for Fix Button: Locks code and auto-creates folder in Google Drive
+  const handleFixCode = async () => {
+    if (isCodeFixed || isFixingCode) return;
+
+    if (duplicate) {
+      setErrorMsg(
+        `Kode "${activeCode}" sudah digunakan untuk dokumen lain. Tidak dapat di-fix.`
+      );
+      return;
     }
-  }, [selectedApprover, apprvs]);
+
+    setIsFixingCode(true);
+    setFixNotification(null);
+
+    try {
+      if (driveSettings.botWebhookUrl) {
+        // Panggil bot untuk membuat folder baru di Google Drive dengan nama kode surat
+        const folderResult = await createFolderInDriveViaBot(
+          activeCode,
+          driveSettings.botWebhookUrl,
+          driveSettings.folderId || TARGET_FOLDER_ID
+        );
+
+        if (folderResult.success && folderResult.folderId) {
+          const newFolderData = {
+            id: folderResult.folderId,
+            url:
+              folderResult.folderUrl ||
+              `https://drive.google.com/drive/folders/${folderResult.folderId}`,
+            name: activeCode,
+          };
+          setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: newFolderData }));
+          setGoogleDriveLink(newFolderData.url);
+          setFixNotification({
+            type: 'success',
+            message: `✓ Kode berhasil di-FIX! Folder Google Drive "${activeCode}" otomatis dibuat. Dokumen yang diunggah akan otomatis disimpan ke dalam folder ini.`,
+          });
+        } else {
+          // Tetap tandai fixed jika respons bot ada kendala jaringan
+          const fallbackFolder = {
+            id: driveSettings.folderId || TARGET_FOLDER_ID,
+            url: driveSettings.folderUrl || TARGET_FOLDER_URL,
+            name: activeCode,
+          };
+          setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: fallbackFolder }));
+          setFixNotification({
+            type: 'error',
+            message: `Kode di-fix secara lokal, namun bot melaporkan: ${folderResult.error || 'Periksa URL Webhook'}. Berkas akan disimpan di folder utama.`,
+          });
+        }
+      } else {
+        const localFolder = {
+          id: driveSettings.folderId || TARGET_FOLDER_ID,
+          url: driveSettings.folderUrl || TARGET_FOLDER_URL,
+          name: activeCode,
+        };
+        setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: localFolder }));
+        setFixNotification({
+          type: 'success',
+          message: `✓ Kode berhasil di-FIX! (Tips: pasang URL Webhook Bot di Pengaturan Google Drive untuk sinkronisasi otomatis ke cloud).`,
+        });
+      }
+    } catch (err: any) {
+      const localFolder = {
+        id: driveSettings.folderId || TARGET_FOLDER_ID,
+        url: driveSettings.folderUrl || TARGET_FOLDER_URL,
+        name: activeCode,
+      };
+      setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: localFolder }));
+      setFixNotification({
+        type: 'error',
+        message: `Terjadi kendala saat menghubungkan ke Google Drive: ${err.message}`,
+      });
+    } finally {
+      setIsFixingCode(false);
+    }
+  };
 
   // Sync date changes with month and year
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -223,12 +322,14 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     setIsBotUploading(true);
     setBotUploadError(null);
     try {
+      const targetFolderId = currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID;
       const result = await uploadFileToDriveViaBot(
         uploadedFile.dataUrl,
         uploadedFile.name,
         uploadedFile.type,
         driveSettings.botWebhookUrl,
         {
+          folderId: targetFolderId,
           documentCode: activeCode,
           uploadedBy: createdBy.trim() || 'Staff NBE',
         }
@@ -304,7 +405,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
       // Auto Bot Google Drive upload / registration
       let finalDriveLink = googleDriveLink.trim();
-      let wasBotRegistered = false;
+      const targetFolderId = currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID;
 
       if (driveSettings.botWebhookUrl) {
         setSubmittingStatus('🤖 Bot sedang mendaftarkan dokumen ke Google Drive...');
@@ -329,12 +430,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 }
               : null,
             driveSettings.botWebhookUrl,
-            driveSettings.folderId || TARGET_FOLDER_ID
+            targetFolderId
           );
 
           if (botResult.success && botResult.viewUrl) {
             finalDriveLink = botResult.viewUrl;
-            wasBotRegistered = true;
             setAutoDriveUploaded(true);
           } else {
             console.warn('Bot Drive info:', botResult.error);
@@ -345,14 +445,14 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       } else {
         // Fallback to company folder if no direct link entered
         if (!finalDriveLink) {
-          finalDriveLink = driveSettings.folderUrl || TARGET_FOLDER_URL;
+          finalDriveLink = currentFixedFolder?.url || driveSettings.folderUrl || TARGET_FOLDER_URL;
         }
       }
 
       setSubmittingStatus('Menyimpan ke sistem...');
 
       const newDoc: DocumentRecord = {
-        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        id: generateDocumentId(),
         code: activeCode,
         seqNumber: effectiveSequence,
         typeCode: selectedType,
@@ -373,22 +473,21 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         fileType: uploadedFile?.type,
         fileData: uploadedFile?.dataUrl,
         googleDriveLink: finalDriveLink || undefined,
+        driveFolderId: currentFixedFolder?.id,
+        driveFolderUrl: currentFixedFolder?.url,
+        isFixed: isCodeFixed,
         isManualCode: isManualOverride,
         legacyNotes: legacyNotes.trim() || undefined,
         revisions: [
           {
             revision: revision,
-            date: new Date(issueDate).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            }),
+            date: formatIssueDate(issueDate),
             description: revision === 0 ? 'Initial Issue' : 'Penerbitan Baru',
             revisedBy: createdBy.trim(),
           },
         ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: getNowIsoString(),
+        updatedAt: getNowIsoString(),
       };
 
       await onSaveDocument(newDoc);
@@ -399,6 +498,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       setDescription('');
       setUploadedFile(null);
       setGoogleDriveLink('');
+      setFixNotification(null);
       if (isManualOverride) {
         setIsManualOverride(false);
         setManualCode('');
@@ -670,18 +770,64 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons: Copy & Toggle Manual Edit */}
+          {/* Action Buttons: Copy, Fix, & Toggle Manual Edit */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            <button
-              type="button"
-              onClick={handleCopyCode}
-              className="btn btn-primary btn-lg"
-              style={{ minWidth: '170px' }}
-              title="Salin kode ini ke clipboard"
-            >
-              {copied ? <Check size={18} /> : <Copy size={18} />}
-              <span>{copied ? 'Tersalin!' : 'Copy Kode'}</span>
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="btn btn-primary btn-lg"
+                style={{ flex: 1, minWidth: '140px' }}
+                title="Salin kode ini ke clipboard"
+              >
+                {copied ? <Check size={18} /> : <Copy size={18} />}
+                <span>{copied ? 'Tersalin!' : 'Copy Kode'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleFixCode}
+                disabled={isCodeFixed || isFixingCode || Boolean(duplicate)}
+                className={`btn btn-lg ${isCodeFixed ? 'btn-success' : 'btn-warning'}`}
+                style={{
+                  flex: 1,
+                  minWidth: '140px',
+                  background: isCodeFixed
+                    ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                    : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                  borderColor: isCodeFixed ? '#10b981' : '#f59e0b',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  cursor: isCodeFixed ? 'default' : duplicate ? 'not-allowed' : 'pointer',
+                  opacity: duplicate ? 0.6 : 1,
+                  boxShadow: isCodeFixed
+                    ? '0 0 16px rgba(16, 185, 129, 0.35)'
+                    : '0 0 16px rgba(245, 158, 11, 0.25)',
+                }}
+                title={
+                  isCodeFixed
+                    ? 'Kode telah di-Fix dan folder Google Drive telah dibuat (Hanya bisa 1x klik per kode baru)'
+                    : 'Kunci kode surat ini & otomatis buat folder baru di Google Drive'
+                }
+              >
+                {isFixingCode ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    <span>Membuat Folder...</span>
+                  </>
+                ) : isCodeFixed ? (
+                  <>
+                    <CheckCircle2 size={18} />
+                    <span>Fix Terkunci</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={18} />
+                    <span>Fix Kode</span>
+                  </>
+                )}
+              </button>
+            </div>
 
             <button
               type="button"
@@ -694,6 +840,61 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Fix Code Notification Banner */}
+        {fixNotification && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '0.85rem 1.15rem',
+              borderRadius: 'var(--radius-md)',
+              background:
+                fixNotification.type === 'success'
+                  ? 'rgba(16, 185, 129, 0.12)'
+                  : 'rgba(239, 68, 68, 0.12)',
+              border: `1px solid ${
+                fixNotification.type === 'success'
+                  ? 'var(--success)'
+                  : 'var(--danger)'
+              }`,
+              color:
+                fixNotification.type === 'success' ? '#6ee7b7' : '#fca5a5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.75rem',
+              fontSize: '0.85rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {fixNotification.type === 'success' ? (
+                <CheckCircle2 size={18} color="var(--success)" style={{ flexShrink: 0 }} />
+              ) : (
+                <AlertCircle size={18} color="var(--danger)" style={{ flexShrink: 0 }} />
+              )}
+              <span>{fixNotification.message}</span>
+            </div>
+
+            {currentFixedFolder?.url && (
+              <a
+                href={currentFixedFolder.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-sm"
+                style={{
+                  background: 'rgba(16, 185, 129, 0.2)',
+                  borderColor: 'var(--success)',
+                  color: '#fff',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <HardDrive size={14} />
+                <span>Buka Folder Drive</span>
+                <ExternalLink size={12} />
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Duplicate Warning Alert Banner (1 KODE 1 DOKUMEN RULE) */}
         {duplicate && (
@@ -1059,7 +1260,10 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               {apprvs.map((app) => (
                 <div
                   key={app.code}
-                  onClick={() => setSelectedApprover(app.code)}
+                  onClick={() => {
+                    setSelectedApprover(app.code);
+                    setApprovedBy(app.label);
+                  }}
                   style={{
                     padding: '0.75rem 1rem',
                     borderRadius: 'var(--radius-md)',

@@ -7,8 +7,6 @@ import {
   FileSpreadsheet,
   CheckCircle2,
   AlertTriangle,
-  HardDrive,
-  Cloud,
 } from 'lucide-react';
 import { DocumentRecord } from '../types';
 import { exportToCSV, exportToJSON } from '../services/storage';

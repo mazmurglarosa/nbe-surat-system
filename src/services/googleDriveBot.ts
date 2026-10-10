@@ -7,9 +7,138 @@ export interface BotUploadResult {
   message?: string;
 }
 
+export interface BotFolderResult {
+  success: boolean;
+  folderId?: string;
+  folderUrl?: string;
+  folderName?: string;
+  error?: string;
+  message?: string;
+}
+
 export const TARGET_FOLDER_ID = '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF';
 export const TARGET_FOLDER_URL =
   'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing';
+
+/**
+ * Buat folder baru di Google Drive melalui Webhook Bot Google Apps Script.
+ * Digunakan ketika user menekan tombol "Fix" kode surat.
+ */
+export async function createFolderInDriveViaBot(
+  folderName: string,
+  webhookUrl: string,
+  parentFolderId: string = TARGET_FOLDER_ID
+): Promise<BotFolderResult> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return {
+      success: false,
+      error:
+        'URL Webhook Bot Google Apps Script belum dikonfigurasi. Silakan buka menu Pengaturan Google Drive.',
+    };
+  }
+
+  try {
+    const payload = {
+      action: 'create_folder',
+      folderName: folderName,
+      parentId: parentFolderId,
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (result.status === 'success' || result.success) {
+      return {
+        success: true,
+        folderId: result.folderId,
+        folderUrl:
+          result.folderUrl ||
+          `https://drive.google.com/drive/folders/${result.folderId}`,
+        folderName: result.folderName || folderName,
+        message:
+          result.message ||
+          `Folder Google Drive '${folderName}' berhasil dibuat!`,
+      };
+    } else {
+      return {
+        success: false,
+        error:
+          result.message || 'Bot Google Drive gagal membuat folder baru.',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Koneksi ke Bot Google Drive bermasalah: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Hapus folder dan berkas terkait di Google Drive ketika surat dihapus dari sistem.
+ */
+export async function deleteDocumentAndFolderFromDriveViaBot(
+  options: {
+    folderId?: string;
+    fileId?: string;
+    documentCode?: string;
+  },
+  webhookUrl: string
+): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return {
+      success: false,
+      error: 'URL Webhook Bot Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  try {
+    const payload = {
+      action: 'delete',
+      folderId: options.folderId,
+      fileId: options.fileId,
+      documentCode: options.documentCode,
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (result.status === 'success' || result.success) {
+      return {
+        success: true,
+        message:
+          result.message ||
+          'Folder dan berkas di Google Drive berhasil dihapus.',
+      };
+    } else {
+      return {
+        success: false,
+        error: result.message || 'Gagal menghapus berkas di Google Drive.',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Koneksi ke Bot Google Drive bermasalah: ${err.message}`,
+    };
+  }
+}
 
 /**
  * Upload file to Google Drive via Google Apps Script Webhook Bot
@@ -23,6 +152,8 @@ export async function uploadFileToDriveViaBot(
     folderId?: string;
     documentCode?: string;
     uploadedBy?: string;
+    isRevision?: boolean;
+    revision?: number;
   }
 ): Promise<BotUploadResult> {
   const folderId = options?.folderId || TARGET_FOLDER_ID;
@@ -49,6 +180,8 @@ export async function uploadFileToDriveViaBot(
       base64: cleanBase64,
       documentCode: options?.documentCode || '',
       uploadedBy: options?.uploadedBy || 'Admin NBE',
+      isRevision: options?.isRevision || false,
+      revision: options?.revision,
     };
 
     const response = await fetch(webhookUrl, {
@@ -68,12 +201,14 @@ export async function uploadFileToDriveViaBot(
           result.viewUrl ||
           `https://drive.google.com/file/d/${result.fileId}/view`,
         downloadUrl: result.downloadUrl,
-        message: result.message || 'File berhasil diunggah ke Google Drive oleh Bot!',
+        message:
+          result.message || 'File berhasil diunggah ke Google Drive oleh Bot!',
       };
     } else {
       return {
         success: false,
-        error: result.message || 'Bot Google Drive gagal memproses unggahan file.',
+        error:
+          result.message || 'Bot Google Drive gagal memproses unggahan file.',
       };
     }
   } catch (err: any) {
@@ -95,7 +230,8 @@ export async function testBotConnection(webhookUrl: string): Promise<{
   if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
     return {
       success: false,
-      message: 'Format URL Webhook salah. Harus diawali dengan https://script.google.com',
+      message:
+        'Format URL Webhook salah. Harus diawali dengan https://script.google.com',
     };
   }
 
@@ -108,7 +244,7 @@ export async function testBotConnection(webhookUrl: string): Promise<{
     if (result.status === 'online' || result.bot) {
       return {
         success: true,
-        message: `Bot aktif dan siap digunakan! (Folder ID: ${result.targetFolder || TARGET_FOLDER_ID})`,
+        message: `Bot aktif dan siap digunakan! (Target Folder ID: ${result.targetFolder || TARGET_FOLDER_ID})`,
         botName: result.bot || 'NBE Google Drive Bot',
       };
     } else {
@@ -127,7 +263,7 @@ export async function testBotConnection(webhookUrl: string): Promise<{
 
 /**
  * Register a document to Google Drive automatically via Bot.
- * If file is uploaded, writes the file directly to folder 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF.
+ * If file is uploaded, writes the file directly to the dedicated folder or root target folder.
  * If no file is uploaded, creates an official document registration record in the folder.
  */
 export async function registerDocumentInDriveViaBot(
@@ -178,7 +314,9 @@ export async function registerDocumentInDriveViaBot(
       issueDate: doc.issueDate,
       description: doc.description || '',
       fileName: fileData?.name || `${doc.code}_Registrasi.txt`,
-      mimeType: fileData?.type || (fileData?.dataUrl ? 'application/pdf' : 'text/plain'),
+      mimeType:
+        fileData?.type ||
+        (fileData?.dataUrl ? 'application/pdf' : 'text/plain'),
       base64: cleanBase64,
       uploadedBy: doc.createdBy,
     };
@@ -200,12 +338,16 @@ export async function registerDocumentInDriveViaBot(
           result.viewUrl ||
           `https://drive.google.com/file/d/${result.fileId}/view`,
         downloadUrl: result.downloadUrl,
-        message: result.message || 'Dokumen berhasil didaftarkan langsung ke Google Drive oleh Bot!',
+        message:
+          result.message ||
+          'Dokumen berhasil didaftarkan langsung ke Google Drive oleh Bot!',
       };
     } else {
       return {
         success: false,
-        error: result.message || 'Bot Google Drive gagal memproses pendaftaran dokumen.',
+        error:
+          result.message ||
+          'Bot Google Drive gagal memproses pendaftaran dokumen.',
       };
     }
   } catch (err: any) {
@@ -222,8 +364,11 @@ export async function registerDocumentInDriveViaBot(
 export const GOOGLE_APPS_SCRIPT_BOT_CODE = `/**
  * ============================================================
  * BOT GOOGLE DRIVE - PT NIRWANA BHUMI ENERGI (NBE)
- * Mengatur upload & pendaftaran dokumen otomatis ke folder:
- * https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF
+ * Fitur:
+ * 1. Otomatis buat folder baru saat tombol FIX diklik (action: "create_folder")
+ * 2. Upload dokumen awal & revisi ke folder kode surat (action: "upload")
+ * 3. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
+ * 4. Otomatis hapus folder dan file di Google Drive saat surat dihapus dari sistem (action: "delete")
  * ============================================================
  */
 
@@ -240,25 +385,114 @@ function doPost(e) {
     }
 
     var data = JSON.parse(e.postData.contents);
+
+    // ========================================================
+    // AKSI 1: BUAT / CARI FOLDER DOKUMEN BARU (TOMBOL FIX KODE)
+    // ========================================================
+    if (data.action === "create_folder" || data.action === "find_or_create_folder") {
+      var folderName = data.folderName || data.documentCode || "Dokumen_NBE";
+      var parentId = data.parentId || TARGET_FOLDER_ID;
+      var parentFolder = DriveApp.getFolderById(parentId);
+
+      // Cek apakah folder sudah ada sebelumnya
+      var existingFolders = parentFolder.getFoldersByName(folderName);
+      var targetFolder;
+      if (existingFolders.hasNext()) {
+        targetFolder = existingFolders.next();
+      } else {
+        targetFolder = parentFolder.createFolder(folderName);
+      }
+
+      // Berikan hak akses lihat bagi siapa saja yang memiliki tautan
+      try {
+        targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (errSharing) {}
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        folderId: targetFolder.getId(),
+        folderUrl: targetFolder.getUrl(),
+        folderName: targetFolder.getName(),
+        message: "Folder Google Drive '" + folderName + "' berhasil disiapkan!"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 2: HAPUS SURAT & FOLDER DI GOOGLE DRIVE (DELETE)
+    // ========================================================
+    if (data.action === "delete" || data.action === "delete_folder") {
+      var deletedItems = [];
+
+      // Hapus folder dokumen khusus (pastikan bukan root TARGET_FOLDER_ID)
+      if (data.folderId && data.folderId !== TARGET_FOLDER_ID) {
+        try {
+          var fld = DriveApp.getFolderById(data.folderId);
+          fld.setTrashed(true);
+          deletedItems.push("Folder ID: " + data.folderId);
+        } catch (errFld) {}
+      } else if (data.documentCode) {
+        // Jika folderId tidak spesifik, cari subfolder dengan nama kode surat di TARGET_FOLDER_ID
+        try {
+          var parentF = DriveApp.getFolderById(TARGET_FOLDER_ID);
+          var subFolders = parentF.getFoldersByName(data.documentCode);
+          while (subFolders.hasNext()) {
+            var sf = subFolders.next();
+            sf.setTrashed(true);
+            deletedItems.push("Folder: " + sf.getName());
+          }
+        } catch (errSearch) {}
+      }
+
+      // Hapus file dokumen jika fileId spesifik diberikan
+      if (data.fileId) {
+        try {
+          var fl = DriveApp.getFileById(data.fileId);
+          fl.setTrashed(true);
+          deletedItems.push("File ID: " + data.fileId);
+        } catch (errFile) {}
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        deletedItems: deletedItems,
+        message: "Folder dan dokumen di Google Drive berhasil dihapus otomatis."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 3: UPLOAD DOKUMEN / REVISI DOKUMEN
+    // ========================================================
     var folderId = data.folderId || TARGET_FOLDER_ID;
     var folder = DriveApp.getFolderById(folderId);
     var file;
-    var fileName = data.fileName || (data.documentCode ? data.documentCode + ".pdf" : "dokumen-nbe.pdf");
+    var rawFileName = data.fileName || (data.documentCode ? data.documentCode + ".pdf" : "dokumen-nbe.pdf");
+    var fileName = rawFileName;
 
-    // Jika ada lampiran berkas (base64)
+    // Format nama file revisi otomatis: [KodeSurat]-rev1, -rev2, dst
+    if (data.isRevision && data.documentCode) {
+      var revSuffix = "-rev" + (data.revision !== undefined ? data.revision : 1);
+      var ext = "";
+      var lastDot = rawFileName.lastIndexOf(".");
+      if (lastDot !== -1) {
+        ext = rawFileName.substring(lastDot);
+      } else {
+        ext = ".pdf";
+      }
+      fileName = data.documentCode + revSuffix + ext;
+    } else if (data.documentCode && !fileName.startsWith(data.documentCode)) {
+      fileName = data.documentCode + "_" + fileName;
+    }
+
+    // Jika ada lampiran berkas base64
     if (data.base64 && data.base64.length > 0) {
       var decoded = Utilities.base64Decode(data.base64);
       var mimeType = data.mimeType || 'application/pdf';
-      
-      // Beri prefix kode surat pada nama file jika belum ada
-      if (data.documentCode && !fileName.startsWith(data.documentCode)) {
-        fileName = data.documentCode + "_" + fileName;
-      }
-      
       var blob = Utilities.newBlob(decoded, mimeType, fileName);
       file = folder.createFile(blob);
     } else {
-      // Jika surat didaftarkan tanpa lampiran berkas fisik, buat berkas bukti registrasi resmi
+      // Jika surat didaftarkan tanpa file fisik, buat berkas bukti registrasi resmi
       var regFileName = (data.documentCode || "DOC") + "_Registrasi_Sistem.txt";
       var summaryText = "========================================================\\n" +
                         "BUKTI REGISTRASI DOKUMEN RESMI - PT NIRWANA BHUMI ENERGI\\n" +
@@ -278,14 +512,16 @@ function doPost(e) {
     // Tambahkan keterangan dokumen
     var desc = "Dokumen Resmi PT Nirwana Bhumi Energi\\n" +
                "Kode Surat: " + (data.documentCode || "-") + "\\n" +
-               "Judul: " + (data.title || "-") + "\\n" +
+               "Nama File: " + fileName + "\\n" +
                "Didaftarkan oleh: " + (data.uploadedBy || data.createdBy || "Staff") + "\\n" +
                "Waktu: " + new Date().toISOString();
     file.setDescription(desc);
-    
+
     // Set permission agar dapat dilihat/diunduh oleh siapa pun yang memiliki link
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-    
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (errPerm) {}
+
     var response = {
       status: "success",
       success: true,
@@ -293,12 +529,12 @@ function doPost(e) {
       fileName: file.getName(),
       viewUrl: file.getUrl(),
       downloadUrl: file.getDownloadUrl(),
-      message: "Dokumen (" + (data.documentCode || "NBE") + ") berhasil didaftarkan langsung ke Google Drive oleh Bot!"
+      message: "Dokumen (" + fileName + ") berhasil diunggah ke folder Google Drive!"
     };
-    
+
     return ContentService.createTextOutput(JSON.stringify(response))
       .setMimeType(ContentService.MimeType.JSON);
-      
+
   } catch (error) {
     var errResponse = {
       status: "error",

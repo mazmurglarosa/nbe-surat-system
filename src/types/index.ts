@@ -40,7 +40,10 @@ export interface DocumentRecord {
   fileData?: string; // Base64 data or object URL for local preview
   fileUrl?: string; // Direct URL if hosted (e.g. /0001-SOP-GNR-CEO-IX-2026.pdf)
   googleDriveLink?: string; // Link to Google Drive file or folder
-  
+  driveFolderId?: string; // ID of dedicated folder created in Google Drive for this document
+  driveFolderUrl?: string; // Direct link to the dedicated folder in Google Drive
+  isFixed?: boolean; // Flag indicating if the document code has been fixed
+
   // Legacy / Manual override flag
   isManualCode?: boolean;
   legacyNotes?: string;

@@ -28,6 +28,9 @@ export default defineSchema({
     fileType: v.optional(v.string()),
     fileUrl: v.optional(v.string()),
     googleDriveLink: v.optional(v.string()),
+    driveFolderId: v.optional(v.string()),
+    driveFolderUrl: v.optional(v.string()),
+    isFixed: v.optional(v.boolean()),
     
     // Legacy / Backdating flag
     isManualCode: v.optional(v.boolean()),

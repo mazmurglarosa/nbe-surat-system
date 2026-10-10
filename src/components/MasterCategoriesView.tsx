@@ -10,13 +10,9 @@ import {
   RotateCcw,
   CheckCircle2,
   AlertCircle,
-  FileText,
-  Building2,
-  UserCheck,
   Search,
   X,
   Save,
-  Sparkles,
   Info,
 } from 'lucide-react';
 

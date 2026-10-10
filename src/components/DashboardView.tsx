@@ -8,7 +8,6 @@ import {
   Building2,
   PlusCircle,
   FileSpreadsheet,
-  Download,
   Search,
   Copy,
   Check,
@@ -18,16 +17,17 @@ import {
   FileCheck,
   HardDrive,
   BarChart3,
-  Sparkles,
+  History,
 } from 'lucide-react';
 import { DocumentRecord, DOCUMENT_TYPES, DIVISIONS, DocumentStatus } from '../types';
-import { exportToCSV, exportToJSON } from '../services/storage';
+import { exportToCSV } from '../services/storage';
 
 interface DashboardViewProps {
   documents: DocumentRecord[];
   onNavigateToCreate: () => void;
   onViewDocument: (doc: DocumentRecord) => void;
   onEditDocument: (doc: DocumentRecord) => void;
+  onReviseDocument?: (doc: DocumentRecord) => void;
   onDeleteDocument: (id: string) => void;
   filterApproverRole?: string; // e.g. CEO, CTO, COO, CFO
   roleTitle?: string;
@@ -38,6 +38,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToCreate,
   onViewDocument,
   onEditDocument,
+  onReviseDocument,
   onDeleteDocument,
   filterApproverRole,
   roleTitle,
@@ -523,6 +524,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       >
                         <Eye size={13} />
                       </button>
+                      {onReviseDocument && (
+                        <button
+                          onClick={() => onReviseDocument(doc)}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            padding: '0.3rem 0.5rem',
+                            color: '#c084fc',
+                            borderColor: 'rgba(168, 85, 247, 0.4)',
+                          }}
+                          title="Revisi Dokumen (Upload Berkas Baru)"
+                        >
+                          <History size={13} />
+                        </button>
+                      )}
                       <button
                         onClick={() => onEditDocument(doc)}
                         className="btn btn-secondary btn-sm"
@@ -533,13 +548,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`Hapus surat "${doc.title}"?`)) {
+                          if (
+                            confirm(
+                              `Apakah Anda yakin ingin menghapus surat "${doc.title}" (${doc.code})?\n\nPerhatian: Folder dan berkas terkait di Google Drive juga otomatis akan dihapus.`
+                            )
+                          ) {
                             onDeleteDocument(doc.id);
                           }
                         }}
                         className="btn btn-danger btn-sm"
                         style={{ padding: '0.3rem 0.5rem' }}
-                        title="Hapus Surat"
+                        title="Hapus Surat & Drive"
                       >
                         <Trash2 size={13} />
                       </button>

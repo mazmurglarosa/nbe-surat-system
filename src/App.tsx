@@ -9,7 +9,9 @@ import { GoogleDriveModal } from './components/GoogleDriveModal';
 import { BackupRestoreModal } from './components/BackupRestoreModal';
 import { PdfGuideModal } from './components/PdfGuideModal';
 import { MasterCategoriesView } from './components/MasterCategoriesView';
+import { ReviseDocumentModal } from './components/ReviseDocumentModal';
 import { DocumentRecord, ActivityLog, CodeDefinition, MasterCodesState } from './types';
+import { deleteDocumentAndFolderFromDriveViaBot } from './services/googleDriveBot';
 import {
   loadDocuments,
   saveDocument,
@@ -37,13 +39,8 @@ import {
 import {
   Moon,
   Sun,
-  HardDrive,
   BookOpen,
   Download,
-  Menu,
-  X,
-  Bell,
-  Search,
   Bot,
 } from 'lucide-react';
 
@@ -65,10 +62,10 @@ export function App() {
   // Modals state
   const [viewingDoc, setViewingDoc] = useState<DocumentRecord | null>(null);
   const [editingDoc, setEditingDoc] = useState<DocumentRecord | null>(null);
+  const [revisingDoc, setRevisingDoc] = useState<DocumentRecord | null>(null);
   const [isDriveModalOpen, setIsDriveModalOpen] = useState(false);
   const [isBackupModalOpen, setIsBackupModalOpen] = useState(false);
   const [isPdfGuideOpen, setIsPdfGuideOpen] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Theme state
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
@@ -129,19 +126,60 @@ export function App() {
 
   const handleDeleteDocument = async (id: string) => {
     const target = documents.find((d) => d.id === id);
+    if (!target) return;
+
+    // Otomatis hapus folder dan file di Google Drive via Bot jika Webhook disetel
+    if (driveSettings.botWebhookUrl) {
+      try {
+        await deleteDocumentAndFolderFromDriveViaBot(
+          {
+            folderId: target.driveFolderId,
+            documentCode: target.code,
+          },
+          driveSettings.botWebhookUrl
+        );
+      } catch (driveErr) {
+        console.warn('Gagal menghapus folder Google Drive:', driveErr);
+      }
+    }
+
     const updated = await deleteDocument(id);
     setDocuments(updated);
     if (viewingDoc && viewingDoc.id === id) {
       setViewingDoc(null);
     }
+    if (editingDoc && editingDoc.id === id) {
+      setEditingDoc(null);
+    }
+    if (revisingDoc && revisingDoc.id === id) {
+      setRevisingDoc(null);
+    }
 
     const updatedLogs = addActivityLog({
       userName: 'Mazmur Gusti Agung Larosa',
       userRole: 'Direktur Keuangan',
-      action: 'Penghapusan Surat',
-      details: `Menghapus surat ${target?.code || id} ("${target?.title || ''}")`,
+      action: 'Penghapusan Surat & Folder Drive',
+      details: `Menghapus surat ${target?.code || id} ("${target?.title || ''}") dan folder terkait di Google Drive`,
       documentCode: target?.code,
       type: 'delete',
+    });
+    setActivityLogs(updatedLogs);
+  };
+
+  const handleSaveRevision = async (updatedDoc: DocumentRecord) => {
+    const updated = await saveDocument(updatedDoc);
+    setDocuments(updated);
+    if (viewingDoc && viewingDoc.id === updatedDoc.id) {
+      setViewingDoc(updatedDoc);
+    }
+
+    const updatedLogs = addActivityLog({
+      userName: 'Mazmur Gusti Agung Larosa',
+      userRole: 'Direktur Keuangan',
+      action: `Penerbitan Revisi Dokumen (Rev ${updatedDoc.revision})`,
+      details: `Mengunggah berkas revisi baru untuk dokumen ${updatedDoc.code} ("${updatedDoc.title}")`,
+      documentCode: updatedDoc.code,
+      type: 'update',
     });
     setActivityLogs(updatedLogs);
   };
@@ -328,7 +366,6 @@ export function App() {
         activeTab={activeTab}
         onSelectTab={(tab) => {
           setActiveTab(tab);
-          setIsMobileSidebarOpen(false);
         }}
         documentCount={documents.length}
         onOpenSettings={() => setIsBackupModalOpen(true)}
@@ -429,6 +466,7 @@ export function App() {
               onNavigateToCreate={() => setActiveTab('create')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
+              onReviseDocument={(doc) => setRevisingDoc(doc)}
               onDeleteDocument={handleDeleteDocument}
             />
           )}
@@ -476,6 +514,7 @@ export function App() {
               onNavigateToCreate={() => setActiveTab('create')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
+              onReviseDocument={(doc) => setRevisingDoc(doc)}
               onDeleteDocument={handleDeleteDocument}
             />
           )}
@@ -488,6 +527,7 @@ export function App() {
               onNavigateToCreate={() => setActiveTab('create')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
+              onReviseDocument={(doc) => setRevisingDoc(doc)}
               onDeleteDocument={handleDeleteDocument}
             />
           )}
@@ -500,6 +540,7 @@ export function App() {
               onNavigateToCreate={() => setActiveTab('create')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
+              onReviseDocument={(doc) => setRevisingDoc(doc)}
               onDeleteDocument={handleDeleteDocument}
             />
           )}
@@ -512,6 +553,7 @@ export function App() {
               onNavigateToCreate={() => setActiveTab('create')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
+              onReviseDocument={(doc) => setRevisingDoc(doc)}
               onDeleteDocument={handleDeleteDocument}
             />
           )}
@@ -524,6 +566,23 @@ export function App() {
           document={viewingDoc}
           onClose={() => setViewingDoc(null)}
           onUpdateDocument={handleUpdateDocument}
+          onReviseDocument={(doc) => {
+            setViewingDoc(null);
+            setRevisingDoc(doc);
+          }}
+        />
+      )}
+
+      {revisingDoc && (
+        <ReviseDocumentModal
+          document={revisingDoc}
+          driveSettings={driveSettings}
+          onClose={() => setRevisingDoc(null)}
+          onSaveRevision={handleSaveRevision}
+          onOpenDriveSettings={() => {
+            setRevisingDoc(null);
+            setIsDriveModalOpen(true);
+          }}
         />
       )}
 

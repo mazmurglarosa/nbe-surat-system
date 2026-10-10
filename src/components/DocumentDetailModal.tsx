@@ -5,15 +5,10 @@ import {
   Check,
   Download,
   HardDrive,
-  ExternalLink,
   FileText,
-  Calendar,
-  User,
-  ShieldCheck,
   History,
   Plus,
   Eye,
-  CheckCircle2,
 } from 'lucide-react';
 import { DocumentRecord, RevisionRecord } from '../types';
 
@@ -21,12 +16,14 @@ interface DocumentDetailModalProps {
   document: DocumentRecord;
   onClose: () => void;
   onUpdateDocument: (doc: DocumentRecord) => Promise<void>;
+  onReviseDocument?: (doc: DocumentRecord) => void;
 }
 
 export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   document: doc,
   onClose,
   onUpdateDocument,
+  onReviseDocument,
 }) => {
   const [copied, setCopied] = useState(false);
   const [showAddRevision, setShowAddRevision] = useState(false);
@@ -123,9 +120,30 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
             </h2>
           </div>
 
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0.4rem' }}>
-            <X size={20} />
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {onReviseDocument && (
+              <button
+                onClick={() => onReviseDocument(doc)}
+                className="btn btn-sm"
+                style={{
+                  background: 'rgba(168, 85, 247, 0.15)',
+                  borderColor: 'rgba(168, 85, 247, 0.4)',
+                  color: '#c084fc',
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                }}
+                title="Unggah berkas revisi baru untuk dokumen ini"
+              >
+                <History size={15} />
+                <span>Revisi Dokumen</span>
+              </button>
+            )}
+            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0.4rem' }}>
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Modal Body */}
@@ -325,13 +343,30 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 <History size={16} color="var(--primary)" />
                 REVISION INDEX (Riwayat Perubahan Sesuai Prosedur NBE)
               </h4>
-              <button
-                onClick={() => setShowAddRevision(!showAddRevision)}
-                className="btn btn-secondary btn-sm"
-              >
-                <Plus size={14} />
-                <span>Tambah Revisi</span>
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {onReviseDocument && (
+                  <button
+                    onClick={() => onReviseDocument(doc)}
+                    className="btn btn-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, #9333ea 0%, #a855f7 100%)',
+                      borderColor: '#a855f7',
+                      color: '#fff',
+                    }}
+                    title="Unggah berkas revisi baru (-rev1, -rev2)"
+                  >
+                    <History size={14} />
+                    <span>Unggah Berkas Revisi</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowAddRevision(!showAddRevision)}
+                  className="btn btn-secondary btn-sm"
+                >
+                  <Plus size={14} />
+                  <span>Catatan Revisi</span>
+                </button>
+              </div>
             </div>
 
             {/* Add revision inline form */}

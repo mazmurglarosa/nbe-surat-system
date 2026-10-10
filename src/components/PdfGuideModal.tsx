@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, BookOpen, Download, ExternalLink } from 'lucide-react';
+import { X, BookOpen, Download } from 'lucide-react';
 
 interface PdfGuideModalProps {
   onClose: () => void;

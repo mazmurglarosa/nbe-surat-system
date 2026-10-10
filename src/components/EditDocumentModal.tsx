@@ -3,10 +3,6 @@ import {
   X,
   Save,
   AlertTriangle,
-  Upload,
-  FileCheck,
-  HardDrive,
-  ExternalLink,
   Unlock,
   CheckCircle2,
   Bot,
@@ -40,14 +36,14 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
   const [description, setDescription] = useState(initialDoc.description || '');
   const [createdBy, setCreatedBy] = useState(initialDoc.createdBy);
   const [approvedBy, setApprovedBy] = useState(initialDoc.approvedBy || '');
-  const [verifiedBy, setVerifiedBy] = useState(initialDoc.verifiedBy || '');
+  const verifiedBy = initialDoc.verifiedBy || '';
   const [status, setStatus] = useState<DocumentStatus>(initialDoc.status);
   const [issueDate, setIssueDate] = useState(initialDoc.issueDate);
   const [revision, setRevision] = useState(initialDoc.revision);
   const [googleDriveLink, setGoogleDriveLink] = useState(
     initialDoc.googleDriveLink || ''
   );
-  const [legacyNotes, setLegacyNotes] = useState(initialDoc.legacyNotes || '');
+  const legacyNotes = initialDoc.legacyNotes || '';
 
   const [uploadedFile, setUploadedFile] = useState<{
     name: string;

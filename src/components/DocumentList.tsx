@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Search,
-  Filter,
   Copy,
   Check,
   Eye,
@@ -9,15 +8,12 @@ import {
   Trash2,
   Download,
   HardDrive,
-  ExternalLink,
   FileText,
-  Calendar,
   Layers,
-  ChevronDown,
   FileCheck,
-  Clock,
   Sparkles,
   FileSpreadsheet,
+  History,
 } from 'lucide-react';
 import { DocumentRecord, DOCUMENT_TYPES, DIVISIONS, DocumentStatus } from '../types';
 import { exportToCSV, exportToJSON } from '../services/storage';
@@ -26,6 +22,7 @@ interface DocumentListProps {
   documents: DocumentRecord[];
   onViewDocument: (doc: DocumentRecord) => void;
   onEditDocument: (doc: DocumentRecord) => void;
+  onReviseDocument?: (doc: DocumentRecord) => void;
   onDeleteDocument: (id: string) => void;
   onNavigateToGenerator: () => void;
 }
@@ -34,6 +31,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   documents,
   onViewDocument,
   onEditDocument,
+  onReviseDocument,
   onDeleteDocument,
   onNavigateToGenerator,
 }) => {
@@ -537,6 +535,21 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                         <Eye size={14} />
                       </button>
 
+                      {onReviseDocument && (
+                        <button
+                          onClick={() => onReviseDocument(doc)}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            padding: '0.35rem 0.55rem',
+                            color: '#c084fc',
+                            borderColor: 'rgba(168, 85, 247, 0.4)',
+                          }}
+                          title="Revisi Dokumen (Upload Berkas Revisi Baru)"
+                        >
+                          <History size={14} />
+                        </button>
+                      )}
+
                       <button
                         onClick={() => onEditDocument(doc)}
                         className="btn btn-secondary btn-sm"
@@ -550,7 +563,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                         onClick={() => {
                           if (
                             confirm(
-                              `Apakah Anda yakin ingin menghapus dokumen "${doc.title}" (${doc.code})?`
+                              `Apakah Anda yakin ingin menghapus dokumen "${doc.title}" (${doc.code})?\n\nPerhatian: Folder dan berkas terkait di Google Drive juga otomatis akan dihapus.`
                             )
                           ) {
                             onDeleteDocument(doc.id);
@@ -558,7 +571,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                         }}
                         className="btn btn-danger btn-sm"
                         style={{ padding: '0.35rem 0.55rem' }}
-                        title="Hapus Dokumen"
+                        title="Hapus Dokumen & Hapus Folder Drive"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -696,15 +709,51 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                     onClick={() => onViewDocument(doc)}
                     className="btn btn-secondary btn-sm"
                     style={{ padding: '0.3rem 0.5rem' }}
+                    title="Lihat Detail"
                   >
                     <Eye size={13} />
                   </button>
+                  {onReviseDocument && (
+                    <button
+                      onClick={() => onReviseDocument(doc)}
+                      className="btn btn-secondary btn-sm"
+                      style={{
+                        padding: '0.3rem 0.5rem',
+                        color: '#c084fc',
+                        borderColor: 'rgba(168, 85, 247, 0.4)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                      }}
+                      title="Revisi Dokumen (Upload Berkas Baru)"
+                    >
+                      <History size={13} />
+                      <span style={{ fontSize: '0.72rem' }}>Revisi</span>
+                    </button>
+                  )}
                   <button
                     onClick={() => onEditDocument(doc)}
                     className="btn btn-secondary btn-sm"
                     style={{ padding: '0.3rem 0.5rem' }}
+                    title="Edit Dokumen"
                   >
                     <Edit3 size={13} color="#f59e0b" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (
+                        confirm(
+                          `Apakah Anda yakin ingin menghapus dokumen "${doc.title}" (${doc.code})?\n\nPerhatian: Folder dan berkas terkait di Google Drive juga otomatis akan dihapus.`
+                        )
+                      ) {
+                        onDeleteDocument(doc.id);
+                      }
+                    }}
+                    className="btn btn-danger btn-sm"
+                    style={{ padding: '0.3rem 0.5rem' }}
+                    title="Hapus Dokumen & Drive"
+                  >
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </div>

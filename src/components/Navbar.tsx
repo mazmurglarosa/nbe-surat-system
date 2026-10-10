@@ -1,8 +1,6 @@
 import React from 'react';
 import {
-  FileText,
   Cloud,
-  Database,
   HardDrive,
   Download,
   BookOpen,
@@ -11,7 +9,6 @@ import {
   Layers,
   PlusCircle,
   BarChart3,
-  ExternalLink,
 } from 'lucide-react';
 import { isConvexConfigured } from '../services/convexClient';
 

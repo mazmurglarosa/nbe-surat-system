@@ -2,15 +2,8 @@ import React, { useState } from 'react';
 import {
   History,
   Search,
-  Filter,
-  User,
-  Clock,
-  FileText,
   Download,
   Trash2,
-  CheckCircle2,
-  AlertCircle,
-  Sparkles,
 } from 'lucide-react';
 import { ActivityLog } from '../types';
 
@@ -108,6 +101,16 @@ export const ActivityLogsView: React.FC<ActivityLogsViewProps> = ({ logs, onClea
             <Download size={14} />
             <span>Ekspor Log CSV</span>
           </button>
+          {onClearLogs && (
+            <button
+              onClick={onClearLogs}
+              className="btn btn-danger btn-sm"
+              title="Bersihkan Semua Log"
+            >
+              <Trash2 size={14} />
+              <span>Bersihkan Log</span>
+            </button>
+          )}
         </div>
       </div>
 

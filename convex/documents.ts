@@ -50,6 +50,9 @@ export const createDocument = mutation({
     fileType: v.optional(v.string()),
     fileUrl: v.optional(v.string()),
     googleDriveLink: v.optional(v.string()),
+    driveFolderId: v.optional(v.string()),
+    driveFolderUrl: v.optional(v.string()),
+    isFixed: v.optional(v.boolean()),
     isManualCode: v.optional(v.boolean()),
     legacyNotes: v.optional(v.string()),
     revisions: v.array(
@@ -113,6 +116,9 @@ export const updateDocument = mutation({
     fileType: v.optional(v.string()),
     fileUrl: v.optional(v.string()),
     googleDriveLink: v.optional(v.string()),
+    driveFolderId: v.optional(v.string()),
+    driveFolderUrl: v.optional(v.string()),
+    isFixed: v.optional(v.boolean()),
     isManualCode: v.optional(v.boolean()),
     legacyNotes: v.optional(v.string()),
     revisions: v.array(

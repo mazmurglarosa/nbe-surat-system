@@ -5,13 +5,11 @@ import {
   Layers,
   CheckCircle2,
   Clock,
-  Archive,
-  TrendingUp,
   Building2,
   Shield,
-  FileCheck,
+  PlusCircle,
 } from 'lucide-react';
-import { DocumentRecord, DOCUMENT_TYPES, DIVISIONS, APPROVERS } from '../types';
+import { DocumentRecord, DOCUMENT_TYPES, DIVISIONS } from '../types';
 
 interface AnalyticsDashboardProps {
   documents: DocumentRecord[];
@@ -48,23 +46,35 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
     <div className="container" style={{ paddingBottom: '3rem' }}>
       {/* Header */}
       <div style={{ margin: '1.75rem 0 1.5rem 0' }}>
-        <h1
-          style={{
-            fontSize: '1.85rem',
-            fontWeight: 800,
-            letterSpacing: '-0.03em',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem',
-          }}
-        >
-          <BarChart3 color="var(--primary)" size={26} />
-          Ringkasan & Analisis Dokumen NBE
-        </h1>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', fontSize: '0.95rem' }}>
-          Distribusi dokumen Sistem Manajemen Terintegrasi PT Nirwana Bhumi Energi berdasarkan
-          kategori, divisi, dan status.
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
+          <div>
+            <h1
+              style={{
+                fontSize: '1.85rem',
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.65rem',
+              }}
+            >
+              <BarChart3 color="var(--primary)" size={26} />
+              Ringkasan & Analisis Dokumen NBE
+            </h1>
+            <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', fontSize: '0.95rem' }}>
+              Distribusi dokumen Sistem Manajemen Terintegrasi PT Nirwana Bhumi Energi berdasarkan
+              kategori, divisi, dan status.
+            </p>
+          </div>
+          <button
+            onClick={onNavigateToGenerator}
+            className="btn btn-primary"
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <PlusCircle size={16} />
+            <span>Buat Dokumen Baru</span>
+          </button>
+        </div>
       </div>
 
       {/* Top 4 KPI Cards */}
@@ -178,7 +188,12 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
             {typeCounts.map((t) => {
               const pct = total > 0 ? Math.round((t.count / total) * 100) : 0;
               return (
-                <div key={t.code}>
+                <div
+                  key={t.code}
+                  onClick={() => onFilterByType(t.code)}
+                  style={{ cursor: 'pointer' }}
+                  title={`Klik untuk memfilter daftar dokumen kategori ${t.code}`}
+                >
                   <div
                     style={{
                       display: 'flex',
