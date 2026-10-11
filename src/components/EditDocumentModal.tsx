@@ -157,9 +157,21 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const codeParts = trimmedCode.split('-');
+      let inferredTypeCode = initialDoc.typeCode;
+      let inferredSubCategoryCode = initialDoc.subCategoryCode;
+      if (codeParts.length === 7) {
+        inferredTypeCode = codeParts[1];
+        inferredSubCategoryCode = codeParts[2];
+      } else if (codeParts.length === 6) {
+        inferredTypeCode = codeParts[1];
+      }
+
       const updatedDoc: DocumentRecord = {
         ...initialDoc,
         code: trimmedCode,
+        typeCode: inferredTypeCode,
+        subCategoryCode: inferredSubCategoryCode,
         title: title.trim(),
         description: description.trim() || undefined,
         createdBy: createdBy.trim(),

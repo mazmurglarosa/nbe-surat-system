@@ -170,6 +170,26 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
               </div>
             </div>
 
+            {doc.subCategoryCode && (
+              <div>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Sub-Kategori (ZZ)
+                </span>
+                <div style={{ fontWeight: 600, color: '#22d3ee', marginTop: '0.2rem' }}>
+                  <span
+                    className="badge"
+                    style={{
+                      background: 'rgba(6, 182, 212, 0.15)',
+                      color: '#22d3ee',
+                      border: '1px solid rgba(6, 182, 212, 0.35)',
+                    }}
+                  >
+                    {doc.subCategoryCode}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div>
               <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
                 Divisi Penerbit

@@ -21,6 +21,9 @@ interface MasterCategoriesViewProps {
   onAddDocumentType: (item: CodeDefinition) => void;
   onUpdateDocumentType: (code: string, item: Partial<CodeDefinition>) => void;
   onDeleteDocumentType: (code: string) => void;
+  onAddSubCategory: (item: CodeDefinition) => void;
+  onUpdateSubCategory: (code: string, item: Partial<CodeDefinition>) => void;
+  onDeleteSubCategory: (code: string) => void;
   onAddDivision: (item: CodeDefinition) => void;
   onUpdateDivision: (code: string, item: Partial<CodeDefinition>) => void;
   onDeleteDivision: (code: string) => void;
@@ -30,13 +33,16 @@ interface MasterCategoriesViewProps {
   onResetDefaults: () => void;
 }
 
-type ActiveCategoryTab = 'types' | 'divisions' | 'approvers';
+type ActiveCategoryTab = 'types' | 'subcategories' | 'divisions' | 'approvers';
 
 export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   masterCodes,
   onAddDocumentType,
   onUpdateDocumentType,
   onDeleteDocumentType,
+  onAddSubCategory,
+  onUpdateSubCategory,
+  onDeleteSubCategory,
   onAddDivision,
   onUpdateDivision,
   onDeleteDivision,
@@ -98,7 +104,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
       return;
     }
     if (!/^[A-Z0-9_-]{2,8}$/.test(cleanCode)) {
-      setFormError('Kode harus berupa 2-8 karakter huruf kapital/angka (contoh: SK, MEM, HRD, HSE).');
+      setFormError('Kode harus berupa 2-8 karakter huruf kapital/angka (contoh: GP, SK, MEM, HRD).');
       return;
     }
     if (!cleanLabel) {
@@ -118,6 +124,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         if (activeTab === 'types') {
           onAddDocumentType(itemData);
           showSuccessBanner(`Kategori Surat "${cleanCode}" berhasil ditambahkan!`);
+        } else if (activeTab === 'subcategories') {
+          onAddSubCategory(itemData);
+          showSuccessBanner(`Sub-Kategori Surat "${cleanCode}" berhasil ditambahkan!`);
         } else if (activeTab === 'divisions') {
           onAddDivision(itemData);
           showSuccessBanner(`Divisi Penerbit "${cleanCode}" berhasil ditambahkan!`);
@@ -129,6 +138,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         if (activeTab === 'types') {
           onUpdateDocumentType(editingTargetCode, itemData);
           showSuccessBanner(`Kategori Surat "${cleanCode}" berhasil diperbarui!`);
+        } else if (activeTab === 'subcategories') {
+          onUpdateSubCategory(editingTargetCode, itemData);
+          showSuccessBanner(`Sub-Kategori Surat "${cleanCode}" berhasil diperbarui!`);
         } else if (activeTab === 'divisions') {
           onUpdateDivision(editingTargetCode, itemData);
           showSuccessBanner(`Divisi Penerbit "${cleanCode}" berhasil diperbarui!`);
@@ -148,6 +160,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
     const tabName =
       activeTab === 'types'
         ? 'Kategori Surat'
+        : activeTab === 'subcategories'
+        ? 'Sub-Kategori Surat'
         : activeTab === 'divisions'
         ? 'Divisi Penerbit'
         : 'Otoritas Pengesahan';
@@ -160,6 +174,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
       try {
         if (activeTab === 'types') {
           onDeleteDocumentType(item.code);
+        } else if (activeTab === 'subcategories') {
+          onDeleteSubCategory(item.code);
         } else if (activeTab === 'divisions') {
           onDeleteDivision(item.code);
         } else {
@@ -187,6 +203,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   const currentList =
     activeTab === 'types'
       ? masterCodes.documentTypes
+      : activeTab === 'subcategories'
+      ? masterCodes.subCategories
       : activeTab === 'divisions'
       ? masterCodes.divisions
       : masterCodes.approvers;
@@ -285,11 +303,11 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         </div>
       )}
 
-      {/* 3 Main Tabs as defined in screenshot */}
+      {/* 4 Main Tabs */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
           gap: '1rem',
           marginBottom: '1.75rem',
         }}
@@ -353,11 +371,74 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             </span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-            Document Type Code (contoh: SOP, WIK, MNL, KB, SK, MEMO)
+            Document Type Code (contoh: SOP, WIK, MNL, KB, CSMS)
           </p>
         </div>
 
-        {/* TAB 2: Division */}
+        {/* TAB 2: Sub-Category (Kode ZZ) */}
+        <div
+          onClick={() => {
+            setActiveTab('subcategories');
+            setSearchQuery('');
+          }}
+          style={{
+            cursor: 'pointer',
+            padding: '1.25rem',
+            borderRadius: 'var(--radius-lg)',
+            border:
+              activeTab === 'subcategories'
+                ? '2px solid #06b6d4'
+                : '1px solid var(--border-subtle)',
+            background:
+              activeTab === 'subcategories'
+                ? 'rgba(6, 182, 212, 0.1)'
+                : 'var(--bg-secondary)',
+            transition: 'all 0.2s ease',
+            boxShadow:
+              activeTab === 'subcategories'
+                ? '0 4px 16px rgba(6, 182, 212, 0.15)'
+                : 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#06b6d4',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                }}
+              >
+                2
+              </div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                Sub-Kategori Surat
+              </h3>
+            </div>
+            <span
+              className="badge mono"
+              style={{
+                background: 'rgba(6, 182, 212, 0.2)',
+                color: '#06b6d4',
+                fontWeight: 700,
+              }}
+            >
+              {(masterCodes.subCategories || []).length} Sub-Tipe
+            </span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            Kode ZZ (contoh: GP, KM, PB, PE, PR)
+          </p>
+        </div>
+
+        {/* TAB 3: Division */}
         <div
           onClick={() => {
             setActiveTab('divisions');
@@ -398,7 +479,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   fontSize: '0.9rem',
                 }}
               >
-                2
+                3
               </div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
                 Penerbit Surat (Divisi)
@@ -420,7 +501,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           </p>
         </div>
 
-        {/* TAB 3: Approver */}
+        {/* TAB 4: Approver */}
         <div
           onClick={() => {
             setActiveTab('approvers');
@@ -461,7 +542,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   fontSize: '0.9rem',
                 }}
               >
-                3
+                4
               </div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
                 Otoritas Pengesahan
@@ -684,6 +765,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 {modalMode === 'add' ? 'Tambah ' : 'Ubah '}
                 {activeTab === 'types'
                   ? 'Kategori Surat (Document Type)'
+                  : activeTab === 'subcategories'
+                  ? 'Sub-Kategori Surat (Sub Category - Kode ZZ)'
                   : activeTab === 'divisions'
                   ? 'Divisi Penerbit (Division)'
                   : 'Otoritas Pengesahan (Approver)'}
@@ -711,7 +794,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   onChange={(e) => setFormCode(e.target.value.toUpperCase())}
                   placeholder={
                     activeTab === 'types'
-                      ? 'Contoh: SK, MEM, ND, FORM'
+                      ? 'Contoh: SK, MEM, ND, CSMS'
+                      : activeTab === 'subcategories'
+                      ? 'Contoh: GP, KM, PB, PE, PR'
                       : activeTab === 'divisions'
                       ? 'Contoh: HRD, HSE, PRC, MKT'
                       : 'Contoh: HRM, COM, HOD'
@@ -723,7 +808,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.3rem', display: 'block' }}>
                   {modalMode === 'edit'
                     ? 'Kode tidak dapat diubah agar tidak merusak relasi penomoran dokumen terdahulu.'
-                    : 'Kode ini akan langsung digunakan pada generator nomor surat (misal: 0001-SK-GNR-CEO-X-2026).'}
+                    : 'Kode ini akan langsung digunakan pada generator nomor surat (misal: 0001-SOP-GP-ENG-CEO-X-2026).'}
                 </span>
               </div>
 
@@ -740,6 +825,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   placeholder={
                     activeTab === 'types'
                       ? 'Contoh: Surat Keputusan (SK)'
+                      : activeTab === 'subcategories'
+                      ? 'Contoh: General Procedure (GP)'
                       : activeTab === 'divisions'
                       ? 'Contoh: Human Resources Department (HRD)'
                       : 'Contoh: Human Resources Manager (HRM)'

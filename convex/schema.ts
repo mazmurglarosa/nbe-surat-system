@@ -5,7 +5,8 @@ export default defineSchema({
   documents: defineTable({
     code: v.string(), // e.g. "0001-SOP-ENG-CTO-IX-2026"
     seqNumber: v.number(),
-    typeCode: v.string(), // SOP, WIK, MNL, KB
+    typeCode: v.string(), // SOP, WIK, MNL, KB, CSMS
+    subCategoryCode: v.optional(v.string()), // GP, KM, PB, PE, PR
     divisionCode: v.string(), // GNR, ENG, OPR, FNC
     approverCode: v.string(), // CEO, CTO, COO, CFO, MNG, SPV
     monthRoman: v.string(),

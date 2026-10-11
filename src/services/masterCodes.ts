@@ -1,9 +1,10 @@
-import { CodeDefinition, MasterCodesState, DOCUMENT_TYPES, DIVISIONS, APPROVERS } from '../types';
+import { CodeDefinition, MasterCodesState, DOCUMENT_TYPES, SUB_CATEGORIES, DIVISIONS, APPROVERS } from '../types';
 
 const MASTER_CODES_STORAGE_KEY = 'nbe_master_codes_v1';
 
 export const DEFAULT_MASTER_CODES: MasterCodesState = {
   documentTypes: DOCUMENT_TYPES.map((d) => ({ ...d, isCustom: false })),
+  subCategories: SUB_CATEGORIES.map((s) => ({ ...s, isCustom: false })),
   divisions: DIVISIONS.map((d) => ({ ...d, isCustom: false })),
   approvers: APPROVERS.map((d) => ({ ...d, isCustom: false })),
 };
@@ -18,10 +19,37 @@ export function getMasterCodes(): MasterCodesState {
       return DEFAULT_MASTER_CODES;
     }
     const parsed = JSON.parse(raw);
+    
+    // Ensure default categories like CSMS are preserved
+    const storedDocTypes: CodeDefinition[] = Array.isArray(parsed.documentTypes) && parsed.documentTypes.length > 0
+      ? parsed.documentTypes
+      : DEFAULT_MASTER_CODES.documentTypes;
+    
+    const existingTypeCodes = new Set(storedDocTypes.map((dt) => dt.code.toUpperCase()));
+    const mergedDocTypes = [...storedDocTypes];
+    DEFAULT_MASTER_CODES.documentTypes.forEach((defType) => {
+      if (!existingTypeCodes.has(defType.code.toUpperCase())) {
+        mergedDocTypes.push(defType);
+        existingTypeCodes.add(defType.code.toUpperCase());
+      }
+    });
+
+    const storedSubCats: CodeDefinition[] = Array.isArray(parsed.subCategories) && parsed.subCategories.length > 0
+      ? parsed.subCategories
+      : DEFAULT_MASTER_CODES.subCategories;
+
+    const existingSubCodes = new Set(storedSubCats.map((sc) => sc.code.toUpperCase()));
+    const mergedSubCats = [...storedSubCats];
+    DEFAULT_MASTER_CODES.subCategories.forEach((defSub) => {
+      if (!existingSubCodes.has(defSub.code.toUpperCase())) {
+        mergedSubCats.push(defSub);
+        existingSubCodes.add(defSub.code.toUpperCase());
+      }
+    });
+
     return {
-      documentTypes: Array.isArray(parsed.documentTypes) && parsed.documentTypes.length > 0
-        ? parsed.documentTypes
-        : DEFAULT_MASTER_CODES.documentTypes,
+      documentTypes: mergedDocTypes,
+      subCategories: mergedSubCats,
       divisions: Array.isArray(parsed.divisions) && parsed.divisions.length > 0
         ? parsed.divisions
         : DEFAULT_MASTER_CODES.divisions,
@@ -247,6 +275,74 @@ export function deleteApprover(targetCode: string): MasterCodesState {
     ...current,
     approvers: current.approvers.filter(
       (a) => a.code.toUpperCase() !== targetCode.toUpperCase()
+    ),
+  };
+  return saveMasterCodes(updated);
+}
+
+/**
+ * Add a new Sub Category (Kode ZZ)
+ */
+export function addSubCategory(newItem: CodeDefinition): MasterCodesState {
+  const current = getMasterCodes();
+  const cleanCode = newItem.code.trim().toUpperCase();
+
+  if (current.subCategories.some((s) => s.code.toUpperCase() === cleanCode)) {
+    throw new Error(`Kode sub-kategori "${cleanCode}" sudah digunakan.`);
+  }
+
+  const updated: MasterCodesState = {
+    ...current,
+    subCategories: [
+      ...current.subCategories,
+      {
+        code: cleanCode,
+        label: newItem.label.trim(),
+        description: newItem.description.trim(),
+        isCustom: true,
+      },
+    ],
+  };
+
+  return saveMasterCodes(updated);
+}
+
+/**
+ * Update existing Sub Category
+ */
+export function updateSubCategory(
+  targetCode: string,
+  updatedFields: Partial<CodeDefinition>
+): MasterCodesState {
+  const current = getMasterCodes();
+  const updated: MasterCodesState = {
+    ...current,
+    subCategories: current.subCategories.map((s) => {
+      if (s.code.toUpperCase() === targetCode.toUpperCase()) {
+        return {
+          ...s,
+          ...updatedFields,
+          code: updatedFields.code ? updatedFields.code.trim().toUpperCase() : s.code,
+        };
+      }
+      return s;
+    }),
+  };
+  return saveMasterCodes(updated);
+}
+
+/**
+ * Delete Sub Category
+ */
+export function deleteSubCategory(targetCode: string): MasterCodesState {
+  const current = getMasterCodes();
+  if (current.subCategories.length <= 1) {
+    throw new Error('Minimal harus ada 1 Sub-Kategori Surat tersisa dalam sistem.');
+  }
+  const updated: MasterCodesState = {
+    ...current,
+    subCategories: current.subCategories.filter(
+      (s) => s.code.toUpperCase() !== targetCode.toUpperCase()
     ),
   };
   return saveMasterCodes(updated);

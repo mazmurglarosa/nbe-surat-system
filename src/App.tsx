@@ -11,7 +11,10 @@ import { PdfGuideModal } from './components/PdfGuideModal';
 import { MasterCategoriesView } from './components/MasterCategoriesView';
 import { ReviseDocumentModal } from './components/ReviseDocumentModal';
 import { DocumentRecord, ActivityLog, CodeDefinition, MasterCodesState } from './types';
-import { deleteDocumentAndFolderFromDriveViaBot } from './services/googleDriveBot';
+import {
+  deleteDocumentAndFolderFromDriveViaBot,
+  ensureCategoryFolderInDriveViaBot,
+} from './services/googleDriveBot';
 import {
   loadDocuments,
   saveDocument,
@@ -28,6 +31,9 @@ import {
   addDocumentType,
   updateDocumentType,
   deleteDocumentType,
+  addSubCategory,
+  updateSubCategory,
+  deleteSubCategory,
   addDivision,
   updateDivision,
   deleteDivision,
@@ -225,6 +231,30 @@ export function App() {
         type: 'system',
       })
     );
+
+    // Otomatis buat folder kategori baru di Google Drive jika bot webhook terkonfigurasi
+    if (driveSettings.botWebhookUrl) {
+      ensureCategoryFolderInDriveViaBot(
+        item.code,
+        item.label,
+        driveSettings.botWebhookUrl,
+        driveSettings.folderId
+      ).then((res) => {
+        if (res.success) {
+          setActivityLogs(
+            addActivityLog({
+              userName: 'Google Drive Bot',
+              userRole: 'Sistem Integrasi',
+              action: 'Buat Folder Kategori Drive',
+              details: `Berhasil membuat folder Drive kategori [${item.code}]: "${res.folderName}"`,
+              type: 'system',
+            })
+          );
+        }
+      }).catch((err) => {
+        console.error('Failed to auto-create category folder in Drive:', err);
+      });
+    }
   };
 
   const handleUpdateDocType = (code: string, item: Partial<CodeDefinition>) => {
@@ -250,6 +280,49 @@ export function App() {
         userRole: 'Direktur Keuangan',
         action: 'Hapus Kategori Surat',
         details: `Menghapus kategori dokumen: [${code}]`,
+        type: 'system',
+      })
+    );
+  };
+
+  // Sub-Categories (ZZ) Handlers
+  const handleAddSubCategory = (item: CodeDefinition) => {
+    const updated = addSubCategory(item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Tambah Sub-Kategori Surat',
+        details: `Menambahkan sub-kategori baru [${item.code}]: ${item.label}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleUpdateSubCategory = (code: string, item: Partial<CodeDefinition>) => {
+    const updated = updateSubCategory(code, item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Ubah Sub-Kategori Surat',
+        details: `Memperbarui sub-kategori: [${code}] ${item.label || ''}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleDeleteSubCategory = (code: string) => {
+    const updated = deleteSubCategory(code);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Hapus Sub-Kategori Surat',
+        details: `Menghapus sub-kategori: [${code}]`,
         type: 'system',
       })
     );
@@ -481,8 +554,11 @@ export function App() {
               onNavigateToDocuments={() => setActiveTab('dashboard')}
               onOpenDriveSettings={() => setIsDriveModalOpen(true)}
               documentTypes={masterCodes.documentTypes}
+              subCategories={masterCodes.subCategories}
               divisions={masterCodes.divisions}
               approvers={masterCodes.approvers}
+              onAddSubCategory={handleAddSubCategory}
+              onAddDocumentType={handleAddDocType}
               onNavigateToMasterCategories={() => setActiveTab('master-categories')}
             />
           )}
@@ -493,6 +569,9 @@ export function App() {
               onAddDocumentType={handleAddDocType}
               onUpdateDocumentType={handleUpdateDocType}
               onDeleteDocumentType={handleDeleteDocType}
+              onAddSubCategory={handleAddSubCategory}
+              onUpdateSubCategory={handleUpdateSubCategory}
+              onDeleteSubCategory={handleDeleteSubCategory}
               onAddDivision={handleAddDivision}
               onUpdateDivision={handleUpdateDivision}
               onDeleteDivision={handleDeleteDivision}
@@ -613,6 +692,7 @@ export function App() {
           onSaveSettings={handleSaveDriveSettings}
           onClose={() => setIsDriveModalOpen(false)}
           documents={documents}
+          documentTypes={masterCodes.documentTypes}
         />
       )}
 

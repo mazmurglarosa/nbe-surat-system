@@ -12,6 +12,8 @@ export interface BotFolderResult {
   folderId?: string;
   folderUrl?: string;
   folderName?: string;
+  parentFolderId?: string;
+  parentFolderName?: string;
   error?: string;
   message?: string;
 }
@@ -20,14 +22,49 @@ export const TARGET_FOLDER_ID = '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF';
 export const TARGET_FOLDER_URL =
   'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing';
 
+const CATEGORY_FOLDERS_STORAGE_KEY = 'nbe_gdrive_category_folders';
+
+/**
+ * Format nama folder kategori di Google Drive
+ * Contoh: "SOP - Standard Operating Procedure", "CSMS - Contractor Safety Management System"
+ */
+export function getCategoryFolderName(code: string, label?: string): string {
+  const cleanCode = code.trim().toUpperCase();
+  if (!label) return cleanCode;
+  const cleanLabel = label.replace(/\s*\([^)]*\)/g, '').trim();
+  return cleanLabel ? `${cleanCode} - ${cleanLabel}` : cleanCode;
+}
+
+export function getStoredCategoryFolderIds(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(CATEGORY_FOLDERS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveStoredCategoryFolderId(code: string, folderId: string): void {
+  try {
+    const current = getStoredCategoryFolderIds();
+    current[code.toUpperCase()] = folderId;
+    localStorage.setItem(CATEGORY_FOLDERS_STORAGE_KEY, JSON.stringify(current));
+  } catch (err) {
+    console.error('Failed to cache category folder ID:', err);
+  }
+}
+
 /**
  * Buat folder baru di Google Drive melalui Webhook Bot Google Apps Script.
- * Digunakan ketika user menekan tombol "Fix" kode surat.
  */
 export async function createFolderInDriveViaBot(
   folderName: string,
   webhookUrl: string,
-  parentFolderId: string = TARGET_FOLDER_ID
+  parentFolderId: string = TARGET_FOLDER_ID,
+  options?: {
+    categoryCode?: string;
+    categoryName?: string;
+  }
 ): Promise<BotFolderResult> {
   if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
     return {
@@ -38,11 +75,14 @@ export async function createFolderInDriveViaBot(
   }
 
   try {
-    const payload = {
+    const payload: Record<string, any> = {
       action: 'create_folder',
       folderName: folderName,
       parentId: parentFolderId,
     };
+
+    if (options?.categoryCode) payload.categoryCode = options.categoryCode;
+    if (options?.categoryName) payload.categoryName = options.categoryName;
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -61,6 +101,8 @@ export async function createFolderInDriveViaBot(
           result.folderUrl ||
           `https://drive.google.com/drive/folders/${result.folderId}`,
         folderName: result.folderName || folderName,
+        parentFolderId: result.parentFolderId || parentFolderId,
+        parentFolderName: result.parentFolderName,
         message:
           result.message ||
           `Folder Google Drive '${folderName}' berhasil dibuat!`,
@@ -88,6 +130,117 @@ export async function createFolderInDriveViaBot(
       error: `Koneksi ke Bot Google Drive bermasalah: ${errText}`,
     };
   }
+}
+
+/**
+ * Pastikan folder untuk Kategori Surat (Document Type) sudah dibuat di Google Drive.
+ * Contoh: SOP, WIK, MNL, KB, CSMS, dst.
+ */
+export async function ensureCategoryFolderInDriveViaBot(
+  categoryCode: string,
+  categoryLabel: string | undefined,
+  webhookUrl: string,
+  rootFolderId: string = TARGET_FOLDER_ID
+): Promise<BotFolderResult> {
+  const folderName = getCategoryFolderName(categoryCode, categoryLabel);
+  const cachedIds = getStoredCategoryFolderIds();
+  const cachedId = cachedIds[categoryCode.toUpperCase()];
+
+  // Buat atau temukan folder kategori di root TARGET_FOLDER_ID
+  const result = await createFolderInDriveViaBot(
+    folderName,
+    webhookUrl,
+    rootFolderId
+  );
+
+  if (result.success && result.folderId) {
+    saveStoredCategoryFolderId(categoryCode, result.folderId);
+  } else if (cachedId) {
+    // Fallback ke cache jika ada
+    return {
+      success: true,
+      folderId: cachedId,
+      folderUrl: `https://drive.google.com/drive/folders/${cachedId}`,
+      folderName: folderName,
+    };
+  }
+
+  return result;
+}
+
+/**
+ * Buat folder dokumen (misal 0001-SOP-GP-ENG-CTO-IX-2026) langsung DI DALAM folder Kategori Surat yang sesuai.
+ */
+export async function createDocumentFolderInDriveViaBot(
+  documentCode: string,
+  categoryCode: string,
+  categoryLabel: string | undefined,
+  webhookUrl: string,
+  rootFolderId: string = TARGET_FOLDER_ID
+): Promise<BotFolderResult & { categoryFolderId?: string; categoryFolderName?: string }> {
+  const catFolderName = getCategoryFolderName(categoryCode, categoryLabel);
+
+  // 1. Pastikan folder kategori induk sudah ada di Google Drive
+  const catResult = await ensureCategoryFolderInDriveViaBot(
+    categoryCode,
+    categoryLabel,
+    webhookUrl,
+    rootFolderId
+  );
+
+  const parentFolderId = catResult.folderId || rootFolderId;
+
+  // 2. Buat folder untuk dokumen di dalam folder kategori tersebut
+  const docFolderResult = await createFolderInDriveViaBot(
+    documentCode,
+    webhookUrl,
+    parentFolderId,
+    {
+      categoryCode,
+      categoryName: catFolderName,
+    }
+  );
+
+  return {
+    ...docFolderResult,
+    categoryFolderId: catResult.folderId,
+    categoryFolderName: catFolderName,
+    message: docFolderResult.success
+      ? `Folder Google Drive "${documentCode}" berhasil dibuat di dalam kategori "${catFolderName}"!`
+      : docFolderResult.error,
+  };
+}
+
+/**
+ * Sinkronisasikan seluruh folder Kategori Surat yang ada ke Google Drive
+ */
+export async function syncAllCategoriesToDriveViaBot(
+  categories: { code: string; label?: string }[],
+  webhookUrl: string,
+  rootFolderId: string = TARGET_FOLDER_ID
+): Promise<{ successCount: number; errors: string[] }> {
+  let successCount = 0;
+  const errors: string[] = [];
+
+  for (const cat of categories) {
+    try {
+      const res = await ensureCategoryFolderInDriveViaBot(
+        cat.code,
+        cat.label,
+        webhookUrl,
+        rootFolderId
+      );
+      if (res.success) {
+        successCount++;
+      } else {
+        errors.push(`Kategori ${cat.code}: ${res.error || 'Gagal'}`);
+      }
+    } catch (err: any) {
+      errors.push(`Kategori ${cat.code}: ${err.message}`);
+    }
+  }
+
+  return { successCount, errors };
 }
 
 /**
@@ -397,14 +550,31 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
 
     // ========================================================
-    // AKSI 1: BUAT / CARI FOLDER DOKUMEN BARU (TOMBOL FIX KODE)
+    // AKSI 1: BUAT / CARI FOLDER DOKUMEN & KATEGORI (TOMBOL FIX KODE)
     // ========================================================
     if (data.action === "create_folder" || data.action === "find_or_create_folder") {
       var folderName = data.folderName || data.documentCode || "Dokumen_NBE";
       var parentId = data.parentId || TARGET_FOLDER_ID;
       var parentFolder = DriveApp.getFolderById(parentId);
 
-      // Cek apakah folder sudah ada sebelumnya
+      // Jika kategori surat ditentukan, pastikan folder kategori ada di Drive
+      if (data.categoryName || data.categoryCode) {
+        var catName = data.categoryName || data.categoryCode;
+        var existingCatFolders = parentFolder.getFoldersByName(catName);
+        var catFolder;
+        if (existingCatFolders.hasNext()) {
+          catFolder = existingCatFolders.next();
+        } else {
+          catFolder = parentFolder.createFolder(catName);
+          try {
+            catFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          } catch (eCatShare) {}
+        }
+        // Tempatkan folder dokumen di dalam folder kategori ini
+        parentFolder = catFolder;
+      }
+
+      // Cek apakah folder dokumen sudah ada sebelumnya di dalam parentFolder
       var existingFolders = parentFolder.getFoldersByName(folderName);
       var targetFolder;
       if (existingFolders.hasNext()) {
@@ -424,7 +594,9 @@ function doPost(e) {
         folderId: targetFolder.getId(),
         folderUrl: targetFolder.getUrl(),
         folderName: targetFolder.getName(),
-        message: "Folder Google Drive '" + folderName + "' berhasil disiapkan!"
+        parentFolderId: parentFolder.getId(),
+        parentFolderName: parentFolder.getName(),
+        message: "Folder Google Drive '" + folderName + "' berhasil disiapkan di dalam folder kategori '" + parentFolder.getName() + "'!"
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -442,14 +614,25 @@ function doPost(e) {
           deletedItems.push("Folder ID: " + data.folderId);
         } catch (errFld) {}
       } else if (data.documentCode) {
-        // Jika folderId tidak spesifik, cari subfolder dengan nama kode surat di TARGET_FOLDER_ID
+        // Cari subfolder dengan nama kode surat di TARGET_FOLDER_ID dan di dalam folder kategori
         try {
-          var parentF = DriveApp.getFolderById(TARGET_FOLDER_ID);
-          var subFolders = parentF.getFoldersByName(data.documentCode);
+          var rootF = DriveApp.getFolderById(TARGET_FOLDER_ID);
+          var subFolders = rootF.getFoldersByName(data.documentCode);
           while (subFolders.hasNext()) {
             var sf = subFolders.next();
             sf.setTrashed(true);
             deletedItems.push("Folder: " + sf.getName());
+          }
+          // Periksa juga di dalam subfolder kategori
+          var catFolders = rootF.getFolders();
+          while (catFolders.hasNext()) {
+            var cf = catFolders.next();
+            var docSub = cf.getFoldersByName(data.documentCode);
+            while (docSub.hasNext()) {
+              var dsf = docSub.next();
+              dsf.setTrashed(true);
+              deletedItems.push("Folder (" + cf.getName() + "): " + dsf.getName());
+            }
           }
         } catch (errSearch) {}
       }

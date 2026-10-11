@@ -40,12 +40,14 @@ export function getNextSequenceNumber(
 
 /**
  * Generate full standard document code:
- * Format: 0000-XXX-YYY-OOO-IX-2026
- * Example: 0001-SOP-ENG-CTO-IX-2026
+ * Format baru: 0000-XXX-ZZ-YYY-OOO-IX-2026 (dengan Sub Kategori ZZ)
+ * Format lama (fallback): 0000-XXX-YYY-OOO-IX-2026
+ * Example: 0001-SOP-GP-ENG-CTO-IX-2026
  */
 export function generateDocumentCode(
   seq: number,
   typeCode: string,
+  subCategoryCode: string | undefined,
   divisionCode: string,
   approverCode: string,
   monthNumber: number,
@@ -53,7 +55,8 @@ export function generateDocumentCode(
 ): string {
   const seqStr = formatSequence(seq);
   const romanMonth = getRomanMonth(monthNumber);
-  return `${seqStr}-${typeCode.toUpperCase()}-${divisionCode.toUpperCase()}-${approverCode.toUpperCase()}-${romanMonth}-${year}`;
+  const cleanSub = subCategoryCode && subCategoryCode.trim() ? `${subCategoryCode.trim().toUpperCase()}-` : '';
+  return `${seqStr}-${typeCode.toUpperCase()}-${cleanSub}${divisionCode.toUpperCase()}-${approverCode.toUpperCase()}-${romanMonth}-${year}`;
 }
 
 /**
@@ -75,7 +78,8 @@ export function isCodeDuplicate(
 
 /**
  * Validate document code format:
- * Should match 4 digits - Type - Division - Approver - Roman Month - 4 digit Year
+ * Mendukung format baru (7 bagian): 0000-XXX-ZZ-YYY-OOO-IX-YYYY
+ * Serta backward-compatible format lama (6 bagian): 0000-XXX-YYY-OOO-IX-YYYY
  */
 export function validateDocumentCode(code: string): {
   isValid: boolean;
@@ -83,6 +87,7 @@ export function validateDocumentCode(code: string): {
   parts?: {
     seq: number;
     type: string;
+    subCategory?: string;
     division: string;
     approver: string;
     month: string;
@@ -94,28 +99,46 @@ export function validateDocumentCode(code: string): {
     return { isValid: false, message: 'Kode dokumen tidak boleh kosong.' };
   }
 
-  // Regex pattern for 0000-XXX-YYY-OOO-IX-YYYY
-  const regex = /^(\d{1,5})-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-(\d{4})$/i;
-  const match = trimmed.match(regex);
-
-  if (!match) {
+  // Regex pattern 7 bagian: 0000-XXX-ZZ-YYY-OOO-IX-YYYY
+  const regex7 = /^(\d{1,5})-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-(\d{4})$/i;
+  const match7 = trimmed.match(regex7);
+  if (match7) {
+    const [, seqStr, type, subCategory, division, approver, month, yearStr] = match7;
     return {
-      isValid: false,
-      message:
-        'Format kode dokumen tidak baku. Format standar: 0000-XXX-YYY-OOO-IX-YYYY (contoh: 0001-SOP-ENG-CTO-IX-2026).',
+      isValid: true,
+      parts: {
+        seq: parseInt(seqStr, 10),
+        type: type.toUpperCase(),
+        subCategory: subCategory.toUpperCase(),
+        division: division.toUpperCase(),
+        approver: approver.toUpperCase(),
+        month: month.toUpperCase(),
+        year: parseInt(yearStr, 10),
+      },
     };
   }
 
-  const [, seqStr, type, division, approver, month, yearStr] = match;
+  // Regex pattern 6 bagian (format lama tanpa ZZ): 0000-XXX-YYY-OOO-IX-YYYY
+  const regex6 = /^(\d{1,5})-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-(\d{4})$/i;
+  const match6 = trimmed.match(regex6);
+  if (match6) {
+    const [, seqStr, type, division, approver, month, yearStr] = match6;
+    return {
+      isValid: true,
+      parts: {
+        seq: parseInt(seqStr, 10),
+        type: type.toUpperCase(),
+        division: division.toUpperCase(),
+        approver: approver.toUpperCase(),
+        month: month.toUpperCase(),
+        year: parseInt(yearStr, 10),
+      },
+    };
+  }
+
   return {
-    isValid: true,
-    parts: {
-      seq: parseInt(seqStr, 10),
-      type: type.toUpperCase(),
-      division: division.toUpperCase(),
-      approver: approver.toUpperCase(),
-      month: month.toUpperCase(),
-      year: parseInt(yearStr, 10),
-    },
+    isValid: false,
+    message:
+      'Format kode dokumen tidak baku. Format standar: 0000-XXX-ZZ-YYY-OOO-IX-YYYY (contoh: 0001-SOP-GP-ENG-CTO-IX-2026).',
   };
 }

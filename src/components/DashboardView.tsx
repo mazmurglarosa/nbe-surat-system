@@ -514,8 +514,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Kategori & Divisi */}
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                       <span className="badge badge-purple">{doc.typeCode}</span>
+                      {doc.subCategoryCode && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: 'rgba(6, 182, 212, 0.15)',
+                            color: '#22d3ee',
+                            border: '1px solid rgba(6, 182, 212, 0.35)',
+                          }}
+                          title={`Sub-Kategori: ${doc.subCategoryCode}`}
+                        >
+                          {doc.subCategoryCode}
+                        </span>
+                      )}
                       <span className="badge badge-blue">{doc.divisionCode}</span>
                     </div>
                   </td>

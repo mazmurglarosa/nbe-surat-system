@@ -13,14 +13,16 @@ import {
   Zap,
   Loader2,
   AlertCircle,
+  FolderPlus,
 } from 'lucide-react';
 import { GoogleDriveSettings, exportToCSV } from '../services/storage';
-import { DocumentRecord } from '../types';
+import { DocumentRecord, CodeDefinition } from '../types';
 import {
   GOOGLE_APPS_SCRIPT_BOT_CODE,
   TARGET_FOLDER_ID,
   TARGET_FOLDER_URL,
   testBotConnection,
+  syncAllCategoriesToDriveViaBot,
 } from '../services/googleDriveBot';
 
 interface GoogleDriveModalProps {
@@ -28,6 +30,7 @@ interface GoogleDriveModalProps {
   onSaveSettings: (settings: GoogleDriveSettings) => void;
   onClose: () => void;
   documents: DocumentRecord[];
+  documentTypes?: CodeDefinition[];
 }
 
 export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
@@ -35,6 +38,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
   onSaveSettings,
   onClose,
   documents,
+  documentTypes = [],
 }) => {
   const [folderUrl, setFolderUrl] = useState(
     initialSettings.folderUrl || TARGET_FOLDER_URL
@@ -57,6 +61,46 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
     message: string;
     botName?: string;
   } | null>(null);
+
+  // Sync category folders state
+  const [isSyncingCategories, setIsSyncingCategories] = useState(false);
+  const [syncCategoriesResult, setSyncCategoriesResult] = useState<{
+    success: boolean;
+    count: number;
+    folders: string[];
+    error?: string;
+  } | null>(null);
+
+  const handleSyncCategories = async () => {
+    if (!botWebhookUrl.trim()) {
+      alert('Masukkan URL Webhook Bot terlebih dahulu sebelum melakukan sinkronisasi folder.');
+      return;
+    }
+    setIsSyncingCategories(true);
+    setSyncCategoriesResult(null);
+    try {
+      const res = await syncAllCategoriesToDriveViaBot(
+        documentTypes,
+        botWebhookUrl.trim(),
+        TARGET_FOLDER_ID
+      );
+      setSyncCategoriesResult({
+        success: res.errors.length === 0,
+        count: res.successCount,
+        folders: documentTypes.map((t) => `${t.code} - ${t.label}`),
+        error: res.errors.length > 0 ? res.errors.join(', ') : undefined,
+      });
+    } catch (err: unknown) {
+      setSyncCategoriesResult({
+        success: false,
+        count: 0,
+        folders: [],
+        error: err instanceof Error ? err.message : 'Gagal sinkronisasi folder kategori',
+      });
+    } finally {
+      setIsSyncingCategories(false);
+    }
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -351,6 +395,94 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   <span>Simpan Konfigurasi Bot</span>
                 </button>
               </form>
+
+              {/* Sync Category Folders Action */}
+              <div
+                style={{
+                  paddingTop: '1.25rem',
+                  borderTop: '1px solid var(--border-subtle)',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <h4 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#38bdf8' }}>
+                      <FolderPlus size={16} />
+                      Sinkronisasi Folder Kategori Surat ke Google Drive
+                    </h4>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                      Bot akan membuat folder terpisah di Google Drive untuk setiap kategori ({documentTypes.length > 0 ? documentTypes.map(t => t.code).join(', ') : 'SOP, WIK, MNL, KB, CSMS'}).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSyncCategories}
+                    disabled={isSyncingCategories || !botWebhookUrl.trim()}
+                    className="btn btn-primary btn-sm"
+                    style={{ background: 'linear-gradient(135deg, #0284c7, #0369a1)' }}
+                  >
+                    {isSyncingCategories ? (
+                      <>
+                        <Loader2 size={14} className="spin" />
+                        <span>Membuat Folder...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FolderPlus size={14} />
+                        <span>Sinkronkan {documentTypes.length} Folder Kategori</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {syncCategoriesResult && (
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      background: syncCategoriesResult.success ? 'var(--success-bg)' : 'var(--danger-bg)',
+                      border: `1px solid ${syncCategoriesResult.success ? 'var(--success)' : 'var(--danger)'}`,
+                      fontSize: '0.8rem',
+                      color: syncCategoriesResult.success ? 'var(--success)' : 'var(--danger)',
+                    }}
+                  >
+                    {syncCategoriesResult.success ? (
+                      <div>
+                        <strong>✅ Berhasil sinkronisasi {syncCategoriesResult.count} folder kategori di Google Drive:</strong>
+                        <div style={{ marginTop: '0.35rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                          {syncCategoriesResult.folders.map((f, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                background: 'rgba(0,0,0,0.15)',
+                                padding: '0.15rem 0.5rem',
+                                borderRadius: '4px',
+                                fontFamily: 'var(--font-mono)',
+                                fontSize: '0.75rem',
+                              }}
+                            >
+                              📁 {f}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <strong>❌ Gagal membuat folder kategori:</strong> {syncCategoriesResult.error}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Export to CSV Action */}
               <div

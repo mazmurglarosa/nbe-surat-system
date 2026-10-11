@@ -17,7 +17,8 @@ export interface DocumentRecord {
   id: string;
   code: string; // e.g. "0001-SOP-ENG-CTO-IX-2026"
   seqNumber: number; // sequential number per document type
-  typeCode: string; // SOP, WIK, MNL, KB
+  typeCode: string; // SOP, WIK, MNL, KB, CSMS, etc.
+  subCategoryCode?: string; // GP, KM, PB, PE, PR, etc. (Kode ZZ)
   divisionCode: string; // GNR, ENG, OPR, FNC
   approverCode: string; // CEO, CTO, COO, CFO, MNG, SPV
   monthRoman: string; // e.g. IX
@@ -74,6 +75,7 @@ export interface CodeDefinition {
 
 export interface MasterCodesState {
   documentTypes: CodeDefinition[];
+  subCategories: CodeDefinition[];
   divisions: CodeDefinition[];
   approvers: CodeDefinition[];
 }
@@ -83,6 +85,15 @@ export const DOCUMENT_TYPES: CodeDefinition[] = [
   { code: 'WIK', label: 'Work Instruction (WIK)', description: 'Instruksi kerja rinci operasional cross-departemen & spesifik' },
   { code: 'MNL', label: 'Manual (MNL)', description: 'Panduan sistem manajemen terintegrasi perusahaan' },
   { code: 'KB', label: 'Policy (KB)', description: 'Kebijakan utama dan arahan strategis perusahaan' },
+  { code: 'CSMS', label: 'Contractor Safety Management System (CSMS)', description: 'Untuk dokumen khusus dengan peruntukan kelengkapan prosedur CSMS' },
+];
+
+export const SUB_CATEGORIES: CodeDefinition[] = [
+  { code: 'GP', label: 'General Procedure (GP)', description: 'Prosedur umum operasional' },
+  { code: 'KM', label: 'Komitmen Management (KM)', description: 'Kebijakan komitmen manajemen dan kepemimpinan' },
+  { code: 'PB', label: 'Pembinaan (PB)', description: 'Pembinaan, pelatihan, dan pengembangan kompetensi' },
+  { code: 'PE', label: 'Peralatan (PE)', description: 'Pengelolaan, inspeksi, dan sertifikasi peralatan' },
+  { code: 'PR', label: 'Procedure (PR)', description: 'Prosedur teknis dan operasional spesifik' },
 ];
 
 export const DIVISIONS: CodeDefinition[] = [
