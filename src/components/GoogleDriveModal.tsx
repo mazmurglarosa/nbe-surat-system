@@ -419,37 +419,45 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   lineHeight: 1.6,
                 }}
               >
-                <strong>Cara Pasang Bot dalam 1 Menit:</strong>
-                <ol style={{ paddingLeft: '1.25rem', marginTop: '0.4rem' }}>
-                  <li>
-                    Buka{' '}
-                    <a
-                      href="https://script.google.com"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: 'var(--primary)', textDecoration: 'underline' }}
-                    >
-                      script.google.com
-                    </a>{' '}
-                    dan klik <strong>Proyek Baru</strong>.
-                  </li>
-                  <li>Hapus kode bawaan, lalu <strong>Paste</strong> seluruh kode di bawah ini.</li>
-                  <li>
-                    Klik <strong>Deploy (Terapkan)</strong> &gt; <strong>Deployment Baru</strong>.
-                  </li>
-                  <li>
-                    Pilih tipe: <strong>Aplikasi Web</strong> (Web app).
-                  </li>
-                  <li>
-                    Setelan akses:
-                    <br />
-                    • <em>Execute as:</em> <strong>Me (Saya)</strong>
-                    <br />
-                    • <em>Who has access:</em> <strong>Anyone (Siapa saja)</strong>
-                  </li>
-                  <li>Klik <strong>Deploy</strong>, izinkan akses Google Drive, dan <strong>Salin URL Aplikasi Web</strong>.</li>
-                  <li>Kembali ke tab <em>Pengaturan & Webhook Bot</em> di aplikasi ini, lalu paste link tersebut!</li>
-                </ol>
+                <strong>Panduan Script Bot Google Apps Script:</strong>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <div style={{ background: 'rgba(56, 189, 248, 0.06)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
+                    <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                      ⚡ Jika MEMPERBARUI Bot yang Sudah Ada:
+                    </div>
+                    <ol style={{ paddingLeft: '1.15rem', margin: 0, fontSize: '0.8rem', lineHeight: 1.6 }}>
+                      <li>Buka proyek bot Anda di{' '}
+                        <a href="https://script.google.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
+                          script.google.com
+                        </a>.
+                      </li>
+                      <li>Hapus semua kode lama, lalu <strong>Paste</strong> seluruh kode script terbaru di bawah ini.</li>
+                      <li>Klik menu <strong>Deploy (Terapkan)</strong> &gt; pilih <strong>Kelola deployment (Manage deployments)</strong>.</li>
+                      <li>Klik ikon <strong>✏️ Pensil (Edit)</strong> di kanan atas pop-up.</li>
+                      <li>Pada pilihan <strong>Versi (Version)</strong>, pilih <strong>Versi baru (New version)</strong>.</li>
+                      <li>Klik <strong>Deploy (Terapkan)</strong>. Selesai! Webhook URL tetap sama &amp; fitur buat folder otomatis langsung aktif.</li>
+                    </ol>
+                  </div>
+
+                  <div style={{ background: 'rgba(16, 185, 129, 0.06)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                    <div style={{ fontWeight: 700, color: '#34d399', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                      🚀 Jika Baru Pertama Kali Pasang Bot:
+                    </div>
+                    <ol style={{ paddingLeft: '1.15rem', margin: 0, fontSize: '0.8rem', lineHeight: 1.6 }}>
+                      <li>Buka{' '}
+                        <a href="https://script.google.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
+                          script.google.com
+                        </a>{' '}
+                        &gt; klik <strong>Proyek Baru</strong>.
+                      </li>
+                      <li>Hapus kode bawaan, lalu <strong>Paste</strong> seluruh kode di bawah ini.</li>
+                      <li>Klik <strong>Deploy</strong> &gt; <strong>Deployment Baru</strong> &gt; tipe <strong>Aplikasi Web</strong>.</li>
+                      <li>Pilih: <em>Execute as: Me</em> &amp; <em>Who has access: Anyone</em>.</li>
+                      <li>Klik <strong>Deploy</strong>, beri izin akses, dan <strong>Salin URL Aplikasi Web</strong>.</li>
+                      <li>Buka tab <em>Pengaturan &amp; Webhook Bot</em> di sini, lalu paste URL tersebut!</li>
+                    </ol>
+                  </div>
+                </div>
               </div>
 
               {/* Code display */}

@@ -17,6 +17,8 @@ import {
   Bot,
   Loader2,
   AlertCircle,
+  Code2,
+  RotateCcw,
 } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
@@ -166,11 +168,26 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [fixNotification, setFixNotification] = useState<{
     type: 'success' | 'error';
     message: string;
+    isOldScriptError?: boolean;
   } | null>(null);
 
   // 1-Click Fix Rule: can only be clicked once per new letter code
   const currentFixedFolder = fixedFoldersMap[activeCode] || null;
   const isCodeFixed = Boolean(currentFixedFolder);
+
+  // Bypass folder creation if user explicitly chooses to save in root folder
+  const handleBypassFolderCreation = () => {
+    const fallbackFolder = {
+      id: driveSettings.folderId || TARGET_FOLDER_ID,
+      url: driveSettings.folderUrl || TARGET_FOLDER_URL,
+      name: activeCode,
+    };
+    setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: fallbackFolder }));
+    setFixNotification({
+      type: 'success',
+      message: `✓ Kode di-fix dengan folder utama. Berkas akan disimpan di folder root Google Drive.`,
+    });
+  };
 
   // Handler for Fix Button: Locks code and auto-creates folder in Google Drive
   const handleFixCode = async () => {
@@ -210,16 +227,16 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             message: `✓ Kode berhasil di-FIX! Folder Google Drive "${activeCode}" otomatis dibuat. Dokumen yang diunggah akan otomatis disimpan ke dalam folder ini.`,
           });
         } else {
-          // Tetap tandai fixed jika respons bot ada kendala jaringan
-          const fallbackFolder = {
-            id: driveSettings.folderId || TARGET_FOLDER_ID,
-            url: driveSettings.folderUrl || TARGET_FOLDER_URL,
-            name: activeCode,
-          };
-          setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: fallbackFolder }));
+          // GAGAL MEMBUAT FOLDER: Jangan kunci tombol agar user bisa Coba Lagi setelah update script!
           setFixNotification({
             type: 'error',
-            message: `Kode di-fix secara lokal, namun bot melaporkan: ${folderResult.error || 'Periksa URL Webhook'}. Berkas akan disimpan di folder utama.`,
+            message:
+              folderResult.error ||
+              'Bot Google Drive gagal membuat folder baru. Silakan periksa atau perbarui script bot.',
+            isOldScriptError:
+              (folderResult.error || '').includes('versi lama') ||
+              (folderResult.error || '').includes('create_folder') ||
+              (folderResult.error || '').includes('Argument cannot be null'),
           });
         }
       } else {
@@ -231,16 +248,10 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: localFolder }));
         setFixNotification({
           type: 'success',
-          message: `✓ Kode berhasil di-FIX! (Tips: pasang URL Webhook Bot di Pengaturan Google Drive untuk sinkronisasi otomatis ke cloud).`,
+          message: `✓ Kode berhasil di-FIX secara lokal! (Tips: pasang URL Webhook Bot di Pengaturan Google Drive untuk sinkronisasi otomatis ke cloud).`,
         });
       }
     } catch (err: any) {
-      const localFolder = {
-        id: driveSettings.folderId || TARGET_FOLDER_ID,
-        url: driveSettings.folderUrl || TARGET_FOLDER_URL,
-        name: activeCode,
-      };
-      setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: localFolder }));
       setFixNotification({
         type: 'error',
         message: `Terjadi kendala saat menghubungkan ke Google Drive: ${err.message}`,
@@ -846,7 +857,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
           <div
             style={{
               marginTop: '1rem',
-              padding: '0.85rem 1.15rem',
+              padding: '0.9rem 1.15rem',
               borderRadius: 'var(--radius-md)',
               background:
                 fixNotification.type === 'success'
@@ -860,22 +871,30 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               color:
                 fixNotification.type === 'success' ? '#6ee7b7' : '#fca5a5',
               display: 'flex',
-              alignItems: 'center',
+              flexDirection: fixNotification.type === 'error' ? 'column' : 'row',
+              alignItems: fixNotification.type === 'error' ? 'flex-start' : 'center',
               justifyContent: 'space-between',
               gap: '0.75rem',
               fontSize: '0.85rem',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', flex: 1, width: '100%' }}>
               {fixNotification.type === 'success' ? (
-                <CheckCircle2 size={18} color="var(--success)" style={{ flexShrink: 0 }} />
+                <CheckCircle2 size={18} color="var(--success)" style={{ flexShrink: 0, marginTop: '2px' }} />
               ) : (
-                <AlertCircle size={18} color="var(--danger)" style={{ flexShrink: 0 }} />
+                <AlertCircle size={18} color="var(--danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
               )}
-              <span>{fixNotification.message}</span>
+              <div style={{ lineHeight: 1.5, flex: 1 }}>
+                <div>{fixNotification.message}</div>
+                {fixNotification.type === 'error' && fixNotification.isOldScriptError && (
+                  <div style={{ marginTop: '0.4rem', color: '#fed7aa', fontSize: '0.8rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                    💡 <strong>Solusi Cepat (30 detik):</strong> Klik tombol <em>"Salin Script Bot Terbaru"</em> di bawah, buka proyek Apps Script Anda, timpa/paste kodenya, lalu klik <strong>Deploy &gt; Kelola deployment &gt; Edit &gt; Versi Baru &gt; Terapkan</strong>.
+                  </div>
+                )}
+              </div>
             </div>
 
-            {currentFixedFolder?.url && (
+            {fixNotification.type === 'success' && currentFixedFolder?.url && (
               <a
                 href={currentFixedFolder.url}
                 target="_blank"
@@ -892,6 +911,50 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 <span>Buka Folder Drive</span>
                 <ExternalLink size={12} />
               </a>
+            )}
+
+            {fixNotification.type === 'error' && (
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '0.5rem',
+                  flexWrap: 'wrap',
+                  marginTop: '0.35rem',
+                  width: '100%',
+                  justifyContent: 'flex-end',
+                }}
+              >
+                {onOpenDriveSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenDriveSettings}
+                    className="btn btn-sm btn-primary"
+                    style={{ fontSize: '0.8rem' }}
+                  >
+                    <Code2 size={14} />
+                    <span>Salin Script Bot Terbaru</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleFixCode}
+                  disabled={isFixingCode}
+                  className="btn btn-sm btn-secondary"
+                  style={{ fontSize: '0.8rem' }}
+                >
+                  <RotateCcw size={14} className={isFixingCode ? 'animate-spin' : ''} />
+                  <span>Coba Fix Lagi</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBypassFolderCreation}
+                  className="btn btn-sm btn-ghost"
+                  style={{ fontSize: '0.78rem', color: '#94a3b8' }}
+                  title="Gunakan folder root utama tanpa membuat subfolder khusus"
+                >
+                  <span>Lewati &amp; Simpan di Folder Utama</span>
+                </button>
+              </div>
             )}
           </div>
         )}

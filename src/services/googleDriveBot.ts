@@ -66,16 +66,26 @@ export async function createFolderInDriveViaBot(
           `Folder Google Drive '${folderName}' berhasil dibuat!`,
       };
     } else {
+      let rawMsg = result.message || '';
+      if (rawMsg.includes('Argument cannot be null: data')) {
+        rawMsg =
+          'Script bot di Google Drive Anda masih versi lama (belum ada fungsi create_folder). Buka Pengaturan Google Drive > Salin Script Bot terbaru > Deploy "Versi Baru" di script.google.com.';
+      }
       return {
         success: false,
         error:
-          result.message || 'Bot Google Drive gagal membuat folder baru.',
+          rawMsg || 'Bot Google Drive gagal membuat folder baru.',
       };
     }
   } catch (err: any) {
+    let errText = err.message || '';
+    if (errText.includes('Argument cannot be null: data')) {
+      errText =
+        'Script bot di Google Drive Anda masih versi lama (belum ada fungsi create_folder). Buka Pengaturan Google Drive > Salin Script Bot terbaru > Deploy "Versi Baru" di script.google.com.';
+    }
     return {
       success: false,
-      error: `Koneksi ke Bot Google Drive bermasalah: ${err.message}`,
+      error: `Koneksi ke Bot Google Drive bermasalah: ${errText}`,
     };
   }
 }
@@ -485,9 +495,9 @@ function doPost(e) {
       fileName = data.documentCode + "_" + fileName;
     }
 
-    // Jika ada lampiran berkas base64
-    if (data.base64 && data.base64.length > 0) {
-      var decoded = Utilities.base64Decode(data.base64);
+    // Jika ada lampiran berkas base64 (pastikan string valid dan tidak kosong)
+    if (data.base64 && typeof data.base64 === 'string' && data.base64.trim().length > 0) {
+      var decoded = Utilities.base64Decode(data.base64.trim());
       var mimeType = data.mimeType || 'application/pdf';
       var blob = Utilities.newBlob(decoded, mimeType, fileName);
       file = folder.createFile(blob);
