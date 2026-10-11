@@ -15,8 +15,9 @@ import {
   FileSpreadsheet,
   History,
 } from 'lucide-react';
-import { DocumentRecord, DOCUMENT_TYPES, DIVISIONS, DocumentStatus } from '../types';
+import { DocumentRecord, CodeDefinition, DocumentStatus } from '../types';
 import { exportToCSV, exportToJSON } from '../services/storage';
+import { getMasterCodes } from '../services/masterCodes';
 
 interface DocumentListProps {
   documents: DocumentRecord[];
@@ -25,6 +26,8 @@ interface DocumentListProps {
   onReviseDocument?: (doc: DocumentRecord) => void;
   onDeleteDocument: (id: string) => void;
   onNavigateToGenerator: () => void;
+  documentTypes?: CodeDefinition[];
+  divisions?: CodeDefinition[];
 }
 
 export const DocumentList: React.FC<DocumentListProps> = ({
@@ -34,6 +37,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   onReviseDocument,
   onDeleteDocument,
   onNavigateToGenerator,
+  documentTypes,
+  divisions,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
@@ -42,6 +47,48 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   const [selectedYear, setSelectedYear] = useState<string>('ALL');
   const [viewMode, setViewMode] = useState<'table' | 'card'>('table');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const baseMasterCodes = getMasterCodes();
+  const effectiveDocTypes =
+    documentTypes && documentTypes.length > 0
+      ? documentTypes
+      : baseMasterCodes.documentTypes;
+
+  const effectiveDivisions =
+    divisions && divisions.length > 0
+      ? divisions
+      : baseMasterCodes.divisions;
+
+  // Include extra codes
+  const knownTypeCodes = new Set(effectiveDocTypes.map((t) => t.code.toUpperCase()));
+  const extraTypes: CodeDefinition[] = [];
+  documents.forEach((d) => {
+    if (d.typeCode && !knownTypeCodes.has(d.typeCode.toUpperCase())) {
+      knownTypeCodes.add(d.typeCode.toUpperCase());
+      extraTypes.push({
+        code: d.typeCode.toUpperCase(),
+        label: d.typeCode.toUpperCase(),
+        description: 'Kategori Tambahan',
+        isCustom: true,
+      });
+    }
+  });
+  const allDocTypes = [...effectiveDocTypes, ...extraTypes];
+
+  const knownDivCodes = new Set(effectiveDivisions.map((d) => d.code.toUpperCase()));
+  const extraDivs: CodeDefinition[] = [];
+  documents.forEach((d) => {
+    if (d.divisionCode && !knownDivCodes.has(d.divisionCode.toUpperCase())) {
+      knownDivCodes.add(d.divisionCode.toUpperCase());
+      extraDivs.push({
+        code: d.divisionCode.toUpperCase(),
+        label: d.divisionCode.toUpperCase(),
+        description: 'Divisi Tambahan',
+        isCustom: true,
+      });
+    }
+  });
+  const allDivisions = [...effectiveDivisions, ...extraDivs];
 
   // Extract distinct years from documents
   const availableYears = Array.from(
@@ -199,7 +246,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               className="form-select"
             >
               <option value="ALL">Semua Kategori (Type)</option>
-              {DOCUMENT_TYPES.map((t) => (
+              {allDocTypes.map((t) => (
                 <option key={t.code} value={t.code}>
                   {t.code} - {t.label.split('(')[0]}
                 </option>
@@ -215,7 +262,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               className="form-select"
             >
               <option value="ALL">Semua Divisi</option>
-              {DIVISIONS.map((d) => (
+              {allDivisions.map((d) => (
                 <option key={d.code} value={d.code}>
                   {d.code} - {d.label.split('(')[0]}
                 </option>

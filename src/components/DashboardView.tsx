@@ -19,8 +19,9 @@ import {
   BarChart3,
   History,
 } from 'lucide-react';
-import { DocumentRecord, DOCUMENT_TYPES, DIVISIONS, DocumentStatus } from '../types';
+import { DocumentRecord, CodeDefinition, DocumentStatus } from '../types';
 import { exportToCSV } from '../services/storage';
+import { getMasterCodes } from '../services/masterCodes';
 
 interface DashboardViewProps {
   documents: DocumentRecord[];
@@ -31,6 +32,8 @@ interface DashboardViewProps {
   onDeleteDocument: (id: string) => void;
   filterApproverRole?: string; // e.g. CEO, CTO, COO, CFO
   roleTitle?: string;
+  documentTypes?: CodeDefinition[];
+  divisions?: CodeDefinition[];
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -42,6 +45,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onDeleteDocument,
   filterApproverRole,
   roleTitle,
+  documentTypes,
+  divisions,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
@@ -62,16 +67,60 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const inReviewCount = baseDocs.filter((d) => d.status === 'In Review' || d.status === 'Draft').length;
   const approvedCount = baseDocs.filter((d) => d.status === 'Approved').length;
 
-  // Type Breakdown
-  const typeCounts = DOCUMENT_TYPES.map((t) => ({
+  // Load dynamic master codes if not provided via props, or fallback to stored master codes
+  const baseMasterCodes = getMasterCodes();
+  const effectiveDocTypes =
+    documentTypes && documentTypes.length > 0
+      ? documentTypes
+      : baseMasterCodes.documentTypes;
+
+  const effectiveDivisions =
+    divisions && divisions.length > 0
+      ? divisions
+      : baseMasterCodes.divisions;
+
+  // Include any extra document type codes present in documents that might not be in master list
+  const knownTypeCodes = new Set(effectiveDocTypes.map((t) => t.code.toUpperCase()));
+  const extraTypes: CodeDefinition[] = [];
+  baseDocs.forEach((d) => {
+    if (d.typeCode && !knownTypeCodes.has(d.typeCode.toUpperCase())) {
+      knownTypeCodes.add(d.typeCode.toUpperCase());
+      extraTypes.push({
+        code: d.typeCode.toUpperCase(),
+        label: d.typeCode.toUpperCase(),
+        description: 'Kategori Tambahan',
+        isCustom: true,
+      });
+    }
+  });
+  const allDocTypes = [...effectiveDocTypes, ...extraTypes];
+
+  // Include any extra division codes present in documents
+  const knownDivCodes = new Set(effectiveDivisions.map((d) => d.code.toUpperCase()));
+  const extraDivs: CodeDefinition[] = [];
+  baseDocs.forEach((d) => {
+    if (d.divisionCode && !knownDivCodes.has(d.divisionCode.toUpperCase())) {
+      knownDivCodes.add(d.divisionCode.toUpperCase());
+      extraDivs.push({
+        code: d.divisionCode.toUpperCase(),
+        label: d.divisionCode.toUpperCase(),
+        description: 'Divisi Tambahan',
+        isCustom: true,
+      });
+    }
+  });
+  const allDivisions = [...effectiveDivisions, ...extraDivs];
+
+  // Dynamic Type Breakdown (otomatis update jika ada penambahan kategori surat)
+  const typeCounts = allDocTypes.map((t) => ({
     ...t,
-    count: baseDocs.filter((d) => d.typeCode === t.code).length,
+    count: baseDocs.filter((d) => d.typeCode.toUpperCase() === t.code.toUpperCase()).length,
   }));
 
-  // Division Breakdown
-  const divisionCounts = DIVISIONS.map((d) => ({
+  // Dynamic Division Breakdown (otomatis update jika ada penambahan divisi)
+  const divisionCounts = allDivisions.map((d) => ({
     ...d,
-    count: baseDocs.filter((d) => d.divisionCode === d.code).length,
+    count: baseDocs.filter((d) => d.divisionCode.toUpperCase() === d.code.toUpperCase()).length,
   }));
 
   // Filtered documents list
@@ -378,7 +427,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               style={{ width: '130px', fontSize: '0.825rem' }}
             >
               <option value="ALL">Kategori</option>
-              {DOCUMENT_TYPES.map((t) => (
+              {allDocTypes.map((t) => (
                 <option key={t.code} value={t.code}>
                   {t.code}
                 </option>
@@ -392,7 +441,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               style={{ width: '120px', fontSize: '0.825rem' }}
             >
               <option value="ALL">Divisi</option>
-              {DIVISIONS.map((d) => (
+              {allDivisions.map((d) => (
                 <option key={d.code} value={d.code}>
                   {d.code}
                 </option>

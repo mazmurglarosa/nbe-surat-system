@@ -463,6 +463,8 @@ export function App() {
           {activeTab === 'dashboard' && (
             <DashboardView
               documents={documents}
+              documentTypes={masterCodes.documentTypes}
+              divisions={masterCodes.divisions}
               onNavigateToCreate={() => setActiveTab('create')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
@@ -509,6 +511,8 @@ export function App() {
           {activeTab === 'dir-ceo' && (
             <DashboardView
               documents={documents}
+              documentTypes={masterCodes.documentTypes}
+              divisions={masterCodes.divisions}
               filterApproverRole="CEO"
               roleTitle="Direktur Utama (CEO)"
               onNavigateToCreate={() => setActiveTab('create')}
@@ -522,6 +526,8 @@ export function App() {
           {activeTab === 'dir-cto' && (
             <DashboardView
               documents={documents}
+              documentTypes={masterCodes.documentTypes}
+              divisions={masterCodes.divisions}
               filterApproverRole="CTO"
               roleTitle="Direktur Engineering (CTO)"
               onNavigateToCreate={() => setActiveTab('create')}
@@ -535,6 +541,8 @@ export function App() {
           {activeTab === 'dir-coo' && (
             <DashboardView
               documents={documents}
+              documentTypes={masterCodes.documentTypes}
+              divisions={masterCodes.divisions}
               filterApproverRole="COO"
               roleTitle="Direktur Operation (COO)"
               onNavigateToCreate={() => setActiveTab('create')}
@@ -548,6 +556,8 @@ export function App() {
           {activeTab === 'dir-cfo' && (
             <DashboardView
               documents={documents}
+              documentTypes={masterCodes.documentTypes}
+              divisions={masterCodes.divisions}
               filterApproverRole="CFO"
               roleTitle="Direktur Keuangan (CFO - Saya)"
               onNavigateToCreate={() => setActiveTab('create')}
