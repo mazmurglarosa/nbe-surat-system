@@ -19,6 +19,7 @@ import {
   AlertCircle,
   Code2,
   RotateCcw,
+  Save,
 } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
@@ -36,7 +37,7 @@ import {
   formatSequence,
   getRomanMonth,
 } from '../utils/numbering';
-import { GoogleDriveSettings } from '../services/storage';
+import { GoogleDriveSettings, saveGoogleDriveSettings } from '../services/storage';
 import {
   uploadFileToDriveViaBot,
   registerDocumentInDriveViaBot,
@@ -187,6 +188,66 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       type: 'success',
       message: `✓ Kode di-fix dengan folder utama. Berkas akan disimpan di folder root Google Drive.`,
     });
+  };
+
+  const [quickWebhookUrl, setQuickWebhookUrl] = useState<string>('');
+
+  // Simpan Webhook URL baru & langsung otomatis buat folder Google Drive
+  const handleSaveQuickWebhookAndFix = async () => {
+    const trimmed = quickWebhookUrl.trim();
+    if (!trimmed || !trimmed.startsWith('https://script.google.com')) {
+      alert('URL Webhook harus berformat: https://script.google.com/macros/s/.../exec');
+      return;
+    }
+
+    const updatedSettings = {
+      ...driveSettings,
+      botWebhookUrl: trimmed,
+    };
+    saveGoogleDriveSettings(updatedSettings);
+
+    setIsFixingCode(true);
+    setFixNotification(null);
+
+    try {
+      const folderResult = await createFolderInDriveViaBot(
+        activeCode,
+        trimmed,
+        updatedSettings.folderId || TARGET_FOLDER_ID
+      );
+
+      if (folderResult.success && folderResult.folderId) {
+        const newFolderData = {
+          id: folderResult.folderId,
+          url:
+            folderResult.folderUrl ||
+            `https://drive.google.com/drive/folders/${folderResult.folderId}`,
+          name: activeCode,
+        };
+        setFixedFoldersMap((prev) => ({ ...prev, [activeCode]: newFolderData }));
+        setGoogleDriveLink(newFolderData.url);
+        setFixNotification({
+          type: 'success',
+          message: `✓ Selesai! Webhook berhasil disimpan & folder Google Drive "${activeCode}" otomatis dibuat!`,
+        });
+        setQuickWebhookUrl('');
+      } else {
+        setFixNotification({
+          type: 'error',
+          message:
+            folderResult.error ||
+            'Gagal membuat folder dengan URL ini. Pastikan setelan akses Web App diatur ke "Anyone (Siapa saja)".',
+          isOldScriptError: (folderResult.error || '').includes('versi lama'),
+        });
+      }
+    } catch (err: any) {
+      setFixNotification({
+        type: 'error',
+        message: `Terjadi kendala: ${err.message}`,
+      });
+    } finally {
+      setIsFixingCode(false);
+    }
   };
 
   // Handler for Fix Button: Locks code and auto-creates folder in Google Drive
@@ -914,47 +975,95 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             )}
 
             {fixNotification.type === 'error' && (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  flexWrap: 'wrap',
-                  marginTop: '0.35rem',
-                  width: '100%',
-                  justifyContent: 'flex-end',
-                }}
-              >
-                {onOpenDriveSettings && (
+              <>
+                <div
+                  style={{
+                    width: '100%',
+                    marginTop: '0.65rem',
+                    padding: '0.75rem 0.9rem',
+                    borderRadius: '6px',
+                    background: 'rgba(0, 0, 0, 0.35)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                  }}
+                >
+                  <div style={{ fontSize: '0.8rem', color: '#e2e8f0', marginBottom: '0.4rem', fontWeight: 600 }}>
+                    🔗 Sudah dapat URL Webhook Baru dari script.google.com? Tempel di sini:
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <input
+                      type="url"
+                      placeholder="https://script.google.com/macros/s/AKfycb.../exec"
+                      value={quickWebhookUrl}
+                      onChange={(e) => setQuickWebhookUrl(e.target.value)}
+                      className="form-input"
+                      style={{
+                        flex: 1,
+                        minWidth: '240px',
+                        fontSize: '0.8rem',
+                        padding: '0.45rem 0.75rem',
+                        background: 'rgba(15, 23, 42, 0.85)',
+                        border: '1px solid var(--border-accent)',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSaveQuickWebhookAndFix}
+                      disabled={isFixingCode || !quickWebhookUrl.trim()}
+                      className="btn btn-sm btn-success"
+                      style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}
+                    >
+                      {isFixingCode ? (
+                        <Loader2 size={14} className="animate-spin" />
+                      ) : (
+                        <Save size={14} />
+                      )}
+                      <span>Simpan &amp; Buat Folder</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.5rem',
+                    flexWrap: 'wrap',
+                    marginTop: '0.35rem',
+                    width: '100%',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  {onOpenDriveSettings && (
+                    <button
+                      type="button"
+                      onClick={onOpenDriveSettings}
+                      className="btn btn-sm btn-primary"
+                      style={{ fontSize: '0.8rem' }}
+                    >
+                      <Code2 size={14} />
+                      <span>Salin Script Bot Terbaru</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={onOpenDriveSettings}
-                    className="btn btn-sm btn-primary"
+                    onClick={handleFixCode}
+                    disabled={isFixingCode}
+                    className="btn btn-sm btn-secondary"
                     style={{ fontSize: '0.8rem' }}
                   >
-                    <Code2 size={14} />
-                    <span>Salin Script Bot Terbaru</span>
+                    <RotateCcw size={14} className={isFixingCode ? 'animate-spin' : ''} />
+                    <span>Coba Fix Lagi</span>
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleFixCode}
-                  disabled={isFixingCode}
-                  className="btn btn-sm btn-secondary"
-                  style={{ fontSize: '0.8rem' }}
-                >
-                  <RotateCcw size={14} className={isFixingCode ? 'animate-spin' : ''} />
-                  <span>Coba Fix Lagi</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={handleBypassFolderCreation}
-                  className="btn btn-sm btn-ghost"
-                  style={{ fontSize: '0.78rem', color: '#94a3b8' }}
-                  title="Gunakan folder root utama tanpa membuat subfolder khusus"
-                >
-                  <span>Lewati &amp; Simpan di Folder Utama</span>
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleBypassFolderCreation}
+                    className="btn btn-sm btn-ghost"
+                    style={{ fontSize: '0.78rem', color: '#94a3b8' }}
+                    title="Gunakan folder root utama tanpa membuat subfolder khusus"
+                  >
+                    <span>Lewati &amp; Simpan di Folder Utama</span>
+                  </button>
+                </div>
+              </>
             )}
           </div>
         )}
