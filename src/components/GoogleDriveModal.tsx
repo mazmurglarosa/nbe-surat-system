@@ -751,6 +751,22 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                       <li>Buka tab <em>Pengaturan &amp; Webhook Bot</em> di sini, lalu paste URL tersebut!</li>
                     </ol>
                   </div>
+
+                  <div style={{ background: 'rgba(168, 85, 247, 0.08)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(168, 85, 247, 0.3)', gridColumn: '1 / -1' }}>
+                    <div style={{ fontWeight: 700, color: '#c084fc', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                      🤖 Agar Aktivitas di Google Drive Menggunakan Akun Bot (Bukan Akun Pribadi Anda):
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
+                      Di Google Drive, riwayat pembuat dokumen akan selalu mengikuti akun Google yang melakukan <em>Deploy</em> script bot tersebut. Untuk memakai akun bot khusus:
+                    </div>
+                    <ol style={{ paddingLeft: '1.15rem', margin: 0, fontSize: '0.8rem', lineHeight: 1.6 }}>
+                      <li>Buat 1 akun Google/Gmail baru untuk bot kantor (misalnya: <strong>bot.nbe.surat@gmail.com</strong>).</li>
+                      <li>Buka folder Google Drive perusahaan Anda &gt; klik <strong>Bagikan (Share)</strong> &gt; masukkan email bot tersebut dan beri izin sebagai <strong>Editor</strong>.</li>
+                      <li>Buka jendela <strong>Incognito / Browser Baru</strong> &gt; login ke akun bot baru tersebut &gt; kunjungi <a href="https://script.google.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>script.google.com</a>.</li>
+                      <li>Paste kode bot di bawah ini &gt; klik <strong>Deploy</strong> &gt; <strong>Deployment Baru</strong> &gt; pilih tipe <strong>Aplikasi Web</strong> &gt; set <em>Execute as: Me</em> dan <em>Who has access: Anyone</em>.</li>
+                      <li>Salin URL Webhook dari akun bot tersebut, lalu masukkan ke tab <em>Pengaturan &amp; Webhook Bot</em> di aplikasi ini. Selesai! Semua riwayat di Google Drive akan otomatis berlabel nama Akun Bot Resmi tersebut.</li>
+                    </ol>
+                  </div>
                 </div>
               </div>
 
