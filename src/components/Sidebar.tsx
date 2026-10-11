@@ -68,23 +68,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
           style={{
             padding: '0.25rem 0.5rem 0.5rem 0.5rem',
             display: 'flex',
-            alignItems: 'center',
-            gap: '0.65rem',
+            flexDirection: 'column',
+            gap: '0.45rem',
           }}
         >
-          <img
-            src="/nbe-logo-horizontal.png"
-            alt="Nirwana Bhumi Energy"
-            onError={(e) => {
-              // fallback if needed
-              (e.currentTarget as HTMLImageElement).src = '/+BG.png';
-            }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <img
+              src="/+BG.png"
+              alt="PT Nirwana Bhumi Energi"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/logo.png';
+              }}
+              style={{
+                height: '36px',
+                width: 'auto',
+                objectFit: 'contain',
+                borderRadius: '6px',
+              }}
+            />
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span
+                style={{
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  color: '#0284c7',
+                  letterSpacing: '-0.01em',
+                  lineHeight: 1.2,
+                }}
+              >
+                PT NIRWANA BHUMI ENERGI
+              </span>
+              <span
+                style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 700,
+                  color: 'var(--text-muted)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                Document Control System
+              </span>
+            </div>
+          </div>
+          <div
             style={{
-              height: '38px',
-              maxWidth: '100%',
-              objectFit: 'contain',
+              display: 'inline-flex',
+              alignItems: 'center',
+              alignSelf: 'flex-start',
+              padding: '0.15rem 0.55rem',
+              borderRadius: '9999px',
+              fontSize: '0.68rem',
+              fontWeight: 700,
+              background: 'rgba(2, 132, 199, 0.1)',
+              color: '#0284c7',
+              border: '1px solid rgba(2, 132, 199, 0.25)',
+              letterSpacing: '0.04em',
             }}
-          />
+          >
+            Document Control System
+          </div>
         </div>
 
 
