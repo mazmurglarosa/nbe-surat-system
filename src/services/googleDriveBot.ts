@@ -22,6 +22,47 @@ export const TARGET_FOLDER_ID = '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF';
 export const TARGET_FOLDER_URL =
   'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing';
 
+/**
+ * Ekstrak ID Folder Google Drive dari URL folder atau string ID langsung.
+ * Mendukung berbagai format link Google Drive:
+ * - https://drive.google.com/drive/folders/1ntut9Zjoc8tT5neNR2wUKMCkxlZvoS8U?usp=sharing
+ * - https://drive.google.com/drive/u/0/folders/1ntut9Zjoc8tT5neNR2wUKMCkxlZvoS8U
+ * - https://drive.google.com/open?id=1ntut9Zjoc8tT5neNR2wUKMCkxlZvoS8U
+ * - 1ntut9Zjoc8tT5neNR2wUKMCkxlZvoS8U (ID langsung)
+ */
+export function extractDriveFolderId(input?: string): string {
+  if (!input) return TARGET_FOLDER_ID;
+  const trimmed = input.trim();
+  if (!trimmed) return TARGET_FOLDER_ID;
+
+  // Pola /folders/ID
+  const folderMatch = trimmed.match(/\/folders\/([a-zA-Z0-9_-]+)/i);
+  if (folderMatch && folderMatch[1]) {
+    return folderMatch[1];
+  }
+
+  // Pola id=ID
+  const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+  if (idMatch && idMatch[1]) {
+    return idMatch[1];
+  }
+
+  // Jika input adalah raw ID (karakter alphanum/dash/underscore minimal 15 karakter dan tidak mengandung slash)
+  if (!trimmed.includes('/') && /^[a-zA-Z0-9_-]{15,}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return trimmed || TARGET_FOLDER_ID;
+}
+
+/**
+ * Format link folder Google Drive yang valid dari URL atau Folder ID
+ */
+export function formatDriveFolderUrl(input?: string): string {
+  const id = extractDriveFolderId(input);
+  return `https://drive.google.com/drive/folders/${id}?usp=sharing`;
+}
+
 const CATEGORY_FOLDERS_STORAGE_KEY = 'nbe_gdrive_category_folders';
 
 /**
@@ -524,18 +565,20 @@ export async function registerDocumentInDriveViaBot(
 /**
  * Ready-to-deploy Google Apps Script Code for the Bot Account
  */
-export const GOOGLE_APPS_SCRIPT_BOT_CODE = `/**
+export function getGoogleAppsScriptBotCode(folderId: string = TARGET_FOLDER_ID): string {
+  const activeFolderId = extractDriveFolderId(folderId);
+  return `/**
  * ============================================================
  * BOT GOOGLE DRIVE - PT NIRWANA BHUMI ENERGI (NBE)
  * Fitur:
- * 1. Otomatis buat folder baru saat tombol FIX diklik (action: "create_folder")
+ * 1. Otomatis buat folder kategori & folder dokumen bersarang (action: "create_folder")
  * 2. Upload dokumen awal & revisi ke folder kode surat (action: "upload")
  * 3. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
  * 4. Otomatis hapus folder dan file di Google Drive saat surat dihapus dari sistem (action: "delete")
  * ============================================================
  */
 
-var TARGET_FOLDER_ID = "${TARGET_FOLDER_ID}";
+var TARGET_FOLDER_ID = "${activeFolderId}";
 
 function doPost(e) {
   try {
@@ -749,3 +792,6 @@ function doGet(e) {
   })).setMimeType(ContentService.MimeType.JSON);
 }
 `;
+}
+
+export const GOOGLE_APPS_SCRIPT_BOT_CODE = getGoogleAppsScriptBotCode();

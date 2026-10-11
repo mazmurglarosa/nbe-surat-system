@@ -18,9 +18,10 @@ import {
 import { GoogleDriveSettings, exportToCSV } from '../services/storage';
 import { DocumentRecord, CodeDefinition } from '../types';
 import {
-  GOOGLE_APPS_SCRIPT_BOT_CODE,
-  TARGET_FOLDER_ID,
   TARGET_FOLDER_URL,
+  extractDriveFolderId,
+  formatDriveFolderUrl,
+  getGoogleAppsScriptBotCode,
   testBotConnection,
   syncAllCategoriesToDriveViaBot,
 } from '../services/googleDriveBot';
@@ -54,6 +55,12 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
   const [copiedScript, setCopiedScript] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'botScript'>('settings');
 
+  // Dynamic folder ID detection
+  const detectedFolderId = extractDriveFolderId(folderUrl);
+  const effectiveDetectedUrl = formatDriveFolderUrl(folderUrl);
+  const activeSavedFolderUrl = initialSettings.folderUrl || TARGET_FOLDER_URL;
+  const activeSavedFolderId = initialSettings.folderId || extractDriveFolderId(activeSavedFolderUrl);
+
   // Test connection state
   const [isTestingBot, setIsTestingBot] = useState(false);
   const [testResult, setTestResult] = useState<{
@@ -79,10 +86,11 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
     setIsSyncingCategories(true);
     setSyncCategoriesResult(null);
     try {
+      const targetFolderId = extractDriveFolderId(folderUrl);
       const res = await syncAllCategoriesToDriveViaBot(
         documentTypes,
         botWebhookUrl.trim(),
-        TARGET_FOLDER_ID
+        targetFolderId
       );
       setSyncCategoriesResult({
         success: res.errors.length === 0,
@@ -104,19 +112,26 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanedUrl = folderUrl.trim();
+    const effectiveFolderId = extractDriveFolderId(cleanedUrl);
+    const effectiveFolderUrl = cleanedUrl.startsWith('http')
+      ? cleanedUrl
+      : formatDriveFolderUrl(effectiveFolderId);
+
     onSaveSettings({
-      folderUrl: folderUrl.trim() || TARGET_FOLDER_URL,
-      folderId: TARGET_FOLDER_ID,
+      folderUrl: effectiveFolderUrl,
+      folderId: effectiveFolderId,
       botWebhookUrl: botWebhookUrl.trim(),
       driveDatabaseSheetUrl: driveDatabaseSheetUrl.trim() || undefined,
       autoOpenDriveOnUpload: autoOpen,
     });
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   const handleCopyScript = () => {
-    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_BOT_CODE);
+    const currentScript = getGoogleAppsScriptBotCode(folderUrl);
+    navigator.clipboard.writeText(currentScript);
     setCopiedScript(true);
     setTimeout(() => setCopiedScript(false), 2500);
   };
@@ -161,7 +176,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                 Akun Bot & Integrasi Google Drive NBE
               </h2>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Target Folder ID: <code className="mono">{TARGET_FOLDER_ID}</code>
+                Target Folder ID: <code className="mono">{activeSavedFolderId}</code>
               </span>
             </div>
           </div>
@@ -222,22 +237,26 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.9rem' }}>
-                    📁 Folder Target Google Drive Aktif
+                  <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                    <span>📁 Folder Target Google Drive Aktif Saat Ini</span>
                   </div>
                   <div
                     style={{
-                      fontSize: '0.8rem',
-                      color: 'var(--text-secondary)',
-                      marginTop: '0.2rem',
+                      fontSize: '0.82rem',
+                      color: 'var(--text-main)',
+                      marginTop: '0.25rem',
                       wordBreak: 'break-all',
+                      fontFamily: 'var(--font-mono)',
                     }}
                   >
-                    {TARGET_FOLDER_URL}
+                    {activeSavedFolderUrl}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                    Folder ID: <code className="mono" style={{ color: '#38bdf8', fontWeight: 700 }}>{activeSavedFolderId}</code>
                   </div>
                 </div>
                 <a
-                  href={TARGET_FOLDER_URL}
+                  href={activeSavedFolderUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-primary btn-sm"
@@ -332,16 +351,157 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   </span>
                 </div>
 
-                {/* Folder URL */}
-                <div className="form-group">
-                  <label className="form-label">Link Folder Google Drive</label>
-                  <input
-                    type="url"
-                    required
-                    value={folderUrl}
-                    onChange={(e) => setFolderUrl(e.target.value)}
-                    className="form-input"
-                  />
+                {/* Kolom Khusus Ganti Link Google Drive */}
+                <div
+                  style={{
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-accent, rgba(56, 189, 248, 0.35))',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '1.25rem',
+                    marginBottom: '1.5rem',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '0.5rem',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <label
+                      className="form-label"
+                      style={{
+                        margin: 0,
+                        fontWeight: 700,
+                        color: '#38bdf8',
+                        fontSize: '0.95rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                      }}
+                    >
+                      <HardDrive size={17} />
+                      Kolom Ganti Link Folder Google Drive (Target Penyimpanan)
+                    </label>
+
+                    {folderUrl.trim() !== TARGET_FOLDER_URL && (
+                      <button
+                        type="button"
+                        onClick={() => setFolderUrl(TARGET_FOLDER_URL)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          color: 'var(--text-muted)',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                        }}
+                        title="Kembalikan link ke folder resmi default PT NBE"
+                      >
+                        Reset ke Folder Default NBE
+                      </button>
+                    )}
+                  </div>
+
+                  <p
+                    style={{
+                      fontSize: '0.8rem',
+                      color: 'var(--text-secondary)',
+                      marginBottom: '0.85rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Paste link folder Google Drive baru yang ingin Anda gunakan di sini. Sistem akan otomatis mendeteksi ID foldernya dan mengarahkan pembuatan folder surat & kategori ke folder baru tersebut.
+                  </p>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="url"
+                      required
+                      value={folderUrl}
+                      onChange={(e) => setFolderUrl(e.target.value)}
+                      placeholder="https://drive.google.com/drive/folders/1ntut9Zjoc8tT5neNR2wUKMCkxlZvoS8U..."
+                      className="form-input mono"
+                      style={{ flex: 1, fontSize: '0.85rem' }}
+                    />
+                    <a
+                      href={effectiveDetectedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      title="Buka link folder ini di tab baru untuk memastikan folder bisa diakses"
+                    >
+                      <ExternalLink size={14} />
+                      <span>Uji Buka</span>
+                    </a>
+                  </div>
+
+                  {/* Deteksi ID Folder Live */}
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.55rem 0.85rem',
+                      borderRadius: '6px',
+                      background: 'rgba(56, 189, 248, 0.08)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', color: '#38bdf8' }}>
+                      <CheckCircle2 size={15} />
+                      <span>ID Folder Terdeteksi:</span>
+                      <code
+                        className="mono"
+                        style={{
+                          background: 'rgba(0,0,0,0.25)',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '4px',
+                          fontWeight: 700,
+                          color: '#bae6fd',
+                        }}
+                      >
+                        {detectedFolderId}
+                      </code>
+                    </div>
+
+                    {detectedFolderId === activeSavedFolderId ? (
+                      <span
+                        style={{
+                          color: '#10b981',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                        }}
+                      >
+                        ● Aktif & Tersimpan
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          color: '#f59e0b',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                        }}
+                      >
+                        ⚠️ Perubahan Belum Disimpan (Klik "Simpan Konfigurasi Bot" di bawah)
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Google Sheets Link */}
@@ -376,7 +536,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       gap: '0.5rem',
-                      padding: '0.65rem 1rem',
+                      padding: '0.75rem 1rem',
                       borderRadius: 'var(--radius-md)',
                       background: 'var(--success-bg)',
                       border: '1px solid var(--success)',
@@ -386,7 +546,9 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                     }}
                   >
                     <CheckCircle2 size={16} />
-                    <span>Pengaturan Bot & Google Drive berhasil disimpan!</span>
+                    <span>
+                      Pengaturan Bot & Google Drive berhasil disimpan! Folder target aktif: <strong>{detectedFolderId}</strong>
+                    </span>
                   </div>
                 )}
 
@@ -604,7 +766,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                 }}
               >
                 <pre className="mono" style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                  {GOOGLE_APPS_SCRIPT_BOT_CODE}
+                  {getGoogleAppsScriptBotCode(folderUrl)}
                 </pre>
               </div>
             </div>
