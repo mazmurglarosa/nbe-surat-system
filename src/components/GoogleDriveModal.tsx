@@ -14,6 +14,8 @@ import {
   Loader2,
   AlertCircle,
   FolderPlus,
+  Cloud,
+  UploadCloud,
 } from 'lucide-react';
 import { GoogleDriveSettings, exportToCSV } from '../services/storage';
 import { DocumentRecord, CodeDefinition } from '../types';
@@ -25,6 +27,7 @@ import {
   testBotConnection,
   syncAllCategoriesToDriveViaBot,
 } from '../services/googleDriveBot';
+import { pushAllLocalDataToCloud } from '../services/cloudSync';
 
 interface GoogleDriveModalProps {
   settings: GoogleDriveSettings;
@@ -53,6 +56,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
   const [autoOpen, setAutoOpen] = useState(initialSettings.autoOpenDriveOnUpload);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [copiedScript, setCopiedScript] = useState(false);
+  const [copiedPhoneLink, setCopiedPhoneLink] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'botScript'>('settings');
 
   // Dynamic folder ID detection
@@ -77,6 +81,43 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
     folders: string[];
     error?: string;
   } | null>(null);
+
+  // Cloud Database Sync state
+  const [isPushingCloud, setIsPushingCloud] = useState(false);
+  const [pushCloudResult, setPushCloudResult] = useState<{
+    success: boolean;
+    message: string;
+  } | null>(null);
+
+  const handlePushToCloud = async () => {
+    if (!botWebhookUrl.trim()) {
+      alert('Masukkan URL Webhook Bot terlebih dahulu sebelum melakukan sinkronisasi database cloud.');
+      return;
+    }
+    setIsPushingCloud(true);
+    setPushCloudResult(null);
+    try {
+      const res = await pushAllLocalDataToCloud();
+      if (res.success) {
+        setPushCloudResult({
+          success: true,
+          message: `Berhasil mengunggah ${documents.length} dokumen ke Database Cloud Google Drive! Sekarang seluruh HP & perangkat lain otomatis sinkron real-time.`,
+        });
+      } else {
+        setPushCloudResult({
+          success: false,
+          message: res.error || 'Gagal mengunggah ke Cloud Google Drive.',
+        });
+      }
+    } catch (err: any) {
+      setPushCloudResult({
+        success: false,
+        message: err.message || 'Terjadi kesalahan jaringan.',
+      });
+    } finally {
+      setIsPushingCloud(false);
+    }
+  };
 
   const handleSyncCategories = async () => {
     if (!botWebhookUrl.trim()) {
@@ -346,6 +387,47 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                     </div>
                   )}
 
+                  {/* Quick Share Link for Mobile / Other Devices */}
+                  {botWebhookUrl.trim() && (
+                    <div
+                      style={{
+                        marginTop: '0.75rem',
+                        padding: '0.65rem 0.85rem',
+                        background: 'rgba(56, 189, 248, 0.08)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        borderRadius: 'var(--radius-sm)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.5rem',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.78rem', color: '#bae6fd', flex: 1 }}>
+                        <strong>📱 Buka di HP atau Komputer Lain:</strong>
+                        <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                          Klik tombol di samping untuk menyalin link instan. Buka di HP, dan HP otomatis terhubung ke cloud tanpa perlu setting manual!
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const origin = window.location.origin;
+                          const shareUrl = `${origin}?cloudSync=${encodeURIComponent(botWebhookUrl.trim())}`;
+                          navigator.clipboard.writeText(shareUrl);
+                          setCopiedPhoneLink(true);
+                          setTimeout(() => setCopiedPhoneLink(false), 2500);
+                        }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        title="Salin tautan ini untuk dikirim via WhatsApp atau dibuka di browser HP"
+                      >
+                        {copiedPhoneLink ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                        <span>{copiedPhoneLink ? 'Link HP Tersalin!' : 'Salin Link untuk HP'}</span>
+                      </button>
+                    </div>
+                  )}
+
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', display: 'block' }}>
                     Saat Anda menekan tombol "🤖 Upload ke Google Drive via Bot", dokumen langsung terkirim otomatis ke folder Google Drive resmi perusahaan!
                   </span>
@@ -557,6 +639,105 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   <span>Simpan Konfigurasi Bot</span>
                 </button>
               </form>
+
+              {/* Cloud Database Sync Action (Multi-Device Sync) */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12), rgba(16, 185, 129, 0.08))',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  marginBottom: '1.5rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div>
+                    <h4
+                      style={{
+                        fontSize: '0.98rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        color: '#38bdf8',
+                      }}
+                    >
+                      <Cloud size={18} />
+                      Sinkronkan Seluruh Database Lokal ke Cloud (Multi-Device)
+                    </h4>
+                    <p
+                      style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-secondary)',
+                        marginTop: '0.25rem',
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Unggah {documents.length} surat yang ada di perangkat ini ke database Cloud Google Drive (<code>nbe_cloud_database.json</code>).
+                      Setelah diunggah, seluruh data akan <strong>otomatis muncul dan update real-time di semua HP, laptop, dan komputer lain</strong>!
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePushToCloud}
+                    disabled={isPushingCloud || !botWebhookUrl.trim()}
+                    className="btn btn-primary"
+                    style={{
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                    }}
+                  >
+                    {isPushingCloud ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Mengunggah ke Cloud...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud size={16} />
+                        <span>Unggah {documents.length} Surat ke Cloud Sekarang</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {pushCloudResult && (
+                  <div
+                    style={{
+                      marginTop: '0.85rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: pushCloudResult.success
+                        ? 'rgba(16, 185, 129, 0.15)'
+                        : 'rgba(239, 68, 68, 0.15)',
+                      border: `1px solid ${
+                        pushCloudResult.success ? 'var(--success)' : 'var(--danger)'
+                      }`,
+                      color: pushCloudResult.success ? 'var(--success)' : '#fca5a5',
+                      fontSize: '0.82rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    {pushCloudResult.success ? (
+                      <CheckCircle2 size={17} />
+                    ) : (
+                      <AlertCircle size={17} />
+                    )}
+                    <span>{pushCloudResult.message}</span>
+                  </div>
+                )}
+              </div>
 
               {/* Sync Category Folders Action */}
               <div

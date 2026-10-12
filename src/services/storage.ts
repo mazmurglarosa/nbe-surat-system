@@ -17,7 +17,7 @@ export const DEFAULT_DRIVE_SETTINGS: GoogleDriveSettings = {
   folderId: '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF',
   driveDatabaseSheetUrl: '',
   autoOpenDriveOnUpload: true,
-  botWebhookUrl: '',
+  botWebhookUrl: (import.meta.env.VITE_BOT_WEBHOOK_URL as string) || '',
 };
 
 // Initial Seed Document based on the PDF in the folder
@@ -217,9 +217,36 @@ export async function deleteDocument(id: string): Promise<DocumentRecord[]> {
    ========================================================================= */
 export function getGoogleDriveSettings(): GoogleDriveSettings {
   try {
+    // 1. Cek query parameter URL jika user membuka tautan sinkronisasi langsung di HP / device lain
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      const urlWebhook = params.get('webhook') || params.get('botWebhook') || params.get('cloudSync');
+      if (urlWebhook && urlWebhook.startsWith('https://script.google.com')) {
+        const saved = localStorage.getItem(DRIVE_SETTINGS_KEY);
+        const parsed = saved ? JSON.parse(saved) : {};
+        const updated: GoogleDriveSettings = {
+          ...DEFAULT_DRIVE_SETTINGS,
+          ...parsed,
+          botWebhookUrl: urlWebhook.trim(),
+        };
+        localStorage.setItem(DRIVE_SETTINGS_KEY, JSON.stringify(updated));
+        // Bersihkan query param dari address bar agar rapi
+        try {
+          const cleanUrl = window.location.pathname + window.location.hash;
+          window.history.replaceState({}, document.title, cleanUrl);
+        } catch {}
+        return updated;
+      }
+    }
+
     const saved = localStorage.getItem(DRIVE_SETTINGS_KEY);
     if (saved) {
-      return { ...DEFAULT_DRIVE_SETTINGS, ...JSON.parse(saved) };
+      const parsed = JSON.parse(saved);
+      return {
+        ...DEFAULT_DRIVE_SETTINGS,
+        ...parsed,
+        botWebhookUrl: (parsed.botWebhookUrl && parsed.botWebhookUrl.trim()) || DEFAULT_DRIVE_SETTINGS.botWebhookUrl,
+      };
     }
   } catch (e) {
     console.error('Error reading Google Drive settings:', e);

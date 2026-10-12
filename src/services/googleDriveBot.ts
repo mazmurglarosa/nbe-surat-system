@@ -563,22 +563,223 @@ export async function registerDocumentInDriveViaBot(
 }
 
 /**
- * Ready-to-deploy Google Apps Script Code for the Bot Account
+ * Ambil seluruh database dari Cloud Google Drive via Bot Webhook
+ */
+export async function fetchDatabaseFromCloudBot(webhookUrl: string): Promise<{
+  success: boolean;
+  documents?: any[];
+  masterCodes?: any;
+  activityLogs?: any[];
+  lastUpdated?: string;
+  error?: string;
+}> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return { success: false, error: 'Webhook URL belum terkonfigurasi' };
+  }
+
+  try {
+    // Coba via GET terlebih dahulu (sangat cepat dan didukung browser tanpa CORS)
+    const getUrl = `${webhookUrl}${webhookUrl.includes('?') ? '&' : '?'}action=get_database&t=${Date.now()}`;
+    const res = await fetch(getUrl, {
+      method: 'GET',
+    });
+    const result = await res.json();
+    if (result.status === 'success' || result.status === 'online' || result.documents) {
+      return {
+        success: true,
+        documents: result.documents || (result.database && result.database.documents) || [],
+        masterCodes: result.masterCodes || (result.database && result.database.masterCodes) || null,
+        activityLogs: result.activityLogs || (result.database && result.database.activityLogs) || [],
+        lastUpdated: result.lastUpdated || result.timestamp,
+      };
+    }
+  } catch (getErr) {
+    // Fallback coba via POST jika GET gagal
+    try {
+      const postRes = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'get_database' }),
+      });
+      const postResult = await postRes.json();
+      if (postResult.success || postResult.documents) {
+        return {
+          success: true,
+          documents: postResult.documents || [],
+          masterCodes: postResult.masterCodes || null,
+          activityLogs: postResult.activityLogs || [],
+          lastUpdated: postResult.lastUpdated,
+        };
+      }
+    } catch (postErr: any) {
+      return { success: false, error: postErr.message || 'Gagal mengambil database dari cloud' };
+    }
+  }
+
+  return { success: false, error: 'Respon dari Google Drive bot tidak valid' };
+}
+
+/**
+ * Simpan atau perbarui 1 dokumen ke Cloud Database Google Drive via Bot
+ */
+export async function saveDocumentToCloudBot(
+  doc: any,
+  webhookUrl: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return { success: false, error: 'Webhook URL belum disetel' };
+  }
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'save_document',
+        document: doc,
+      }),
+    });
+    const result = await res.json();
+    return {
+      success: result.status === 'success' || result.success,
+      message: result.message,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Hapus dokumen dari Cloud Database Google Drive via Bot
+ */
+export async function deleteDocumentRecordFromCloudBot(
+  docId: string,
+  docCode: string,
+  webhookUrl: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return { success: false, error: 'Webhook URL belum disetel' };
+  }
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'delete_document_record',
+        documentId: docId,
+        documentCode: docCode,
+      }),
+    });
+    const result = await res.json();
+    return {
+      success: result.status === 'success' || result.success,
+      message: result.message,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Sinkronkan seluruh koleksi dokumen ke Cloud Database Google Drive via Bot
+ */
+export async function syncAllToCloudBot(
+  documents: any[],
+  masterCodes: any,
+  activityLogs: any[],
+  webhookUrl: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return { success: false, error: 'Webhook URL belum disetel' };
+  }
+
+  try {
+    const res = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'sync_database',
+        documents: documents,
+        masterCodes: masterCodes,
+        activityLogs: activityLogs,
+      }),
+    });
+    const result = await res.json();
+    return {
+      success: result.status === 'success' || result.success,
+      message: result.message,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Ready-to-deploy Google Apps Script Code for the Bot Account (Multi-Device Real-Time Cloud Ready)
  */
 export function getGoogleAppsScriptBotCode(folderId: string = TARGET_FOLDER_ID): string {
   const activeFolderId = extractDriveFolderId(folderId);
   return `/**
  * ============================================================
- * BOT GOOGLE DRIVE - PT NIRWANA BHUMI ENERGI (NBE)
+ * BOT GOOGLE DRIVE & CLOUD DATABASE - PT NIRWANA BHUMI ENERGI (NBE)
  * Fitur:
- * 1. Otomatis buat folder kategori & folder dokumen bersarang (action: "create_folder")
- * 2. Upload dokumen awal & revisi ke folder kode surat (action: "upload")
- * 3. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
- * 4. Otomatis hapus folder dan file di Google Drive saat surat dihapus dari sistem (action: "delete")
+ * 1. REAL-TIME MULTI-DEVICE CLOUD DATABASE (action: "get_database", "sync_database", "save_document")
+ * 2. Otomatis buat folder kategori & folder dokumen bersarang (action: "create_folder")
+ * 3. Upload dokumen fisik & revisi ke folder kode surat (action: "upload")
+ * 4. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
+ * 5. Otomatis hapus folder dan file di Google Drive saat surat dihapus (action: "delete")
  * ============================================================
  */
 
 var TARGET_FOLDER_ID = "${activeFolderId}";
+var DB_FILE_NAME = "nbe_cloud_database.json";
+
+function getDatabaseFile(targetFolder) {
+  var files = targetFolder.getFilesByName(DB_FILE_NAME);
+  if (files.hasNext()) {
+    return files.next();
+  }
+  return null;
+}
+
+function readDatabase(targetFolder) {
+  var file = getDatabaseFile(targetFolder);
+  if (!file) {
+    return {
+      documents: [],
+      masterCodes: null,
+      activityLogs: [],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+  try {
+    var content = file.getBlob().getDataAsString();
+    return JSON.parse(content);
+  } catch (err) {
+    return {
+      documents: [],
+      masterCodes: null,
+      activityLogs: [],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+}
+
+function writeDatabase(targetFolder, dbData) {
+  dbData.lastUpdated = new Date().toISOString();
+  var content = JSON.stringify(dbData, null, 2);
+  var file = getDatabaseFile(targetFolder);
+  if (file) {
+    file.setContent(content);
+  } else {
+    file = targetFolder.createFile(DB_FILE_NAME, content, MimeType.PLAIN_TEXT);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (e) {}
+  }
+  return dbData;
+}
 
 function doPost(e) {
   try {
@@ -591,16 +792,113 @@ function doPost(e) {
     }
 
     var data = JSON.parse(e.postData.contents);
+    var rootFolder = DriveApp.getFolderById(TARGET_FOLDER_ID);
 
     // ========================================================
-    // AKSI 1: BUAT / CARI FOLDER DOKUMEN & KATEGORI (TOMBOL FIX KODE)
+    // AKSI 1: AMBIL SELURUH DATABASE CLOUD (GET_DATABASE)
+    // ========================================================
+    if (data.action === "get_database" || data.action === "read_database") {
+      var db = readDatabase(rootFolder);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        documents: db.documents || [],
+        masterCodes: db.masterCodes || null,
+        activityLogs: db.activityLogs || [],
+        lastUpdated: db.lastUpdated || new Date().toISOString()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 2: SINKRONKAN SELURUH DATABASE KE CLOUD (SYNC_DATABASE)
+    // ========================================================
+    if (data.action === "sync_database" || data.action === "save_all_documents") {
+      var currentDb = readDatabase(rootFolder);
+      if (Array.isArray(data.documents)) {
+        currentDb.documents = data.documents;
+      }
+      if (data.masterCodes) {
+        currentDb.masterCodes = data.masterCodes;
+      }
+      if (Array.isArray(data.activityLogs)) {
+        currentDb.activityLogs = data.activityLogs;
+      }
+      writeDatabase(rootFolder, currentDb);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        message: "Database cloud berhasil disinkronkan ke Google Drive!",
+        totalDocuments: (currentDb.documents || []).length,
+        lastUpdated: currentDb.lastUpdated
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 3: SIMPAN / UPDATE 1 DOKUMEN KE CLOUD (SAVE_DOCUMENT)
+    // ========================================================
+    if (data.action === "save_document") {
+      var currentDb = readDatabase(rootFolder);
+      var docs = currentDb.documents || [];
+      var newDoc = data.document;
+      if (newDoc && newDoc.id) {
+        var idx = -1;
+        for (var i = 0; i < docs.length; i++) {
+          if (docs[i].id === newDoc.id || docs[i].code === newDoc.code) {
+            idx = i;
+            break;
+          }
+        }
+        if (idx >= 0) {
+          docs[idx] = newDoc;
+        } else {
+          docs.unshift(newDoc);
+        }
+        currentDb.documents = docs;
+        writeDatabase(rootFolder, currentDb);
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        message: "Dokumen berhasil disimpan ke database cloud Google Drive!",
+        totalDocuments: docs.length,
+        lastUpdated: currentDb.lastUpdated
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 4: HAPUS DOKUMEN DARI DATABASE CLOUD (DELETE_DOCUMENT_RECORD)
+    // ========================================================
+    if (data.action === "delete_document_record") {
+      var currentDb = readDatabase(rootFolder);
+      var docs = currentDb.documents || [];
+      var targetId = data.documentId;
+      var targetCode = data.documentCode;
+      var filtered = [];
+      for (var i = 0; i < docs.length; i++) {
+        if ((targetId && docs[i].id === targetId) || (targetCode && docs[i].code === targetCode)) {
+          continue;
+        }
+        filtered.push(docs[i]);
+      }
+      currentDb.documents = filtered;
+      writeDatabase(rootFolder, currentDb);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        message: "Dokumen berhasil dihapus dari database cloud Google Drive!",
+        totalDocuments: filtered.length,
+        lastUpdated: currentDb.lastUpdated
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 5: BUAT / CARI FOLDER DOKUMEN & KATEGORI (TOMBOL FIX KODE)
     // ========================================================
     if (data.action === "create_folder" || data.action === "find_or_create_folder") {
       var folderName = data.folderName || data.documentCode || "Dokumen_NBE";
       var parentId = data.parentId || TARGET_FOLDER_ID;
       var parentFolder = DriveApp.getFolderById(parentId);
 
-      // Jika kategori surat ditentukan, pastikan folder kategori ada di Drive
       if (data.categoryName || data.categoryCode) {
         var catName = data.categoryName || data.categoryCode;
         var existingCatFolders = parentFolder.getFoldersByName(catName);
@@ -613,11 +911,9 @@ function doPost(e) {
             catFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
           } catch (eCatShare) {}
         }
-        // Tempatkan folder dokumen di dalam folder kategori ini
         parentFolder = catFolder;
       }
 
-      // Cek apakah folder dokumen sudah ada sebelumnya di dalam parentFolder
       var existingFolders = parentFolder.getFoldersByName(folderName);
       var targetFolder;
       if (existingFolders.hasNext()) {
@@ -626,7 +922,6 @@ function doPost(e) {
         targetFolder = parentFolder.createFolder(folderName);
       }
 
-      // Berikan hak akses lihat bagi siapa saja yang memiliki tautan
       try {
         targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       } catch (errSharing) {}
@@ -639,17 +934,16 @@ function doPost(e) {
         folderName: targetFolder.getName(),
         parentFolderId: parentFolder.getId(),
         parentFolderName: parentFolder.getName(),
-        message: "Folder Google Drive '" + folderName + "' berhasil disiapkan di dalam folder kategori '" + parentFolder.getName() + "'!"
+        message: "Folder Google Drive '" + folderName + "' berhasil disiapkan!"
       })).setMimeType(ContentService.MimeType.JSON);
     }
 
     // ========================================================
-    // AKSI 2: HAPUS SURAT & FOLDER DI GOOGLE DRIVE (DELETE)
+    // AKSI 6: HAPUS SURAT & FOLDER DI GOOGLE DRIVE (DELETE)
     // ========================================================
     if (data.action === "delete" || data.action === "delete_folder") {
       var deletedItems = [];
 
-      // Hapus folder dokumen khusus (pastikan bukan root TARGET_FOLDER_ID)
       if (data.folderId && data.folderId !== TARGET_FOLDER_ID) {
         try {
           var fld = DriveApp.getFolderById(data.folderId);
@@ -657,7 +951,6 @@ function doPost(e) {
           deletedItems.push("Folder ID: " + data.folderId);
         } catch (errFld) {}
       } else if (data.documentCode) {
-        // Cari subfolder dengan nama kode surat di TARGET_FOLDER_ID dan di dalam folder kategori
         try {
           var rootF = DriveApp.getFolderById(TARGET_FOLDER_ID);
           var subFolders = rootF.getFoldersByName(data.documentCode);
@@ -666,7 +959,6 @@ function doPost(e) {
             sf.setTrashed(true);
             deletedItems.push("Folder: " + sf.getName());
           }
-          // Periksa juga di dalam subfolder kategori
           var catFolders = rootF.getFolders();
           while (catFolders.hasNext()) {
             var cf = catFolders.next();
@@ -680,13 +972,21 @@ function doPost(e) {
         } catch (errSearch) {}
       }
 
-      // Hapus file dokumen jika fileId spesifik diberikan
       if (data.fileId) {
         try {
           var fl = DriveApp.getFileById(data.fileId);
           fl.setTrashed(true);
           deletedItems.push("File ID: " + data.fileId);
         } catch (errFile) {}
+      }
+
+      // Hapus juga dari nbe_cloud_database.json
+      if (data.documentCode) {
+        var currentDb = readDatabase(rootFolder);
+        var docs = currentDb.documents || [];
+        var filtered = docs.filter(function(d) { return d.code !== data.documentCode; });
+        currentDb.documents = filtered;
+        writeDatabase(rootFolder, currentDb);
       }
 
       return ContentService.createTextOutput(JSON.stringify({
@@ -698,7 +998,7 @@ function doPost(e) {
     }
 
     // ========================================================
-    // AKSI 3: UPLOAD DOKUMEN / REVISI DOKUMEN
+    // AKSI 7: UPLOAD DOKUMEN / REVISI DOKUMEN
     // ========================================================
     var folderId = data.folderId || TARGET_FOLDER_ID;
     var folder = DriveApp.getFolderById(folderId);
@@ -706,7 +1006,6 @@ function doPost(e) {
     var rawFileName = data.fileName || (data.documentCode ? data.documentCode + ".pdf" : "dokumen-nbe.pdf");
     var fileName = rawFileName;
 
-    // Format nama file revisi otomatis: [KodeSurat]-rev1, -rev2, dst
     if (data.isRevision && data.documentCode) {
       var revSuffix = "-rev" + (data.revision !== undefined ? data.revision : 1);
       var ext = "";
@@ -721,14 +1020,12 @@ function doPost(e) {
       fileName = data.documentCode + "_" + fileName;
     }
 
-    // Jika ada lampiran berkas base64 (pastikan string valid dan tidak kosong)
     if (data.base64 && typeof data.base64 === 'string' && data.base64.trim().length > 0) {
       var decoded = Utilities.base64Decode(data.base64.trim());
       var mimeType = data.mimeType || 'application/pdf';
       var blob = Utilities.newBlob(decoded, mimeType, fileName);
       file = folder.createFile(blob);
     } else {
-      // Jika surat didaftarkan tanpa file fisik, buat berkas bukti registrasi resmi
       var regFileName = (data.documentCode || "DOC") + "_Registrasi_Sistem.txt";
       var summaryText = "========================================================\\n" +
                         "BUKTI REGISTRASI DOKUMEN RESMI - PT NIRWANA BHUMI ENERGI\\n" +
@@ -745,7 +1042,6 @@ function doPost(e) {
       file = folder.createFile(regFileName, summaryText, MimeType.PLAIN_TEXT);
     }
 
-    // Tambahkan keterangan dokumen
     var desc = "Dokumen Resmi PT Nirwana Bhumi Energi\\n" +
                "Kode Surat: " + (data.documentCode || "-") + "\\n" +
                "Nama File: " + fileName + "\\n" +
@@ -753,10 +1049,48 @@ function doPost(e) {
                "Waktu: " + new Date().toISOString();
     file.setDescription(desc);
 
-    // Set permission agar dapat dilihat/diunduh oleh siapa pun yang memiliki link
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     } catch (errPerm) {}
+
+    // Otomatis sinkronkan catatan dokumen ini ke nbe_cloud_database.json
+    if (data.documentCode) {
+      var currentDb = readDatabase(rootFolder);
+      var docs = currentDb.documents || [];
+      var matched = false;
+      for (var k = 0; k < docs.length; k++) {
+        if (docs[k].code === data.documentCode) {
+          docs[k].googleDriveLink = file.getUrl();
+          docs[k].fileName = fileName;
+          docs[k].fileSize = file.getSize();
+          docs[k].updatedAt = new Date().toISOString();
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) {
+        docs.unshift({
+          id: "doc-" + new Date().getTime(),
+          code: data.documentCode,
+          title: data.title || fileName,
+          typeCode: data.typeCode || "SOP",
+          divisionCode: data.divisionCode || "GNR",
+          approverCode: data.approverCode || "CEO",
+          seqNumber: 1,
+          revision: data.revision || 0,
+          status: "Published",
+          createdBy: data.uploadedBy || data.createdBy || "Staff",
+          issueDate: data.issueDate || new Date().toISOString().slice(0, 10),
+          fileName: fileName,
+          fileSize: file.getSize(),
+          googleDriveLink: file.getUrl(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        });
+      }
+      currentDb.documents = docs;
+      writeDatabase(rootFolder, currentDb);
+    }
 
     var response = {
       status: "success",
@@ -765,7 +1099,7 @@ function doPost(e) {
       fileName: file.getName(),
       viewUrl: file.getUrl(),
       downloadUrl: file.getDownloadUrl(),
-      message: "Dokumen (" + fileName + ") berhasil diunggah ke folder Google Drive!"
+      message: "Dokumen (" + fileName + ") berhasil diunggah ke folder Google Drive & dicatat ke Database Cloud!"
     };
 
     return ContentService.createTextOutput(JSON.stringify(response))
@@ -783,13 +1117,29 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput(JSON.stringify({
-    status: "online",
-    bot: "PT Nirwana Bhumi Energi Document Drive Bot",
-    targetFolder: TARGET_FOLDER_ID,
-    folderUrl: "https://drive.google.com/drive/folders/" + TARGET_FOLDER_ID,
-    timestamp: new Date().toISOString()
-  })).setMimeType(ContentService.MimeType.JSON);
+  try {
+    var rootFolder = DriveApp.getFolderById(TARGET_FOLDER_ID);
+    var db = readDatabase(rootFolder);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "online",
+      bot: "PT Nirwana Bhumi Energi Document Drive Bot",
+      targetFolder: TARGET_FOLDER_ID,
+      folderUrl: "https://drive.google.com/drive/folders/" + TARGET_FOLDER_ID,
+      totalDocuments: (db.documents || []).length,
+      documents: db.documents || [],
+      masterCodes: db.masterCodes || null,
+      activityLogs: db.activityLogs || [],
+      lastUpdated: db.lastUpdated || new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "online",
+      bot: "PT Nirwana Bhumi Energi Document Drive Bot",
+      targetFolder: TARGET_FOLDER_ID,
+      error: err.toString(),
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
 }
 `;
 }

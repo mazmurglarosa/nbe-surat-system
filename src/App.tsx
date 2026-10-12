@@ -48,7 +48,16 @@ import {
   BookOpen,
   Download,
   Bot,
+  RefreshCw,
+  Cloud,
 } from 'lucide-react';
+import {
+  setupRealtimeSync,
+  pushDocumentToCloud,
+  removeDocumentFromCloud,
+  syncFromCloud,
+  CloudSyncState,
+} from './services/cloudSync';
 
 export function App() {
   const [documents, setDocuments] = useState<DocumentRecord[]>(() =>
@@ -58,6 +67,14 @@ export function App() {
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() =>
     loadActivityLogs()
   );
+  const [cloudSyncState, setCloudSyncState] = useState<CloudSyncState>({
+    isConfigured: false,
+    isSyncing: false,
+    lastSyncedAt: null,
+    cloudDocumentCount: 0,
+    lastError: null,
+  });
+  const [isManualSyncing, setIsManualSyncing] = useState(false);
   const [driveSettings, setDriveSettings] = useState<GoogleDriveSettings>(() =>
     getGoogleDriveSettings()
   );
@@ -92,6 +109,37 @@ export function App() {
     });
   }, []);
 
+  // Live Cloud Synchronization across all devices (Every 8 seconds & on window focus)
+  useEffect(() => {
+    const unsubscribe = setupRealtimeSync({
+      onDocumentsUpdated: (freshDocs) => {
+        setDocuments(freshDocs);
+      },
+      onMasterCodesUpdated: (freshCodes) => {
+        setMasterCodes(freshCodes);
+      },
+      onSyncStatusChanged: (status) => {
+        setCloudSyncState(status);
+      },
+      intervalMs: 8000,
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleManualSync = async () => {
+    setIsManualSyncing(true);
+    try {
+      const res = await syncFromCloud();
+      if (res.success && res.documents) {
+        setDocuments(res.documents);
+        if (res.masterCodes) setMasterCodes(res.masterCodes);
+      }
+    } finally {
+      setTimeout(() => setIsManualSyncing(false), 600);
+    }
+  };
+
   const toggleTheme = () => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
@@ -100,6 +148,7 @@ export function App() {
   const handleSaveDocument = async (newDoc: DocumentRecord) => {
     const updated = await saveDocument(newDoc);
     setDocuments(updated);
+    pushDocumentToCloud(newDoc); // Sinkronisasi instan ke Cloud Google Drive
 
     const updatedLogs = addActivityLog({
       userName: 'Mazmur Gusti Agung Larosa',
@@ -115,6 +164,7 @@ export function App() {
   const handleUpdateDocument = async (updatedDoc: DocumentRecord) => {
     const updated = await saveDocument(updatedDoc);
     setDocuments(updated);
+    pushDocumentToCloud(updatedDoc); // Sinkronisasi instan ke Cloud Google Drive
     if (viewingDoc && viewingDoc.id === updatedDoc.id) {
       setViewingDoc(updatedDoc);
     }
@@ -133,6 +183,9 @@ export function App() {
   const handleDeleteDocument = async (id: string) => {
     const target = documents.find((d) => d.id === id);
     if (!target) return;
+
+    // Hapus juga dari Cloud Google Drive
+    removeDocumentFromCloud(id, target.code);
 
     // Otomatis hapus folder dan file di Google Drive via Bot jika Webhook disetel
     if (driveSettings.botWebhookUrl) {
@@ -175,6 +228,7 @@ export function App() {
   const handleSaveRevision = async (updatedDoc: DocumentRecord) => {
     const updated = await saveDocument(updatedDoc);
     setDocuments(updated);
+    pushDocumentToCloud(updatedDoc); // Sinkronisasi revisi ke Cloud Google Drive
     if (viewingDoc && viewingDoc.id === updatedDoc.id) {
       setViewingDoc(updatedDoc);
     }
@@ -490,6 +544,49 @@ export function App() {
 
           {/* Right Action Icons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Real-time Cloud Sync Badge & Button */}
+            <button
+              onClick={handleManualSync}
+              disabled={isManualSyncing || cloudSyncState.isSyncing}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.45rem',
+                border: cloudSyncState.isConfigured
+                  ? '1px solid rgba(16, 185, 129, 0.45)'
+                  : '1px solid rgba(245, 158, 11, 0.45)',
+                background: cloudSyncState.isConfigured
+                  ? 'rgba(16, 185, 129, 0.1)'
+                  : 'rgba(245, 158, 11, 0.1)',
+                color: cloudSyncState.isConfigured ? 'var(--success)' : '#f59e0b',
+                padding: '0.35rem 0.75rem',
+                cursor: 'pointer',
+              }}
+              title={
+                cloudSyncState.isConfigured
+                  ? 'Cloud Database Real-Time Aktif (Multi-Device Sinkron Otomatis). Klik untuk refresh instan.'
+                  : 'Cloud Database belum terpasang Webhook. Klik "Bot Google Drive" untuk memasang Webhook bot.'
+              }
+            >
+              <RefreshCw
+                size={13}
+                style={{
+                  animation:
+                    isManualSyncing || cloudSyncState.isSyncing
+                      ? 'spin 1s linear infinite'
+                      : 'none',
+                }}
+              />
+              <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>
+                {cloudSyncState.isSyncing || isManualSyncing
+                  ? 'Sinkron...'
+                  : cloudSyncState.isConfigured
+                  ? 'Cloud Real-Time'
+                  : 'Cloud Offline'}
+              </span>
+            </button>
+
             {/* Bot & Google Drive Shortcut */}
             <button
               onClick={() => setIsDriveModalOpen(true)}
