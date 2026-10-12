@@ -82,6 +82,8 @@ function openDatabase(): Promise<IDBDatabase> {
   });
 }
 
+const BACKUP_STORAGE_KEY = 'nbe_documents_backup_v1';
+
 /**
  * Load all documents from localStorage first, then IndexedDB
  */
@@ -107,6 +109,19 @@ export async function loadDocuments(): Promise<DocumentRecord[]> {
           }
         }
 
+        // Check emergency backup storage
+        if (docs.length === 0) {
+          const backupData = localStorage.getItem(BACKUP_STORAGE_KEY);
+          if (backupData) {
+            try {
+              const parsedBackup = JSON.parse(backupData);
+              if (Array.isArray(parsedBackup) && parsedBackup.length > 0) {
+                docs = parsedBackup;
+              }
+            } catch (eBackup) {}
+          }
+        }
+
         if (docs.length === 0) {
           docs = [...INITIAL_SEED_DOCUMENTS];
           saveAllDocuments(docs);
@@ -116,14 +131,14 @@ export async function loadDocuments(): Promise<DocumentRecord[]> {
       };
 
       request.onerror = () => {
-        // Fallback to localStorage
-        const local = localStorage.getItem(STORAGE_KEY);
+        // Fallback to localStorage or backup
+        const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(BACKUP_STORAGE_KEY);
         resolve(local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS]);
       };
     });
   } catch (error) {
     console.warn('IndexedDB unavailable, falling back to LocalStorage:', error);
-    const local = localStorage.getItem(STORAGE_KEY);
+    const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(BACKUP_STORAGE_KEY);
     return local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS];
   }
 }
@@ -135,7 +150,17 @@ export function getStoredDocumentsSync(): DocumentRecord[] {
   try {
     const local = localStorage.getItem(STORAGE_KEY);
     if (local) {
-      return JSON.parse(local);
+      const parsed = JSON.parse(local);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+    const backup = localStorage.getItem(BACKUP_STORAGE_KEY);
+    if (backup) {
+      const parsedB = JSON.parse(backup);
+      if (Array.isArray(parsedB) && parsedB.length > 0) {
+        return parsedB;
+      }
     }
   } catch (e) {
     console.error('Failed reading sync localStorage', e);
@@ -147,6 +172,11 @@ export function getStoredDocumentsSync(): DocumentRecord[] {
  * Save all documents to both IndexedDB and LocalStorage
  */
 export async function saveAllDocuments(docs: DocumentRecord[]): Promise<void> {
+  if (!docs || docs.length === 0) {
+    // Proteksi mutlak: Jangan pernah menghapus database yang sudah ada jika array kosong
+    return;
+  }
+
   // 1. Save to LocalStorage (without heavy base64 to prevent quota error)
   try {
     const lightweightDocs = docs.map((doc) => {
@@ -158,6 +188,7 @@ export async function saveAllDocuments(docs: DocumentRecord[]): Promise<void> {
       return doc;
     });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(lightweightDocs));
+    localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(lightweightDocs));
   } catch (e) {
     console.warn('LocalStorage quota warning, data kept in IndexedDB', e);
   }

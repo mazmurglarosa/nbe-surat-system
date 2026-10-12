@@ -578,19 +578,34 @@ export async function fetchDatabaseFromCloudBot(webhookUrl: string): Promise<{
   }
 
   try {
-    // Coba via GET terlebih dahulu (sangat cepat dan didukung browser tanpa CORS)
+    // Coba via GET terlebih dahulu
     const getUrl = `${webhookUrl}${webhookUrl.includes('?') ? '&' : '?'}action=get_database&t=${Date.now()}`;
     const res = await fetch(getUrl, {
       method: 'GET',
     });
     const result = await res.json();
-    if (result.status === 'success' || result.status === 'online' || result.documents) {
+
+    const rawDocs = Array.isArray(result.documents)
+      ? result.documents
+      : (result.database && Array.isArray(result.database.documents))
+      ? result.database.documents
+      : null;
+
+    if (rawDocs !== null) {
       return {
         success: true,
-        documents: result.documents || (result.database && result.database.documents) || [],
+        documents: rawDocs,
         masterCodes: result.masterCodes || (result.database && result.database.masterCodes) || null,
         activityLogs: result.activityLogs || (result.database && result.database.activityLogs) || [],
         lastUpdated: result.lastUpdated || result.timestamp,
+      };
+    }
+
+    // Jika bot hanya merespons status: online (ping lama tanpa database), jangan anggap sebagai database
+    if (result.status === 'online' && !result.documents) {
+      return {
+        success: false,
+        error: 'Bot online tapi skrip bot belum diperbarui ke versi cloud database',
       };
     }
   } catch (getErr) {
@@ -602,10 +617,16 @@ export async function fetchDatabaseFromCloudBot(webhookUrl: string): Promise<{
         body: JSON.stringify({ action: 'get_database' }),
       });
       const postResult = await postRes.json();
-      if (postResult.success || postResult.documents) {
+      const rawDocs = Array.isArray(postResult.documents)
+        ? postResult.documents
+        : (postResult.database && Array.isArray(postResult.database.documents))
+        ? postResult.database.documents
+        : null;
+
+      if (rawDocs !== null) {
         return {
           success: true,
-          documents: postResult.documents || [],
+          documents: rawDocs,
           masterCodes: postResult.masterCodes || null,
           activityLogs: postResult.activityLogs || [],
           lastUpdated: postResult.lastUpdated,

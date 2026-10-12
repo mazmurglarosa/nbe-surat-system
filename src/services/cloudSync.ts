@@ -44,6 +44,99 @@ export interface CloudSyncState {
 }
 
 /**
+ * Smart Two-Way Merge antara data dokumen Lokal dan Cloud
+ * Memastikan tidak ada data yang terhapus secara sepihak
+ */
+export function mergeDocuments(
+  localDocs: DocumentRecord[],
+  cloudDocs: DocumentRecord[]
+): {
+  merged: DocumentRecord[];
+  needsCloudPush: boolean;
+} {
+  const safeLocal = Array.isArray(localDocs) ? localDocs : [];
+  const safeCloud = Array.isArray(cloudDocs) ? cloudDocs : [];
+
+  // Jika cloud kosong tapi lokal memiliki dokumen -> JANGAN HAPUS LOKAL!
+  if (safeCloud.length === 0 && safeLocal.length > 0) {
+    return {
+      merged: [...safeLocal],
+      needsCloudPush: true,
+    };
+  }
+
+  // Jika lokal kosong tapi cloud memiliki dokumen -> gunakan cloud
+  if (safeLocal.length === 0 && safeCloud.length > 0) {
+    return {
+      merged: [...safeCloud],
+      needsCloudPush: false,
+    };
+  }
+
+  if (safeLocal.length === 0 && safeCloud.length === 0) {
+    return {
+      merged: [],
+      needsCloudPush: false,
+    };
+  }
+
+  const map = new Map<string, DocumentRecord>();
+  let needsPush = false;
+
+  // 1. Masukkan semua data dari cloud ke Map
+  for (const cDoc of safeCloud) {
+    if (!cDoc) continue;
+    const key = (cDoc.code || cDoc.id || '').trim().toUpperCase();
+    if (key) {
+      map.set(key, cDoc);
+    }
+  }
+
+  // 2. Gabungkan data lokal
+  for (const lDoc of safeLocal) {
+    if (!lDoc) continue;
+    const key = (lDoc.code || lDoc.id || '').trim().toUpperCase();
+    if (!key) continue;
+
+    const existing = map.get(key);
+    if (!existing) {
+      // Ada di lokal tapi belum ada di cloud -> pertahankan dan push ke cloud!
+      map.set(key, lDoc);
+      needsPush = true;
+    } else {
+      // Ada di kedua tempat -> bandingkan versi terbaru
+      const lTime = new Date(lDoc.updatedAt || lDoc.createdAt || 0).getTime();
+      const cTime = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+      const lRev = typeof lDoc.revision === 'number' ? lDoc.revision : 0;
+      const cRev = typeof existing.revision === 'number' ? existing.revision : 0;
+
+      // Jaga kelengkapan data file (base64) jika ada di lokal
+      const preferredFileData = lDoc.fileData || existing.fileData;
+
+      if (lRev > cRev || (lRev === cRev && lTime >= cTime)) {
+        map.set(key, { ...existing, ...lDoc, fileData: preferredFileData });
+        if (lRev > cRev || lTime > cTime) {
+          needsPush = true;
+        }
+      } else {
+        map.set(key, { ...lDoc, ...existing, fileData: preferredFileData });
+      }
+    }
+  }
+
+  const merged = Array.from(map.values()).sort((a, b) => {
+    const tA = new Date(a.createdAt || a.issueDate || 0).getTime();
+    const tB = new Date(b.createdAt || b.issueDate || 0).getTime();
+    return tB - tA;
+  });
+
+  return {
+    merged,
+    needsCloudPush: needsPush,
+  };
+}
+
+/**
  * Tarik data terbaru dari Cloud Google Drive dan gabungkan dengan cache lokal
  */
 export async function syncFromCloud(): Promise<{
@@ -64,15 +157,28 @@ export async function syncFromCloud(): Promise<{
 
   try {
     const res = await fetchDatabaseFromCloudBot(webhookUrl);
-    if (!res.success || !res.documents) {
+    if (!res.success) {
       return { success: false, error: res.error || 'Gagal mengambil data dari bot' };
     }
 
-    const cloudDocs: DocumentRecord[] = res.documents;
+    // Ambil dokumen lokal yang sedang tersimpan
+    const localDocs = await loadDocuments();
+    const cloudDocs: DocumentRecord[] = Array.isArray(res.documents) ? res.documents : [];
 
-    // Jika cloud memiliki dokumen, perbarui database lokal agar sinkron
-    if (Array.isArray(cloudDocs) && cloudDocs.length > 0) {
-      await saveAllDocuments(cloudDocs);
+    // Lakukan Smart Two-Way Merge
+    const { merged, needsCloudPush } = mergeDocuments(localDocs, cloudDocs);
+
+    // Simpan hasil merge ke storage lokal jika ada dokumen
+    if (merged.length > 0) {
+      await saveAllDocuments(merged);
+    }
+
+    // Jika cloud masih kosong atau ada data lokal yang belum masuk ke cloud,
+    // segera unggah data lokal ke Google Drive agar sinkron dan permanen!
+    if (needsCloudPush && merged.length > 0) {
+      pushAllLocalDataToCloud().catch((pushErr) => {
+        console.warn('Auto-push local documents to cloud failed:', pushErr);
+      });
     }
 
     // Jika cloud memiliki master codes kategori
@@ -95,10 +201,10 @@ export async function syncFromCloud(): Promise<{
 
     return {
       success: true,
-      documents: cloudDocs,
+      documents: merged,
       masterCodes: res.masterCodes,
       activityLogs: res.activityLogs,
-      count: cloudDocs.length,
+      count: merged.length,
     };
   } catch (err: any) {
     return { success: false, error: err.message || 'Koneksi cloud bermasalah' };
@@ -194,7 +300,9 @@ export function setupRealtimeSync(callbacks: {
     try {
       const res = await syncFromCloud();
       if (res.success && res.documents) {
-        callbacks.onDocumentsUpdated(res.documents);
+        if (res.documents.length > 0) {
+          callbacks.onDocumentsUpdated(res.documents);
+        }
         if (res.masterCodes && callbacks.onMasterCodesUpdated) {
           callbacks.onMasterCodesUpdated(res.masterCodes);
         }
@@ -202,7 +310,7 @@ export function setupRealtimeSync(callbacks: {
           isConfigured: true,
           isSyncing: false,
           lastSyncedAt: new Date(),
-          cloudDocumentCount: res.count || res.documents.length,
+          cloudDocumentCount: res.count ?? res.documents.length,
           lastError: null,
         });
       } else {

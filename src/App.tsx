@@ -56,6 +56,7 @@ import {
   pushDocumentToCloud,
   removeDocumentFromCloud,
   syncFromCloud,
+  pushAllLocalDataToCloud,
   CloudSyncState,
 } from './services/cloudSync';
 
@@ -113,7 +114,10 @@ export function App() {
   useEffect(() => {
     const unsubscribe = setupRealtimeSync({
       onDocumentsUpdated: (freshDocs) => {
-        setDocuments(freshDocs);
+        // Jangan pernah menimpa dokumen lokal yang ada jika data fresh bernilai kosong
+        if (Array.isArray(freshDocs) && freshDocs.length > 0) {
+          setDocuments(freshDocs);
+        }
       },
       onMasterCodesUpdated: (freshCodes) => {
         setMasterCodes(freshCodes);
@@ -131,7 +135,7 @@ export function App() {
     setIsManualSyncing(true);
     try {
       const res = await syncFromCloud();
-      if (res.success && res.documents) {
+      if (res.success && res.documents && res.documents.length > 0) {
         setDocuments(res.documents);
         if (res.masterCodes) setMasterCodes(res.masterCodes);
       }
@@ -149,6 +153,9 @@ export function App() {
     const updated = await saveDocument(newDoc);
     setDocuments(updated);
     pushDocumentToCloud(newDoc); // Sinkronisasi instan ke Cloud Google Drive
+    setTimeout(() => {
+      pushAllLocalDataToCloud().catch(console.warn);
+    }, 1200);
 
     const updatedLogs = addActivityLog({
       userName: 'Mazmur Gusti Agung Larosa',
@@ -165,6 +172,9 @@ export function App() {
     const updated = await saveDocument(updatedDoc);
     setDocuments(updated);
     pushDocumentToCloud(updatedDoc); // Sinkronisasi instan ke Cloud Google Drive
+    setTimeout(() => {
+      pushAllLocalDataToCloud().catch(console.warn);
+    }, 1200);
     if (viewingDoc && viewingDoc.id === updatedDoc.id) {
       setViewingDoc(updatedDoc);
     }
@@ -229,6 +239,9 @@ export function App() {
     const updated = await saveDocument(updatedDoc);
     setDocuments(updated);
     pushDocumentToCloud(updatedDoc); // Sinkronisasi revisi ke Cloud Google Drive
+    setTimeout(() => {
+      pushAllLocalDataToCloud().catch(console.warn);
+    }, 1200);
     if (viewingDoc && viewingDoc.id === updatedDoc.id) {
       setViewingDoc(updatedDoc);
     }

@@ -17,7 +17,11 @@ import {
   Cloud,
   UploadCloud,
 } from 'lucide-react';
-import { GoogleDriveSettings, exportToCSV } from '../services/storage';
+import {
+  GoogleDriveSettings,
+  exportToCSV,
+  getStoredDocumentsSync,
+} from '../services/storage';
 import { DocumentRecord, CodeDefinition } from '../types';
 import {
   TARGET_FOLDER_URL,
@@ -89,6 +93,11 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
     message: string;
   } | null>(null);
 
+  const effectiveDocCount =
+    documents && documents.length > 0
+      ? documents.length
+      : getStoredDocumentsSync().length;
+
   const handlePushToCloud = async () => {
     if (!botWebhookUrl.trim()) {
       alert('Masukkan URL Webhook Bot terlebih dahulu sebelum melakukan sinkronisasi database cloud.');
@@ -101,7 +110,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
       if (res.success) {
         setPushCloudResult({
           success: true,
-          message: `Berhasil mengunggah ${documents.length} dokumen ke Database Cloud Google Drive! Sekarang seluruh HP & perangkat lain otomatis sinkron real-time.`,
+          message: `Berhasil mengunggah ${effectiveDocCount} dokumen ke Database Cloud Google Drive! Sekarang seluruh HP & perangkat lain otomatis sinkron real-time.`,
         });
       } else {
         setPushCloudResult({
@@ -118,6 +127,106 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
       setIsPushingCloud(false);
     }
   };
+
+  const renderCloudSyncCard = () => (
+    <div
+      style={{
+        background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12), rgba(16, 185, 129, 0.08))',
+        border: '1px solid rgba(56, 189, 248, 0.35)',
+        borderRadius: 'var(--radius-md)',
+        padding: '1.25rem',
+        marginBottom: '1.5rem',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <div>
+          <h4
+            style={{
+              fontSize: '0.98rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              color: '#38bdf8',
+            }}
+          >
+            <Cloud size={18} />
+            Sinkronkan Seluruh Database Lokal ke Cloud (Multi-Device)
+          </h4>
+          <p
+            style={{
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              marginTop: '0.25rem',
+              lineHeight: 1.5,
+            }}
+          >
+            Unggah {effectiveDocCount} surat yang ada di perangkat ini ke database Cloud Google Drive (<code>nbe_cloud_database.json</code>).
+            Setelah diunggah, seluruh data akan <strong>otomatis muncul dan update real-time di semua HP, laptop, dan komputer lain</strong>!
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={handlePushToCloud}
+          disabled={isPushingCloud || !botWebhookUrl.trim()}
+          className="btn btn-primary"
+          style={{
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+          }}
+        >
+          {isPushingCloud ? (
+            <>
+              <Loader2 size={16} className="animate-spin" />
+              <span>Mengunggah ke Cloud...</span>
+            </>
+          ) : (
+            <>
+              <UploadCloud size={16} />
+              <span>Unggah {effectiveDocCount} Surat ke Cloud Sekarang</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {pushCloudResult && (
+        <div
+          style={{
+            marginTop: '0.85rem',
+            padding: '0.75rem 1rem',
+            borderRadius: 'var(--radius-sm)',
+            background: pushCloudResult.success
+              ? 'rgba(16, 185, 129, 0.15)'
+              : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${
+              pushCloudResult.success ? 'var(--success)' : 'var(--danger)'
+            }`,
+            color: pushCloudResult.success ? 'var(--success)' : '#fca5a5',
+            fontSize: '0.82rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          {pushCloudResult.success ? (
+            <CheckCircle2 size={17} />
+          ) : (
+            <AlertCircle size={17} />
+          )}
+          <span>{pushCloudResult.message}</span>
+        </div>
+      )}
+    </div>
+  );
 
   const handleSyncCategories = async () => {
     if (!botWebhookUrl.trim()) {
@@ -641,103 +750,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
               </form>
 
               {/* Cloud Database Sync Action (Multi-Device Sync) */}
-              <div
-                style={{
-                  background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.12), rgba(16, 185, 129, 0.08))',
-                  border: '1px solid rgba(56, 189, 248, 0.35)',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '1.25rem',
-                  marginBottom: '1.5rem',
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                  }}
-                >
-                  <div>
-                    <h4
-                      style={{
-                        fontSize: '0.98rem',
-                        fontWeight: 700,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.45rem',
-                        color: '#38bdf8',
-                      }}
-                    >
-                      <Cloud size={18} />
-                      Sinkronkan Seluruh Database Lokal ke Cloud (Multi-Device)
-                    </h4>
-                    <p
-                      style={{
-                        fontSize: '0.8rem',
-                        color: 'var(--text-secondary)',
-                        marginTop: '0.25rem',
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      Unggah {documents.length} surat yang ada di perangkat ini ke database Cloud Google Drive (<code>nbe_cloud_database.json</code>).
-                      Setelah diunggah, seluruh data akan <strong>otomatis muncul dan update real-time di semua HP, laptop, dan komputer lain</strong>!
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handlePushToCloud}
-                    disabled={isPushingCloud || !botWebhookUrl.trim()}
-                    className="btn btn-primary"
-                    style={{
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
-                    }}
-                  >
-                    {isPushingCloud ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Mengunggah ke Cloud...</span>
-                      </>
-                    ) : (
-                      <>
-                        <UploadCloud size={16} />
-                        <span>Unggah {documents.length} Surat ke Cloud Sekarang</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {pushCloudResult && (
-                  <div
-                    style={{
-                      marginTop: '0.85rem',
-                      padding: '0.75rem 1rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: pushCloudResult.success
-                        ? 'rgba(16, 185, 129, 0.15)'
-                        : 'rgba(239, 68, 68, 0.15)',
-                      border: `1px solid ${
-                        pushCloudResult.success ? 'var(--success)' : 'var(--danger)'
-                      }`,
-                      color: pushCloudResult.success ? 'var(--success)' : '#fca5a5',
-                      fontSize: '0.82rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                    }}
-                  >
-                    {pushCloudResult.success ? (
-                      <CheckCircle2 size={17} />
-                    ) : (
-                      <AlertCircle size={17} />
-                    )}
-                    <span>{pushCloudResult.message}</span>
-                  </div>
-                )}
-              </div>
+              {renderCloudSyncCard()}
 
               {/* Sync Category Folders Action */}
               <div
@@ -950,6 +963,9 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Tombol Unggah Database ke Cloud - Tersedia Langsung di Tab Ini */}
+              {renderCloudSyncCard()}
 
               {/* Code display */}
               <div
