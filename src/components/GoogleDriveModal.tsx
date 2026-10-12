@@ -16,6 +16,7 @@ import {
   FolderPlus,
   Cloud,
   UploadCloud,
+  FolderArchive,
 } from 'lucide-react';
 import {
   GoogleDriveSettings,
@@ -30,6 +31,7 @@ import {
   getGoogleAppsScriptBotCode,
   testBotConnection,
   syncAllCategoriesToDriveViaBot,
+  organizeTxtFilesInDriveViaBot,
 } from '../services/googleDriveBot';
 import { pushAllLocalDataToCloud } from '../services/cloudSync';
 
@@ -91,6 +93,15 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
   const [pushCloudResult, setPushCloudResult] = useState<{
     success: boolean;
     message: string;
+  } | null>(null);
+
+  // Organize TXT registration files state
+  const [isOrganizingTxt, setIsOrganizingTxt] = useState(false);
+  const [organizeTxtResult, setOrganizeTxtResult] = useState<{
+    success: boolean;
+    message: string;
+    movedCount?: number;
+    folderUrl?: string;
   } | null>(null);
 
   const effectiveDocCount =
@@ -257,6 +268,40 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
       });
     } finally {
       setIsSyncingCategories(false);
+    }
+  };
+
+  const handleOrganizeTxtFiles = async () => {
+    if (!botWebhookUrl.trim()) {
+      alert('Masukkan URL Webhook Bot terlebih dahulu sebelum merapikan file .txt.');
+      return;
+    }
+    setIsOrganizingTxt(true);
+    setOrganizeTxtResult(null);
+    try {
+      const res = await organizeTxtFilesInDriveViaBot(botWebhookUrl.trim());
+      if (res.success) {
+        setOrganizeTxtResult({
+          success: true,
+          message:
+            res.message ||
+            `Berhasil merapikan ${res.movedCount ?? 0} file .txt ke folder Bukti Registrasi Dokumen (TXT)!`,
+          movedCount: res.movedCount,
+          folderUrl: res.folderUrl,
+        });
+      } else {
+        setOrganizeTxtResult({
+          success: false,
+          message: res.error || 'Bot Google Drive gagal merapikan file .txt.',
+        });
+      }
+    } catch (err: any) {
+      setOrganizeTxtResult({
+        success: false,
+        message: err.message || 'Terjadi kesalahan jaringan.',
+      });
+    } finally {
+      setIsOrganizingTxt(false);
     }
   };
 
@@ -870,6 +915,105 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                 )}
               </div>
 
+              {/* Kelompokkan & Rapikan File Registrasi (.txt) ke Folder */}
+              <div
+                style={{
+                  background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(2, 132, 199, 0.06))',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                  }}
+                >
+                  <div style={{ flex: 1, minWidth: '260px' }}>
+                    <h4
+                      style={{
+                        fontSize: '0.95rem',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.45rem',
+                        color: '#f59e0b',
+                      }}
+                    >
+                      <FolderArchive size={16} />
+                      Kelompokkan File Registrasi (.txt) ke Folder Khusus
+                    </h4>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem', lineHeight: 1.5 }}>
+                      Bot akan membuat folder <strong>📁 Bukti Registrasi Dokumen (TXT)</strong> dan otomatis memindahkan seluruh file <code>.txt</code> registrasi yang menumpuk di folder utama agar Google Drive Anda bersih dan rapi.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOrganizeTxtFiles}
+                    disabled={isOrganizingTxt || !botWebhookUrl.trim()}
+                    className="btn btn-primary btn-sm"
+                    style={{
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.25)',
+                      color: '#ffffff',
+                    }}
+                  >
+                    {isOrganizingTxt ? (
+                      <>
+                        <Loader2 size={14} className="spin" />
+                        <span>Merapikan File .txt...</span>
+                      </>
+                    ) : (
+                      <>
+                        <FolderArchive size={14} />
+                        <span>Rapikan & Pindahkan File TXT</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {organizeTxtResult && (
+                  <div
+                    style={{
+                      marginTop: '0.75rem',
+                      padding: '0.75rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      background: organizeTxtResult.success ? 'var(--success-bg)' : 'var(--danger-bg)',
+                      border: `1px solid ${organizeTxtResult.success ? 'var(--success)' : 'var(--danger)'}`,
+                      fontSize: '0.8rem',
+                      color: organizeTxtResult.success ? 'var(--success)' : 'var(--danger)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {organizeTxtResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                      <span>{organizeTxtResult.message}</span>
+                    </div>
+                    {organizeTxtResult.folderUrl && (
+                      <a
+                        href={organizeTxtResult.folderUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem', color: '#0284c7' }}
+                      >
+                        <ExternalLink size={13} />
+                        Buka Folder TXT di Drive
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* Export to CSV Action */}
               <div
                 style={{
@@ -953,7 +1097,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                       <li>Klik menu <strong>Deploy (Terapkan)</strong> &gt; pilih <strong>Kelola deployment (Manage deployments)</strong>.</li>
                       <li>Klik ikon <strong>✏️ Pensil (Edit)</strong> di kanan atas pop-up.</li>
                       <li>Pada pilihan <strong>Versi (Version)</strong>, pilih <strong>Versi baru (New version)</strong>.</li>
-                      <li>Klik <strong>Deploy (Terapkan)</strong>. Selesai! Webhook URL tetap sama &amp; fitur buat folder otomatis langsung aktif.</li>
+                      <li>Klik <strong>Deploy (Terapkan)</strong>. Selesai! Webhook URL tetap sama, dan bot akan otomatis mengelompokkan seluruh file <code>.txt</code> registrasi ke dalam folder khusus <strong>Bukti Registrasi Dokumen (TXT)</strong> agar Google Drive Anda selalu rapi.</li>
                     </ol>
                   </div>
 

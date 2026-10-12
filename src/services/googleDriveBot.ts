@@ -563,6 +563,62 @@ export async function registerDocumentInDriveViaBot(
 }
 
 /**
+ * Pindahkan & kelompokkan seluruh file .txt registrasi di Google Drive ke folder khusus "Bukti Registrasi Dokumen (TXT)"
+ */
+export async function organizeTxtFilesInDriveViaBot(webhookUrl: string): Promise<{
+  success: boolean;
+  message?: string;
+  movedCount?: number;
+  folderUrl?: string;
+  folderId?: string;
+  error?: string;
+}> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return {
+      success: false,
+      error: 'URL Webhook Bot Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  try {
+    const payload = {
+      action: 'organize_txt_files',
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+    if (result.status === 'success' || result.success) {
+      return {
+        success: true,
+        message:
+          result.message ||
+          `Berhasil merapikan ${result.movedCount ?? 0} file .txt ke dalam folder 'Bukti Registrasi Dokumen (TXT)'!`,
+        movedCount: result.movedCount ?? 0,
+        folderUrl: result.folderUrl,
+        folderId: result.folderId,
+      };
+    } else {
+      return {
+        success: false,
+        error: result.message || 'Bot Google Drive gagal merapikan file .txt.',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Koneksi ke Bot Google Drive bermasalah: ${err.message}`,
+    };
+  }
+}
+
+/**
  * Ambil seluruh database dari Cloud Google Drive via Bot Webhook
  */
 export async function fetchDatabaseFromCloudBot(webhookUrl: string): Promise<{
@@ -747,14 +803,16 @@ export function getGoogleAppsScriptBotCode(folderId: string = TARGET_FOLDER_ID):
  * Fitur:
  * 1. REAL-TIME MULTI-DEVICE CLOUD DATABASE (action: "get_database", "sync_database", "save_document")
  * 2. Otomatis buat folder kategori & folder dokumen bersarang (action: "create_folder")
- * 3. Upload dokumen fisik & revisi ke folder kode surat (action: "upload")
- * 4. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
- * 5. Otomatis hapus folder dan file di Google Drive saat surat dihapus (action: "delete")
+ * 3. Otomatis kelompokkan file .txt registrasi ke folder khusus "Bukti Registrasi Dokumen (TXT)" (action: "organize_txt_files")
+ * 4. Upload dokumen fisik & revisi ke folder kode surat (action: "upload")
+ * 5. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
+ * 6. Otomatis hapus folder dan file di Google Drive saat surat dihapus (action: "delete")
  * ============================================================
  */
 
 var TARGET_FOLDER_ID = "${activeFolderId}";
 var DB_FILE_NAME = "nbe_cloud_database.json";
+var TXT_FOLDER_NAME = "Bukti Registrasi Dokumen (TXT)";
 
 function getDatabaseFile(targetFolder) {
   var files = targetFolder.getFilesByName(DB_FILE_NAME);
@@ -800,6 +858,55 @@ function writeDatabase(targetFolder, dbData) {
     } catch (e) {}
   }
   return dbData;
+}
+
+function getOrCreateTxtFolder(rootFolder) {
+  var folders = rootFolder.getFoldersByName(TXT_FOLDER_NAME);
+  if (folders.hasNext()) {
+    return folders.next();
+  }
+  var newFolder = rootFolder.createFolder(TXT_FOLDER_NAME);
+  try {
+    newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (eShare) {}
+  return newFolder;
+}
+
+function organizeLooseTxtFiles(rootFolder, txtFolder) {
+  if (!txtFolder) {
+    txtFolder = getOrCreateTxtFolder(rootFolder);
+  }
+  var rootFiles = rootFolder.getFiles();
+  var movedCount = 0;
+  var movedNames = [];
+  while (rootFiles.hasNext()) {
+    var f = rootFiles.next();
+    var name = f.getName();
+    // Jangan sentuh file database JSON nbe_cloud_database.json
+    if (name !== DB_FILE_NAME && (name.toLowerCase().endsWith(".txt") || name.indexOf("Registrasi_Sistem") !== -1)) {
+      try {
+        if (typeof f.moveTo === 'function') {
+          f.moveTo(txtFolder);
+        } else {
+          txtFolder.addFile(f);
+          rootFolder.removeFile(f);
+        }
+        movedCount++;
+        movedNames.push(name);
+      } catch (eMove) {
+        try {
+          txtFolder.addFile(f);
+          rootFolder.removeFile(f);
+          movedCount++;
+          movedNames.push(name);
+        } catch (eMove2) {}
+      }
+    }
+  }
+  return {
+    movedCount: movedCount,
+    movedNames: movedNames
+  };
 }
 
 function doPost(e) {
@@ -1019,7 +1126,25 @@ function doPost(e) {
     }
 
     // ========================================================
-    // AKSI 7: UPLOAD DOKUMEN / REVISI DOKUMEN
+    // AKSI 7: KELOMPOKKAN & RAPIKAN FILE TXT KE FOLDER KHUSUS (ORGANIZE_TXT_FILES)
+    // ========================================================
+    if (data.action === "organize_txt_files" || data.action === "group_txt_files" || data.action === "clean_txt_files") {
+      var txtFolder = getOrCreateTxtFolder(rootFolder);
+      var orgRes = organizeLooseTxtFiles(rootFolder, txtFolder);
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        folderId: txtFolder.getId(),
+        folderUrl: txtFolder.getUrl(),
+        folderName: TXT_FOLDER_NAME,
+        movedCount: orgRes.movedCount,
+        movedFiles: orgRes.movedNames,
+        message: "Berhasil mengelompokkan " + orgRes.movedCount + " file .txt ke dalam folder '" + TXT_FOLDER_NAME + "'!"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 8: UPLOAD DOKUMEN / REVISI DOKUMEN
     // ========================================================
     var folderId = data.folderId || TARGET_FOLDER_ID;
     var folder = DriveApp.getFolderById(folderId);
@@ -1047,7 +1172,10 @@ function doPost(e) {
       var blob = Utilities.newBlob(decoded, mimeType, fileName);
       file = folder.createFile(blob);
     } else {
+      // Otomatis kelompokkan file .txt registrasi ke folder khusus "Bukti Registrasi Dokumen (TXT)"
+      var txtTargetFolder = getOrCreateTxtFolder(rootFolder);
       var regFileName = (data.documentCode || "DOC") + "_Registrasi_Sistem.txt";
+      fileName = regFileName;
       var summaryText = "========================================================\\n" +
                         "BUKTI REGISTRASI DOKUMEN RESMI - PT NIRWANA BHUMI ENERGI\\n" +
                         "========================================================\\n\\n" +
@@ -1060,7 +1188,12 @@ function doPost(e) {
                         "Tanggal Terbit    : " + (data.issueDate || "-") + "\\n" +
                         "Deskripsi         : " + (data.description || "-") + "\\n" +
                         "Waktu Pendaftaran : " + new Date().toISOString() + "\\n";
-      file = folder.createFile(regFileName, summaryText, MimeType.PLAIN_TEXT);
+      file = txtTargetFolder.createFile(regFileName, summaryText, MimeType.PLAIN_TEXT);
+
+      // Otomatis rapikan juga file .txt lama yang tercecer di root folder
+      try {
+        organizeLooseTxtFiles(rootFolder, txtTargetFolder);
+      } catch (eSweep) {}
     }
 
     var desc = "Dokumen Resmi PT Nirwana Bhumi Energi\\n" +
@@ -1120,7 +1253,7 @@ function doPost(e) {
       fileName: file.getName(),
       viewUrl: file.getUrl(),
       downloadUrl: file.getDownloadUrl(),
-      message: "Dokumen (" + fileName + ") berhasil diunggah ke folder Google Drive & dicatat ke Database Cloud!"
+      message: "Dokumen (" + fileName + ") berhasil diunggah ke Google Drive & dicatat ke Database Cloud!"
     };
 
     return ContentService.createTextOutput(JSON.stringify(response))
@@ -1141,6 +1274,13 @@ function doGet(e) {
   try {
     var rootFolder = DriveApp.getFolderById(TARGET_FOLDER_ID);
     var db = readDatabase(rootFolder);
+
+    // Otomatis rapikan file .txt jika ada yang tersisa di root
+    try {
+      var txtF = getOrCreateTxtFolder(rootFolder);
+      organizeLooseTxtFiles(rootFolder, txtF);
+    } catch (eSweepDoGet) {}
+
     return ContentService.createTextOutput(JSON.stringify({
       status: "online",
       bot: "PT Nirwana Bhumi Energi Document Drive Bot",
