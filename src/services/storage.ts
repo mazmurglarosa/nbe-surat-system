@@ -13,11 +13,13 @@ export interface GoogleDriveSettings {
 
 export const DEFAULT_DRIVE_SETTINGS: GoogleDriveSettings = {
   folderUrl:
-    'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing',
-  folderId: '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF',
+    'https://drive.google.com/drive/folders/1ntut9Zjoc8tT5neNR2wUKMCkxIZvoS8U',
+  folderId: '1ntut9Zjoc8tT5neNR2wUKMCkxIZvoS8U',
   driveDatabaseSheetUrl: '',
   autoOpenDriveOnUpload: true,
-  botWebhookUrl: (import.meta.env.VITE_BOT_WEBHOOK_URL as string) || '',
+  botWebhookUrl:
+    (import.meta.env.VITE_BOT_WEBHOOK_URL as string) ||
+    'https://script.google.com/macros/s/AKfycbweEADkAMfpyBXO4j1dBqPTACdrjkR5Pke90h9YxNRGchvA25xP_6JKXHl8e5LPd6bT/exec',
 };
 
 // Initial Seed Document based on the PDF in the folder
@@ -45,7 +47,7 @@ export const INITIAL_SEED_DOCUMENTS: DocumentRecord[] = [
     fileType: 'application/pdf',
     fileUrl: '/0001-SOP-GNR-CEO-IX-2026.pdf',
     googleDriveLink:
-      'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing',
+      'https://drive.google.com/drive/folders/1ntut9Zjoc8tT5neNR2wUKMCkxIZvoS8U',
     revisions: [
       {
         revision: 0,
@@ -273,10 +275,23 @@ export function getGoogleDriveSettings(): GoogleDriveSettings {
     const saved = localStorage.getItem(DRIVE_SETTINGS_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
+      const effectiveFolderId =
+        parsed.folderId && parsed.folderId !== '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF'
+          ? parsed.folderId
+          : DEFAULT_DRIVE_SETTINGS.folderId;
+      const effectiveFolderUrl =
+        parsed.folderUrl && !parsed.folderUrl.includes('1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF')
+          ? parsed.folderUrl
+          : DEFAULT_DRIVE_SETTINGS.folderUrl;
+
       return {
         ...DEFAULT_DRIVE_SETTINGS,
         ...parsed,
-        botWebhookUrl: (parsed.botWebhookUrl && parsed.botWebhookUrl.trim()) || DEFAULT_DRIVE_SETTINGS.botWebhookUrl,
+        folderId: effectiveFolderId,
+        folderUrl: effectiveFolderUrl,
+        botWebhookUrl:
+          (parsed.botWebhookUrl && parsed.botWebhookUrl.trim()) ||
+          DEFAULT_DRIVE_SETTINGS.botWebhookUrl,
       };
     }
   } catch (e) {

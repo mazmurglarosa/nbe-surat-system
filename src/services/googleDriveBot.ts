@@ -18,9 +18,9 @@ export interface BotFolderResult {
   message?: string;
 }
 
-export const TARGET_FOLDER_ID = '1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF';
+export const TARGET_FOLDER_ID = '1ntut9Zjoc8tT5neNR2wUKMCkxIZvoS8U';
 export const TARGET_FOLDER_URL =
-  'https://drive.google.com/drive/folders/1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF?usp=sharing';
+  'https://drive.google.com/drive/folders/1ntut9Zjoc8tT5neNR2wUKMCkxIZvoS8U';
 
 /**
  * Ekstrak ID Folder Google Drive dari URL folder atau string ID langsung.

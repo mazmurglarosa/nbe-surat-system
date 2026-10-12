@@ -32,7 +32,7 @@ export function getActiveCloudWebhookUrl(): string {
     return envUrl.trim();
   }
 
-  return '';
+  return 'https://script.google.com/macros/s/AKfycbweEADkAMfpyBXO4j1dBqPTACdrjkR5Pke90h9YxNRGchvA25xP_6JKXHl8e5LPd6bT/exec';
 }
 
 export interface CloudSyncState {
