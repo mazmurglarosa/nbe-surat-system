@@ -31,6 +31,7 @@ interface DashboardViewProps {
   onReviseDocument?: (doc: DocumentRecord) => void;
   onDeleteDocument: (id: string) => void;
   filterApproverRole?: string; // e.g. CEO, CTO, COO, CFO
+  filterDivisionCode?: string; // e.g. GNR, ENG, OPR, FNC
   roleTitle?: string;
   documentTypes?: CodeDefinition[];
   divisions?: CodeDefinition[];
@@ -44,6 +45,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onReviseDocument,
   onDeleteDocument,
   filterApproverRole,
+  filterDivisionCode,
   roleTitle,
   documentTypes,
   divisions,
@@ -53,8 +55,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const [selectedDivision, setSelectedDivision] = useState<string>('ALL');
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // If filtered by specific director role (from sidebar)
-  const baseDocs = filterApproverRole
+  // If filtered by specific publishing division or director role (from sidebar)
+  const baseDocs = filterDivisionCode
+    ? documents.filter(
+        (d) => (d.divisionCode || '').toUpperCase() === filterDivisionCode.toUpperCase()
+      )
+    : filterApproverRole
     ? documents.filter(
         (d) =>
           d.approverCode.toUpperCase() === filterApproverRole.toUpperCase() ||
@@ -120,7 +126,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Dynamic Division Breakdown (otomatis update jika ada penambahan divisi)
   const divisionCounts = allDivisions.map((d) => ({
     ...d,
-    count: baseDocs.filter((d) => d.divisionCode.toUpperCase() === d.code.toUpperCase()).length,
+    count: (filterDivisionCode ? documents : baseDocs).filter(
+      (doc) => (doc.divisionCode || '').toUpperCase() === d.code.toUpperCase()
+    ).length,
   }));
 
   // Filtered documents list
@@ -132,7 +140,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       (doc.approvedBy && doc.approvedBy.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesType = selectedType === 'ALL' || doc.typeCode === selectedType;
-    const matchesDivision = selectedDivision === 'ALL' || doc.divisionCode === selectedDivision;
+    const matchesDivision = filterDivisionCode
+      ? true
+      : selectedDivision === 'ALL' || doc.divisionCode === selectedDivision;
 
     return matchesSearch && matchesType && matchesDivision;
   });
@@ -359,20 +369,48 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             {divisionCounts.map((d) => {
-              const pct = total > 0 ? Math.round((d.count / total) * 100) : 0;
+              const divTotal = filterDivisionCode ? documents.length : total;
+              const pct = divTotal > 0 ? Math.round((d.count / divTotal) * 100) : 0;
+              const isCurrent = filterDivisionCode
+                ? d.code.toUpperCase() === filterDivisionCode.toUpperCase()
+                : false;
+
               return (
-                <div key={d.code}>
+                <div
+                  key={d.code}
+                  style={
+                    isCurrent
+                      ? {
+                          background: 'rgba(2, 132, 199, 0.08)',
+                          padding: '0.4rem 0.5rem',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(2, 132, 199, 0.2)',
+                        }
+                      : undefined
+                  }
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span className="badge badge-blue mono">{d.code}</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{d.label.split('(')[0]}</span>
+                      <span className={`badge ${isCurrent ? 'badge-primary' : 'badge-blue'} mono`}>{d.code}</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 800 : 600 }}>
+                        {d.label.split('(')[0]} {isCurrent && '✓'}
+                      </span>
                     </div>
                     <span style={{ fontSize: '0.8rem', fontWeight: 700 }} className="mono">
                       {d.count} surat ({pct}%)
                     </span>
                   </div>
                   <div style={{ width: '100%', height: '7px', background: 'var(--bg-tertiary)', borderRadius: '4px', overflow: 'hidden' }}>
-                    <div style={{ width: `${pct}%`, height: '100%', background: 'linear-gradient(90deg, #0284c7, #38bdf8)', borderRadius: '4px' }} />
+                    <div
+                      style={{
+                        width: `${pct}%`,
+                        height: '100%',
+                        background: isCurrent
+                          ? 'linear-gradient(90deg, #0284c7, #38bdf8)'
+                          : 'linear-gradient(90deg, #0284c7, #38bdf8)',
+                        borderRadius: '4px',
+                      }}
+                    />
                   </div>
                 </div>
               );
@@ -435,10 +473,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </select>
 
             <select
-              value={selectedDivision}
+              value={filterDivisionCode ? filterDivisionCode : selectedDivision}
               onChange={(e) => setSelectedDivision(e.target.value)}
+              disabled={!!filterDivisionCode}
               className="form-select"
-              style={{ width: '120px', fontSize: '0.825rem' }}
+              style={{
+                width: '120px',
+                fontSize: '0.825rem',
+                opacity: filterDivisionCode ? 0.75 : 1,
+                cursor: filterDivisionCode ? 'not-allowed' : 'pointer',
+              }}
+              title={filterDivisionCode ? `Terkunci pada Divisi ${filterDivisionCode}` : 'Filter Divisi'}
             >
               <option value="ALL">Divisi</option>
               {allDivisions.map((d) => (

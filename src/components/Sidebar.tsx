@@ -8,23 +8,28 @@ import {
   LogOut,
   ChevronRight,
   FolderKanban,
+  Building2,
 } from 'lucide-react';
+import { CodeDefinition, DocumentRecord, DIVISIONS } from '../types';
 
 export type SidebarTab =
   | 'dashboard'
   | 'create'
   | 'master-categories'
+  | 'logs'
+  | 'settings'
   | 'dir-ceo'
   | 'dir-cto'
   | 'dir-coo'
   | 'dir-cfo'
-  | 'logs'
-  | 'settings';
+  | `div-${string}`;
 
 interface SidebarProps {
   activeTab: SidebarTab;
   onSelectTab: (tab: SidebarTab) => void;
   documentCount: number;
+  divisions?: CodeDefinition[];
+  documents?: DocumentRecord[];
   onOpenSettings: () => void;
   onLogout: () => void;
 }
@@ -33,6 +38,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onSelectTab,
   documentCount,
+  divisions = DIVISIONS,
+  documents = [],
   onOpenSettings,
   onLogout,
 }) => {
@@ -246,131 +253,136 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {activeTab === 'master-categories' && <ChevronRight size={16} />}
           </button>
 
-          {/* Section Divider: DIVISI DIREKSI */}
+          {/* Section Divider: DIVISI PENERBIT SURAT */}
           <div
             style={{
               padding: '0.85rem 0.5rem 0.35rem 0.5rem',
-              fontSize: '0.7rem',
-              fontWeight: 700,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
             }}
           >
-            DIVISI DIREKSI
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                color: 'var(--text-muted)',
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              DIVISI PENERBIT SURAT
+            </span>
+            <button
+              onClick={() => onSelectTab('master-categories')}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                fontSize: '0.68rem',
+                color: '#0284c7',
+                cursor: 'pointer',
+                fontWeight: 600,
+                padding: '2px 4px',
+                borderRadius: '4px',
+              }}
+              title="Kelola & Tambah Divisi Baru"
+            >
+              + Kelola
+            </button>
           </div>
 
-          {/* Direktur Utama */}
-          <button
-            onClick={() => onSelectTab('dir-ceo')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.65rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'dir-ceo'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'dir-ceo' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'dir-ceo' ? 700 : 500,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Briefcase size={16} />
-              <span>Direktur Utama</span>
-            </div>
-            {activeTab === 'dir-ceo' && <ChevronRight size={14} />}
-          </button>
+          {/* Dynamic Publishing Divisions */}
+          {divisions.map((div) => {
+            const tabId = `div-${div.code.toLowerCase()}` as SidebarTab;
+            const isActive = activeTab === tabId;
+            const count = documents.filter(
+              (d) => (d.divisionCode || '').toUpperCase() === div.code.toUpperCase()
+            ).length;
+            const cleanLabel = div.label.replace(/\s*\([A-Z0-9-]+\)\s*$/i, '');
 
-          {/* Direktur Engineering */}
-          <button
-            onClick={() => onSelectTab('dir-cto')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.65rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'dir-cto'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'dir-cto' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'dir-cto' ? 700 : 500,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Briefcase size={16} />
-              <span>Direktur Engineering</span>
-            </div>
-            {activeTab === 'dir-cto' && <ChevronRight size={14} />}
-          </button>
-
-          {/* Direktur Operation */}
-          <button
-            onClick={() => onSelectTab('dir-coo')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.65rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'dir-coo'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'dir-coo' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'dir-coo' ? 700 : 500,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Briefcase size={16} />
-              <span>Direktur Operation</span>
-            </div>
-            {activeTab === 'dir-coo' && <ChevronRight size={14} />}
-          </button>
-
-          {/* Direktur Keuangan (Saya) */}
-          <button
-            onClick={() => onSelectTab('dir-cfo')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              padding: '0.65rem 0.9rem',
-              borderRadius: '10px',
-              border: 'none',
-              background:
-                activeTab === 'dir-cfo'
-                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
-                  : 'transparent',
-              color: activeTab === 'dir-cfo' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: activeTab === 'dir-cfo' ? 700 : 500,
-              fontSize: '0.85rem',
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <Briefcase size={16} color="#0284c7" />
-              <span>Direktur Keuangan (Saya)</span>
-            </div>
-            {activeTab === 'dir-cfo' && <ChevronRight size={14} />}
-          </button>
+            return (
+              <button
+                key={div.code}
+                onClick={() => onSelectTab(tabId)}
+                title={`${div.label} - ${div.description || ''}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.62rem 0.85rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: isActive
+                    ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
+                    : 'transparent',
+                  color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: isActive ? 700 : 500,
+                  fontSize: '0.84rem',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: 'all 0.15s ease',
+                  boxShadow: isActive ? '0 4px 12px rgba(2, 132, 199, 0.35)' : 'none',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.65rem',
+                    minWidth: 0,
+                    overflow: 'hidden',
+                  }}
+                >
+                  <Building2
+                    size={16}
+                    color={isActive ? '#ffffff' : '#0284c7'}
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span
+                    style={{
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {cleanLabel || div.label}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      padding: '0.12rem 0.4rem',
+                      borderRadius: '5px',
+                      background: isActive
+                        ? 'rgba(255, 255, 255, 0.22)'
+                        : 'var(--bg-tertiary)',
+                      color: isActive ? '#ffffff' : 'var(--text-secondary)',
+                      fontFamily: 'monospace',
+                    }}
+                  >
+                    {div.code}
+                  </span>
+                  {count > 0 && (
+                    <span
+                      style={{
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '0.1rem 0.38rem',
+                        borderRadius: '999px',
+                        background: isActive ? '#ffffff' : 'rgba(2, 132, 199, 0.12)',
+                        color: isActive ? '#0369a1' : '#0284c7',
+                      }}
+                    >
+                      {count}
+                    </span>
+                  )}
+                  {isActive && <ChevronRight size={14} />}
+                </div>
+              </button>
+            );
+          })}
         </nav>
       </div>
 

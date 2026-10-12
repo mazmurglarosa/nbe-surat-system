@@ -507,6 +507,8 @@ export function App() {
         onSelectTab={(tab) => {
           setActiveTab(tab);
         }}
+        divisions={masterCodes.divisions}
+        documents={documents}
         documentCount={documents.length}
         onOpenSettings={() => setIsBackupModalOpen(true)}
         onLogout={handleLogout}
@@ -547,6 +549,11 @@ export function App() {
               {activeTab === 'dashboard' && 'Dashboard Dokumen'}
               {activeTab === 'create' && 'Daftarkan Surat Baru'}
               {activeTab === 'master-categories' && 'Kelola Master Kategori & Kode'}
+              {activeTab.startsWith('div-') && (() => {
+                const code = activeTab.replace('div-', '').toUpperCase();
+                const d = masterCodes.divisions.find((x) => x.code.toUpperCase() === code);
+                return d ? `Divisi Penerbit: ${d.label}` : `Divisi Penerbit: ${code}`;
+              })()}
               {activeTab === 'dir-ceo' && 'Direktur Utama'}
               {activeTab === 'dir-cto' && 'Direktur Engineering'}
               {activeTab === 'dir-coo' && 'Direktur Operation'}
@@ -702,7 +709,29 @@ export function App() {
             <ActivityLogsView logs={activityLogs} />
           )}
 
-          {/* Director Divisions Filters */}
+          {/* Dynamic Publishing Division Filters */}
+          {activeTab.startsWith('div-') && (() => {
+            const divCode = activeTab.replace('div-', '').toUpperCase();
+            const divObj = masterCodes.divisions.find((d) => d.code.toUpperCase() === divCode);
+            const roleTitle = divObj ? `Divisi ${divObj.label}` : `Divisi ${divCode}`;
+
+            return (
+              <DashboardView
+                documents={documents}
+                documentTypes={masterCodes.documentTypes}
+                divisions={masterCodes.divisions}
+                filterDivisionCode={divCode}
+                roleTitle={roleTitle}
+                onNavigateToCreate={() => setActiveTab('create')}
+                onViewDocument={(doc) => setViewingDoc(doc)}
+                onEditDocument={(doc) => setEditingDoc(doc)}
+                onReviseDocument={(doc) => setRevisingDoc(doc)}
+                onDeleteDocument={handleDeleteDocument}
+              />
+            );
+          })()}
+
+          {/* Legacy Director Division Filters Fallback */}
           {activeTab === 'dir-ceo' && (
             <DashboardView
               documents={documents}
