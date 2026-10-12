@@ -416,6 +416,36 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                 </a>
               </div>
 
+              {/* Notice when device is offline / webhook not yet set */}
+              {!botWebhookUrl.trim() && (
+                <div
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '0.85rem 1rem',
+                    marginBottom: '1.25rem',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '0.65rem',
+                    fontSize: '0.82rem',
+                    color: '#fbbf24',
+                  }}
+                >
+                  <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ lineHeight: 1.5 }}>
+                    <strong>Perangkat ini berstatus "Cloud Offline":</strong>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                      URL Webhook Bot belum terpasang di perangkat ini. Pilih salah satu cara mudah untuk menghubungkannya:
+                      <ol style={{ paddingLeft: '1.1rem', margin: '0.35rem 0 0 0' }}>
+                        <li><strong>Cara Tercepat (Otomatis):</strong> Buka laptop utama Anda, klik tombol <em>"📱 Salin Link untuk HP"</em> di modal ini, lalu kirim &amp; buka link tersebut di HP/perangkat ini.</li>
+                        <li><strong>Cara Manual:</strong> Tempelkan URL Webhook Bot Google Drive Anda di kolom bawah ini, lalu klik <strong>Simpan Konfigurasi Bot</strong>.</li>
+                      </ol>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Form */}
               <form onSubmit={handleSave}>
                 {/* Bot Webhook URL with Test Button */}

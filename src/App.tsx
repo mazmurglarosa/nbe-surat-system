@@ -559,8 +559,14 @@ export function App() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {/* Real-time Cloud Sync Badge & Button */}
             <button
-              onClick={handleManualSync}
-              disabled={isManualSyncing || cloudSyncState.isSyncing}
+              onClick={() => {
+                if (cloudSyncState.isConfigured) {
+                  handleManualSync();
+                } else {
+                  setIsDriveModalOpen(true);
+                }
+              }}
+              disabled={isManualSyncing || (cloudSyncState.isConfigured && cloudSyncState.isSyncing)}
               className="btn btn-secondary btn-sm"
               style={{
                 display: 'flex',
@@ -579,7 +585,7 @@ export function App() {
               title={
                 cloudSyncState.isConfigured
                   ? 'Cloud Database Real-Time Aktif (Multi-Device Sinkron Otomatis). Klik untuk refresh instan.'
-                  : 'Cloud Database belum terpasang Webhook. Klik "Bot Google Drive" untuk memasang Webhook bot.'
+                  : 'Perangkat ini belum terhubung ke Bot Google Drive. Klik untuk menghubungkan bot.'
               }
             >
               <RefreshCw
@@ -596,7 +602,7 @@ export function App() {
                   ? 'Sinkron...'
                   : cloudSyncState.isConfigured
                   ? 'Cloud Real-Time'
-                  : 'Cloud Offline'}
+                  : 'Cloud Offline (Hubungkan)'}
               </span>
             </button>
 
