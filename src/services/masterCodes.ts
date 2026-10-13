@@ -98,6 +98,130 @@ export function normalizeMasterCodes(raw: any): MasterCodesState {
   };
 }
 
+const DELETED_CODES_STORAGE_KEY = 'nbe_deleted_codes_v1';
+
+export function getDeletedCodes(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_CODES_STORAGE_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.map((s: string) => String(s).toUpperCase()) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function markCodeAsDeleted(code: string) {
+  try {
+    const current = getDeletedCodes();
+    current.add(code.trim().toUpperCase());
+    localStorage.setItem(DELETED_CODES_STORAGE_KEY, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+export function unmarkCodeAsDeleted(code: string) {
+  try {
+    const current = getDeletedCodes();
+    current.delete(code.trim().toUpperCase());
+    localStorage.setItem(DELETED_CODES_STORAGE_KEY, JSON.stringify(Array.from(current)));
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+export function clearDeletedCodes() {
+  try {
+    localStorage.removeItem(DELETED_CODES_STORAGE_KEY);
+  } catch (e) {
+    console.warn(e);
+  }
+}
+
+/**
+ * Menggabungkan master codes dari cloud dengan data lokal yang ada di browser.
+ * Menjamin bahwa kode kustom/baru yang dibuat di browser TIDAK PERNAH terhapus oleh cloud.
+ */
+export function mergeMasterCodes(
+  local: MasterCodesState,
+  incoming: any
+): { merged: MasterCodesState; hasNewLocalCodes: boolean } {
+  const normLocal = normalizeMasterCodes(local);
+  const normIncoming = normalizeMasterCodes(incoming);
+  const deletedCodes = getDeletedCodes();
+
+  let hasNewLocalCodes = false;
+
+  const mergeArray = (
+    localArr: CodeDefinition[],
+    incomingArr: CodeDefinition[],
+    defaultArr: CodeDefinition[]
+  ): CodeDefinition[] => {
+    const map = new Map<string, CodeDefinition>();
+
+    // 1. Masukkan default SOP codes
+    defaultArr.forEach((d) => map.set(d.code.toUpperCase(), d));
+
+    // 2. Masukkan incoming codes dari cloud (kecuali yang pernah ditandai dihapus oleh user)
+    incomingArr.forEach((i) => {
+      const k = i.code.toUpperCase();
+      if (!deletedCodes.has(k)) {
+        map.set(k, i);
+      }
+    });
+
+    // 3. Masukkan local codes (menjamin kode baru yang baru dibuat user tidak tertimpa cloud)
+    localArr.forEach((l) => {
+      const k = l.code.toUpperCase();
+      if (!deletedCodes.has(k)) {
+        if (!map.has(k)) {
+          map.set(k, l);
+          hasNewLocalCodes = true;
+        } else {
+          // Jika lokal adalah custom, pastikan status custom dan label terbarunya tetap terjaga
+          const exist = map.get(k)!;
+          if (l.isCustom) {
+            map.set(k, { ...exist, ...l });
+          }
+        }
+      }
+    });
+
+    return Array.from(map.values());
+  };
+
+  const merged: MasterCodesState = {
+    documentTypes: mergeArray(
+      normLocal.documentTypes,
+      normIncoming.documentTypes,
+      DEFAULT_MASTER_CODES.documentTypes
+    ),
+    subCategories: mergeArray(
+      normLocal.subCategories,
+      normIncoming.subCategories,
+      DEFAULT_MASTER_CODES.subCategories
+    ),
+    subSubCategories: mergeArray(
+      normLocal.subSubCategories,
+      normIncoming.subSubCategories,
+      DEFAULT_MASTER_CODES.subSubCategories
+    ),
+    divisions: mergeArray(
+      normLocal.divisions,
+      normIncoming.divisions,
+      DEFAULT_MASTER_CODES.divisions
+    ),
+    approvers: mergeArray(
+      normLocal.approvers,
+      normIncoming.approvers,
+      DEFAULT_MASTER_CODES.approvers
+    ),
+  };
+
+  return { merged, hasNewLocalCodes };
+}
+
 /**
  * Get all master codes from localStorage or defaults
  */
@@ -147,6 +271,7 @@ export function addDocumentType(newItem: CodeDefinition): MasterCodesState {
     throw new Error(`Kode kategori "${cleanCode}" sudah digunakan.`);
   }
 
+  unmarkCodeAsDeleted(cleanCode);
   const updated: MasterCodesState = {
     ...current,
     documentTypes: [
@@ -195,6 +320,7 @@ export function deleteDocumentType(targetCode: string): MasterCodesState {
   if (current.documentTypes.length <= 1) {
     throw new Error('Minimal harus ada 1 Kategori Surat tersisa dalam sistem.');
   }
+  markCodeAsDeleted(targetCode);
   const updated: MasterCodesState = {
     ...current,
     documentTypes: current.documentTypes.filter(
@@ -215,6 +341,7 @@ export function addDivision(newItem: CodeDefinition): MasterCodesState {
     throw new Error(`Kode divisi "${cleanCode}" sudah digunakan.`);
   }
 
+  unmarkCodeAsDeleted(cleanCode);
   const updated: MasterCodesState = {
     ...current,
     divisions: [
@@ -263,6 +390,7 @@ export function deleteDivision(targetCode: string): MasterCodesState {
   if (current.divisions.length <= 1) {
     throw new Error('Minimal harus ada 1 Divisi Penerbit tersisa dalam sistem.');
   }
+  markCodeAsDeleted(targetCode);
   const updated: MasterCodesState = {
     ...current,
     divisions: current.divisions.filter(
@@ -283,6 +411,7 @@ export function addApprover(newItem: CodeDefinition): MasterCodesState {
     throw new Error(`Kode otoritas/jabatan "${cleanCode}" sudah digunakan.`);
   }
 
+  unmarkCodeAsDeleted(cleanCode);
   const updated: MasterCodesState = {
     ...current,
     approvers: [
@@ -331,6 +460,7 @@ export function deleteApprover(targetCode: string): MasterCodesState {
   if (current.approvers.length <= 1) {
     throw new Error('Minimal harus ada 1 Otoritas Pengesahan tersisa dalam sistem.');
   }
+  markCodeAsDeleted(targetCode);
   const updated: MasterCodesState = {
     ...current,
     approvers: current.approvers.filter(
@@ -351,6 +481,7 @@ export function addSubCategory(newItem: CodeDefinition): MasterCodesState {
     throw new Error(`Kode sub-kategori "${cleanCode}" sudah digunakan.`);
   }
 
+  unmarkCodeAsDeleted(cleanCode);
   const updated: MasterCodesState = {
     ...current,
     subCategories: [
@@ -399,6 +530,7 @@ export function deleteSubCategory(targetCode: string): MasterCodesState {
   if (current.subCategories.length <= 1) {
     throw new Error('Minimal harus ada 1 Sub-Kategori Surat tersisa dalam sistem.');
   }
+  markCodeAsDeleted(targetCode);
   const updated: MasterCodesState = {
     ...current,
     subCategories: current.subCategories.filter(
@@ -419,6 +551,7 @@ export function addSubSubCategory(newItem: CodeDefinition): MasterCodesState {
     throw new Error(`Kode sub-sub kategori "${cleanCode}" sudah digunakan.`);
   }
 
+  unmarkCodeAsDeleted(cleanCode);
   const updated: MasterCodesState = {
     ...current,
     subSubCategories: [
@@ -467,6 +600,7 @@ export function deleteSubSubCategory(targetCode: string): MasterCodesState {
   if (current.subSubCategories.length <= 1) {
     throw new Error('Minimal harus ada 1 Sub-sub Kategori Surat tersisa dalam sistem.');
   }
+  markCodeAsDeleted(targetCode);
   const updated: MasterCodesState = {
     ...current,
     subSubCategories: current.subSubCategories.filter(
@@ -480,6 +614,7 @@ export function deleteSubSubCategory(targetCode: string): MasterCodesState {
  * Reset all master codes to standard SOP defaults
  */
 export function resetMasterCodesToDefaults(): MasterCodesState {
+  clearDeletedCodes();
   return saveMasterCodes(DEFAULT_MASTER_CODES);
 }
 

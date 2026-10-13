@@ -50,6 +50,7 @@ import {
   TARGET_FOLDER_ID,
 } from '../services/googleDriveBot';
 import { addSubCategory, addSubSubCategory, addDocumentType } from '../services/masterCodes';
+import { pushAllLocalDataToCloud } from '../services/cloudSync';
 
 function generateDocumentId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -2473,6 +2474,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                       onAddSubSubCategory(newItem);
                     } else {
                       addSubSubCategory(newItem);
+                      pushAllLocalDataToCloud().catch(console.warn);
                     }
                     setSelectedSubSubCategory(cCode);
                   } else if (quickAddModal === 'subcategory') {
@@ -2480,6 +2482,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                       onAddSubCategory(newItem);
                     } else {
                       addSubCategory(newItem);
+                      pushAllLocalDataToCloud().catch(console.warn);
                     }
                     setSelectedSubCategory(cCode);
                   } else {
@@ -2487,6 +2490,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                       onAddDocumentType(newItem);
                     } else {
                       addDocumentType(newItem);
+                      pushAllLocalDataToCloud().catch(console.warn);
                     }
                     setSelectedType(cCode);
                     // Otomatis buat folder kategori di Google Drive jika bot aktif

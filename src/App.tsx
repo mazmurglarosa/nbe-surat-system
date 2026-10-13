@@ -299,10 +299,17 @@ export function App() {
     setActivityLogs(updatedLogs);
   };
 
+  // Helper untuk update state dan push langsung ke Cloud Database
+  const updateAndSyncMasterCodes = (updated: MasterCodesState) => {
+    setMasterCodes(updated);
+    saveMasterCodes(updated);
+    pushAllLocalDataToCloud().catch(console.warn);
+  };
+
   // Master Categories & Codes Handlers
   const handleAddDocType = (item: CodeDefinition) => {
     const updated = addDocumentType(item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -340,7 +347,7 @@ export function App() {
 
   const handleUpdateDocType = (code: string, item: Partial<CodeDefinition>) => {
     const updated = updateDocumentType(code, item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -354,7 +361,7 @@ export function App() {
 
   const handleDeleteDocType = (code: string) => {
     const updated = deleteDocumentType(code);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -369,7 +376,7 @@ export function App() {
   // Sub-Categories (ZZ) Handlers
   const handleAddSubCategory = (item: CodeDefinition) => {
     const updated = addSubCategory(item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -383,7 +390,7 @@ export function App() {
 
   const handleUpdateSubCategory = (code: string, item: Partial<CodeDefinition>) => {
     const updated = updateSubCategory(code, item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -397,7 +404,7 @@ export function App() {
 
   const handleDeleteSubCategory = (code: string) => {
     const updated = deleteSubCategory(code);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -412,7 +419,7 @@ export function App() {
   // Sub-sub Categories (AA) Handlers
   const handleAddSubSubCategory = (item: CodeDefinition) => {
     const updated = addSubSubCategory(item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -426,7 +433,7 @@ export function App() {
 
   const handleUpdateSubSubCategory = (code: string, item: Partial<CodeDefinition>) => {
     const updated = updateSubSubCategory(code, item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -440,7 +447,7 @@ export function App() {
 
   const handleDeleteSubSubCategory = (code: string) => {
     const updated = deleteSubSubCategory(code);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -454,7 +461,7 @@ export function App() {
 
   const handleAddDivision = (item: CodeDefinition) => {
     const updated = addDivision(item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -468,7 +475,7 @@ export function App() {
 
   const handleUpdateDivision = (code: string, item: Partial<CodeDefinition>) => {
     const updated = updateDivision(code, item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -482,7 +489,7 @@ export function App() {
 
   const handleDeleteDivision = (code: string) => {
     const updated = deleteDivision(code);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -496,7 +503,7 @@ export function App() {
 
   const handleAddApprover = (item: CodeDefinition) => {
     const updated = addApprover(item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -510,7 +517,7 @@ export function App() {
 
   const handleUpdateApprover = (code: string, item: Partial<CodeDefinition>) => {
     const updated = updateApprover(code, item);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -524,7 +531,7 @@ export function App() {
 
   const handleDeleteApprover = (code: string) => {
     const updated = deleteApprover(code);
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
@@ -538,7 +545,7 @@ export function App() {
 
   const handleResetMasterCodes = () => {
     const updated = resetMasterCodesToDefaults();
-    setMasterCodes(updated);
+    updateAndSyncMasterCodes(updated);
     setActivityLogs(
       addActivityLog({
         userName: 'Mazmur Gusti Agung Larosa',
