@@ -11,67 +11,110 @@ export const DEFAULT_MASTER_CODES: MasterCodesState = {
 };
 
 /**
+ * Normalisasi data MasterCodes agar menjamin semua kategori bawaan (termasuk sub-sub kategori AA)
+ * selalu ada dan lengkap, baik yang datang dari cloud maupun localStorage.
+ */
+export function normalizeMasterCodes(raw: any): MasterCodesState {
+  if (!raw || typeof raw !== 'object') {
+    return DEFAULT_MASTER_CODES;
+  }
+
+  // 1. Document Types
+  const storedDocTypes: CodeDefinition[] =
+    Array.isArray(raw.documentTypes) && raw.documentTypes.length > 0
+      ? raw.documentTypes
+      : DEFAULT_MASTER_CODES.documentTypes;
+  const existingTypeCodes = new Set(storedDocTypes.map((dt) => dt.code.toUpperCase()));
+  const mergedDocTypes = [...storedDocTypes];
+  DEFAULT_MASTER_CODES.documentTypes.forEach((defType) => {
+    if (!existingTypeCodes.has(defType.code.toUpperCase())) {
+      mergedDocTypes.push(defType);
+      existingTypeCodes.add(defType.code.toUpperCase());
+    }
+  });
+
+  // 2. Sub Categories (ZZ)
+  const storedSubCats: CodeDefinition[] =
+    Array.isArray(raw.subCategories) && raw.subCategories.length > 0
+      ? raw.subCategories
+      : DEFAULT_MASTER_CODES.subCategories;
+  const existingSubCodes = new Set(storedSubCats.map((sc) => sc.code.toUpperCase()));
+  const mergedSubCats = [...storedSubCats];
+  DEFAULT_MASTER_CODES.subCategories.forEach((defSub) => {
+    if (!existingSubCodes.has(defSub.code.toUpperCase())) {
+      mergedSubCats.push(defSub);
+      existingSubCodes.add(defSub.code.toUpperCase());
+    }
+  });
+
+  // 3. Sub-sub Categories (AA)
+  const storedSubSubCats: CodeDefinition[] =
+    Array.isArray(raw.subSubCategories) && raw.subSubCategories.length > 0
+      ? raw.subSubCategories
+      : DEFAULT_MASTER_CODES.subSubCategories;
+  const existingSubSubCodes = new Set(storedSubSubCats.map((ssc) => ssc.code.toUpperCase()));
+  const mergedSubSubCats = [...storedSubSubCats];
+  DEFAULT_MASTER_CODES.subSubCategories.forEach((defSubSub) => {
+    if (!existingSubSubCodes.has(defSubSub.code.toUpperCase())) {
+      mergedSubSubCats.push(defSubSub);
+      existingSubSubCodes.add(defSubSub.code.toUpperCase());
+    }
+  });
+
+  // 4. Divisions
+  const storedDivisions: CodeDefinition[] =
+    Array.isArray(raw.divisions) && raw.divisions.length > 0
+      ? raw.divisions
+      : DEFAULT_MASTER_CODES.divisions;
+  const existingDivCodes = new Set(storedDivisions.map((d) => d.code.toUpperCase()));
+  const mergedDivisions = [...storedDivisions];
+  DEFAULT_MASTER_CODES.divisions.forEach((defDiv) => {
+    if (!existingDivCodes.has(defDiv.code.toUpperCase())) {
+      mergedDivisions.push(defDiv);
+      existingDivCodes.add(defDiv.code.toUpperCase());
+    }
+  });
+
+  // 5. Approvers
+  const storedApprovers: CodeDefinition[] =
+    Array.isArray(raw.approvers) && raw.approvers.length > 0
+      ? raw.approvers
+      : DEFAULT_MASTER_CODES.approvers;
+  const existingAppCodes = new Set(storedApprovers.map((a) => a.code.toUpperCase()));
+  const mergedApprovers = [...storedApprovers];
+  DEFAULT_MASTER_CODES.approvers.forEach((defApp) => {
+    if (!existingAppCodes.has(defApp.code.toUpperCase())) {
+      mergedApprovers.push(defApp);
+      existingAppCodes.add(defApp.code.toUpperCase());
+    }
+  });
+
+  return {
+    documentTypes: mergedDocTypes,
+    subCategories: mergedSubCats,
+    subSubCategories: mergedSubSubCats,
+    divisions: mergedDivisions,
+    approvers: mergedApprovers,
+  };
+}
+
+/**
  * Get all master codes from localStorage or defaults
  */
 export function getMasterCodes(): MasterCodesState {
   try {
     const raw = localStorage.getItem(MASTER_CODES_STORAGE_KEY);
     if (!raw) {
+      saveMasterCodes(DEFAULT_MASTER_CODES);
       return DEFAULT_MASTER_CODES;
     }
     const parsed = JSON.parse(raw);
-    
-    // Ensure default categories like CSMS are preserved
-    const storedDocTypes: CodeDefinition[] = Array.isArray(parsed.documentTypes) && parsed.documentTypes.length > 0
-      ? parsed.documentTypes
-      : DEFAULT_MASTER_CODES.documentTypes;
-    
-    const existingTypeCodes = new Set(storedDocTypes.map((dt) => dt.code.toUpperCase()));
-    const mergedDocTypes = [...storedDocTypes];
-    DEFAULT_MASTER_CODES.documentTypes.forEach((defType) => {
-      if (!existingTypeCodes.has(defType.code.toUpperCase())) {
-        mergedDocTypes.push(defType);
-        existingTypeCodes.add(defType.code.toUpperCase());
-      }
-    });
-
-    const storedSubCats: CodeDefinition[] = Array.isArray(parsed.subCategories) && parsed.subCategories.length > 0
-      ? parsed.subCategories
-      : DEFAULT_MASTER_CODES.subCategories;
-
-    const existingSubCodes = new Set(storedSubCats.map((sc) => sc.code.toUpperCase()));
-    const mergedSubCats = [...storedSubCats];
-    DEFAULT_MASTER_CODES.subCategories.forEach((defSub) => {
-      if (!existingSubCodes.has(defSub.code.toUpperCase())) {
-        mergedSubCats.push(defSub);
-        existingSubCodes.add(defSub.code.toUpperCase());
-      }
-    });
-
-    const storedSubSubCats: CodeDefinition[] = Array.isArray(parsed.subSubCategories) && parsed.subSubCategories.length > 0
-      ? parsed.subSubCategories
-      : DEFAULT_MASTER_CODES.subSubCategories;
-
-    const existingSubSubCodes = new Set(storedSubSubCats.map((ssc) => ssc.code.toUpperCase()));
-    const mergedSubSubCats = [...storedSubSubCats];
-    DEFAULT_MASTER_CODES.subSubCategories.forEach((defSubSub) => {
-      if (!existingSubSubCodes.has(defSubSub.code.toUpperCase())) {
-        mergedSubSubCats.push(defSubSub);
-        existingSubSubCodes.add(defSubSub.code.toUpperCase());
-      }
-    });
-
-    return {
-      documentTypes: mergedDocTypes,
-      subCategories: mergedSubCats,
-      subSubCategories: mergedSubSubCats,
-      divisions: Array.isArray(parsed.divisions) && parsed.divisions.length > 0
-        ? parsed.divisions
-        : DEFAULT_MASTER_CODES.divisions,
-      approvers: Array.isArray(parsed.approvers) && parsed.approvers.length > 0
-        ? parsed.approvers
-        : DEFAULT_MASTER_CODES.approvers,
-    };
+    const normalized = normalizeMasterCodes(parsed);
+    // Jika ada properti baru yang dinormalisasi (seperti subSubCategories), simpan balik ke localStorage
+    if (!parsed.subSubCategories || parsed.subSubCategories.length === 0) {
+      saveMasterCodes(normalized);
+    }
+    return normalized;
   } catch (err) {
     console.error('Failed to load master codes from localStorage:', err);
     return DEFAULT_MASTER_CODES;
@@ -83,11 +126,13 @@ export function getMasterCodes(): MasterCodesState {
  */
 export function saveMasterCodes(state: MasterCodesState): MasterCodesState {
   try {
-    localStorage.setItem(MASTER_CODES_STORAGE_KEY, JSON.stringify(state));
+    const normalized = normalizeMasterCodes(state);
+    localStorage.setItem(MASTER_CODES_STORAGE_KEY, JSON.stringify(normalized));
+    return normalized;
   } catch (err) {
     console.error('Failed to save master codes to localStorage:', err);
+    return state;
   }
-  return state;
 }
 
 /**

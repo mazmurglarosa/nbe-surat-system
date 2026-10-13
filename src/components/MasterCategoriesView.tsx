@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   CodeDefinition,
   MasterCodesState,
+  SUB_SUB_CATEGORIES,
 } from '../types';
 import {
   Plus,
@@ -222,7 +223,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
       : activeTab === 'subcategories'
       ? masterCodes.subCategories
       : activeTab === 'subsubcategories'
-      ? (masterCodes.subSubCategories || [])
+      ? (masterCodes.subSubCategories && masterCodes.subSubCategories.length > 0
+          ? masterCodes.subSubCategories
+          : SUB_SUB_CATEGORIES)
       : activeTab === 'divisions'
       ? masterCodes.divisions
       : masterCodes.approvers;
@@ -515,7 +518,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 fontWeight: 700,
               }}
             >
-              {(masterCodes.subSubCategories || []).length} Sub-sub Tipe
+              {(masterCodes.subSubCategories && masterCodes.subSubCategories.length > 0
+                ? masterCodes.subSubCategories.length
+                : SUB_SUB_CATEGORIES.length)} Sub-sub Tipe
             </span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>

@@ -10,7 +10,7 @@ import {
   saveAllDocuments,
   loadDocuments,
 } from './storage';
-import { getMasterCodes, saveMasterCodes } from './masterCodes';
+import { getMasterCodes, saveMasterCodes, normalizeMasterCodes } from './masterCodes';
 import { loadActivityLogs, saveActivityLogs } from './activityLogs';
 
 /**
@@ -184,10 +184,18 @@ export async function syncFromCloud(): Promise<{
     // Jika cloud memiliki master codes kategori
     if (res.masterCodes && typeof res.masterCodes === 'object') {
       try {
-        saveMasterCodes(res.masterCodes);
+        const normalizedCodes = normalizeMasterCodes(res.masterCodes);
+        saveMasterCodes(normalizedCodes);
+        // Jika data dari cloud belum memiliki subSubCategories, jadwalkan push data lengkap ke cloud
+        if (!Array.isArray((res.masterCodes as any).subSubCategories) || (res.masterCodes as any).subSubCategories.length === 0) {
+          pushAllLocalDataToCloud().catch(console.warn);
+        }
+        res.masterCodes = normalizedCodes;
       } catch (errCode) {
         console.warn('Failed to update local master codes from cloud:', errCode);
       }
+    } else {
+      res.masterCodes = getMasterCodes();
     }
 
     // Jika cloud memiliki riwayat log aktivitas

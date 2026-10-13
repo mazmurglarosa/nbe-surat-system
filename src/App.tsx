@@ -28,6 +28,7 @@ import {
 import { loadActivityLogs, addActivityLog } from './services/activityLogs';
 import {
   getMasterCodes,
+  saveMasterCodes,
   addDocumentType,
   updateDocumentType,
   deleteDocumentType,
@@ -44,6 +45,7 @@ import {
   updateApprover,
   deleteApprover,
   resetMasterCodesToDefaults,
+  normalizeMasterCodes,
 } from './services/masterCodes';
 import {
   Moon,
@@ -111,6 +113,15 @@ export function App() {
         setDocuments(loaded);
       }
     });
+
+    // Pastikan master codes lokal memiliki subSubCategories lengkap dan disinkronkan ke cloud
+    const current = getMasterCodes();
+    if (!current.subSubCategories || current.subSubCategories.length === 0) {
+      const normalized = normalizeMasterCodes(current);
+      setMasterCodes(normalized);
+      saveMasterCodes(normalized);
+    }
+    pushAllLocalDataToCloud().catch(console.warn);
   }, []);
 
   // Live Cloud Synchronization across all devices (Every 8 seconds & on window focus)
@@ -123,7 +134,7 @@ export function App() {
         }
       },
       onMasterCodesUpdated: (freshCodes) => {
-        setMasterCodes(freshCodes);
+        setMasterCodes(normalizeMasterCodes(freshCodes));
       },
       onSyncStatusChanged: (status) => {
         setCloudSyncState(status);
@@ -140,7 +151,7 @@ export function App() {
       const res = await syncFromCloud();
       if (res.success && res.documents && res.documents.length > 0) {
         setDocuments(res.documents);
-        if (res.masterCodes) setMasterCodes(res.masterCodes);
+        if (res.masterCodes) setMasterCodes(normalizeMasterCodes(res.masterCodes));
       }
     } finally {
       setTimeout(() => setIsManualSyncing(false), 600);
