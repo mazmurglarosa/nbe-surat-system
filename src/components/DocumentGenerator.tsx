@@ -1327,8 +1327,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.25rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '1.5rem',
             marginBottom: '2rem',
           }}
         >
@@ -1559,7 +1559,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               </button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '380px', overflowY: 'auto', paddingRight: '4px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {subSubCats.map((ssc) => (
                 <div
                   key={ssc.code}
