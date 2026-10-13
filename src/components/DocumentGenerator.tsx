@@ -1363,24 +1363,40 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Kategori Surat (Document Type)
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setQuickAddModal('type')}
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: 'var(--primary)' }}
-                title="Tambah Kategori Surat Baru"
-              >
-                + Tambah
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {docTypes.length > 5 && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: 'var(--primary)',
+                      background: 'rgba(0, 212, 178, 0.12)',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {docTypes.length} kode (scroll)
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setQuickAddModal('type')}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: 'var(--primary)' }}
+                  title="Tambah Kategori Surat Baru"
+                >
+                  + Tambah
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="code-list-scroll">
               {docTypes.map((dt) => (
                 <div
                   key={dt.code}
                   onClick={() => setSelectedType(dt.code)}
                   style={{
-                    padding: '0.85rem 1rem',
+                    padding: '0.75rem 0.95rem',
                     borderRadius: 'var(--radius-md)',
                     border:
                       selectedType === dt.code
@@ -1395,6 +1411,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
                     gap: '0.5rem',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   <div>
@@ -1453,24 +1470,40 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Sub-Kategori Surat (Kode ZZ)
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setQuickAddModal('subcategory')}
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#06b6d4' }}
-                title="Tambah Sub-Kategori Surat Baru (ZZ)"
-              >
-                + Tambah
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {subCats.length > 5 && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: '#06b6d4',
+                      background: 'rgba(6, 182, 212, 0.12)',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {subCats.length} kode (scroll)
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setQuickAddModal('subcategory')}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#06b6d4' }}
+                  title="Tambah Sub-Kategori Surat Baru (ZZ)"
+                >
+                  + Tambah
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="code-list-scroll">
               {subCats.map((sc) => (
                 <div
                   key={sc.code}
                   onClick={() => setSelectedSubCategory(sc.code)}
                   style={{
-                    padding: '0.85rem 1rem',
+                    padding: '0.75rem 0.95rem',
                     borderRadius: 'var(--radius-md)',
                     border:
                       selectedSubCategory === sc.code
@@ -1485,6 +1518,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
                     gap: '0.5rem',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   <div>
@@ -1548,24 +1582,40 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Sub-sub Kategori Surat (Kode AA)
                 </h2>
               </div>
-              <button
-                type="button"
-                onClick={() => setQuickAddModal('subsubcategory')}
-                className="btn btn-ghost btn-sm"
-                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#a855f7' }}
-                title="Tambah Sub-sub Kategori Baru (AA)"
-              >
-                + Tambah
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {subSubCats.length > 5 && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: '#c084fc',
+                      background: 'rgba(139, 92, 246, 0.15)',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {subSubCats.length} kode (scroll)
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setQuickAddModal('subsubcategory')}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#a855f7' }}
+                  title="Tambah Sub-sub Kategori Baru (AA)"
+                >
+                  + Tambah
+                </button>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="code-list-scroll">
               {subSubCats.map((ssc) => (
                 <div
                   key={ssc.code}
                   onClick={() => setSelectedSubSubCategory(ssc.code)}
                   style={{
-                    padding: '0.85rem 1rem',
+                    padding: '0.75rem 0.95rem',
                     borderRadius: 'var(--radius-md)',
                     border:
                       selectedSubSubCategory === ssc.code
@@ -1645,25 +1695,41 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Penerbit Surat (Division)
                 </h2>
               </div>
-              {onNavigateToMasterCategories && (
-                <button
-                  type="button"
-                  onClick={onNavigateToMasterCategories}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
-                >
-                  + Kelola
-                </button>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {divs.length > 5 && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      fontWeight: 600,
+                      color: '#38bdf8',
+                      background: 'rgba(56, 189, 248, 0.12)',
+                      padding: '0.15rem 0.45rem',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    {divs.length} kode (scroll)
+                  </span>
+                )}
+                {onNavigateToMasterCategories && (
+                  <button
+                    type="button"
+                    onClick={onNavigateToMasterCategories}
+                    className="btn btn-ghost btn-sm"
+                    style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                  >
+                    + Kelola
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="code-list-scroll">
               {divs.map((div) => (
                 <div
                   key={div.code}
                   onClick={() => setSelectedDivision(div.code)}
                   style={{
-                    padding: '0.85rem 1rem',
+                    padding: '0.75rem 0.95rem',
                     borderRadius: 'var(--radius-md)',
                     border:
                       selectedDivision === div.code
@@ -1678,6 +1744,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     alignItems: 'flex-start',
                     justifyContent: 'space-between',
                     gap: '0.5rem',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   <div>
