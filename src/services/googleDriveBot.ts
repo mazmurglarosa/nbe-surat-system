@@ -96,6 +96,194 @@ export function saveStoredCategoryFolderId(code: string, folderId: string): void
 }
 
 /**
+ * Ekstrak kepanjangan bersih dari kode dan label.
+ * Contoh:
+ * - "GP", "General Procedure (GP)" -> "General Procedure"
+ * - "AI", "Audit Internal (AI)" -> "Audit Internal"
+ * - "CSMS", "Contractor Safety Management System (CSMS)" -> "Contractor Safety Management System"
+ */
+export function getCleanLongName(code: string, label?: string): string {
+  if (!label || !label.trim()) return code.trim();
+  const cleanCode = code.trim();
+  const regex = new RegExp(`\\s*\\(${cleanCode}\\)$`, 'i');
+  const cleaned = label.replace(regex, '').trim();
+  return cleaned || label.trim() || cleanCode;
+}
+
+export interface HierarchicalFolderParams {
+  documentCode: string;
+  documentTitle?: string;
+  categoryCode: string;
+  categoryLabel?: string;
+  subCategoryCode?: string;
+  subCategoryLabel?: string;
+  subSubCategoryCode?: string;
+  subSubCategoryLabel?: string;
+  webhookUrl: string;
+  rootFolderId?: string;
+}
+
+/**
+ * Buat struktur folder 4-tingkat di Google Drive sesuai alur kerja bot:
+ * Level 1: Kategori Surat (Document Type, misal: CSMS) - Cek wajib ada di Drive!
+ * Level 2: Sub-Kategori Surat (Kepanjangan Kode ZZ, misal: GP -> General Procedure)
+ * Level 3: Sub-sub Kategori Surat (Kepanjangan Kode AA, misal: AI -> Audit Internal)
+ * Level 4: Judul Dokumen Surat Keseluruhan (misal: Kebijakan Audit Internal)
+ */
+export async function createHierarchicalDocumentFolderViaBot(
+  params: HierarchicalFolderParams
+): Promise<BotFolderResult & {
+  categoryNotFound?: boolean;
+  categoryCode?: string;
+  folderPath?: string;
+  categoryFolderId?: string;
+  categoryFolderName?: string;
+}> {
+  const {
+    documentCode,
+    documentTitle,
+    categoryCode,
+    categoryLabel,
+    subCategoryCode,
+    subCategoryLabel,
+    subSubCategoryCode,
+    subSubCategoryLabel,
+    webhookUrl,
+    rootFolderId = TARGET_FOLDER_ID,
+  } = params;
+
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return {
+      success: false,
+      error: 'URL Webhook Bot Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  const subCatName = subCategoryCode
+    ? getCleanLongName(subCategoryCode, subCategoryLabel)
+    : '';
+  const subSubCatName = subSubCategoryCode
+    ? getCleanLongName(subSubCategoryCode, subSubCategoryLabel)
+    : '';
+  const cleanDocTitle = (documentTitle && documentTitle.trim()) || documentCode;
+
+  const payload = {
+    action: 'fix_code_hierarchy',
+    documentCode,
+    documentTitle: cleanDocTitle,
+    categoryCode,
+    categoryName: categoryCode,
+    categoryLabel,
+    subCategoryCode,
+    subCategoryName: subCatName,
+    subSubCategoryCode,
+    subSubCategoryName: subSubCatName,
+    parentId: rootFolderId,
+  };
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json();
+
+    if (result.categoryNotFound) {
+      return {
+        success: false,
+        categoryNotFound: true,
+        categoryCode: result.categoryCode || categoryCode,
+        error:
+          result.message ||
+          `Folder Kategori '${categoryCode}' belum ditemukan di Google Drive. Silakan buat atau perbarui folder kategori di web terlebih dahulu.`,
+      };
+    }
+
+    if (result.status === 'success' || result.success) {
+      return {
+        success: true,
+        folderId: result.folderId,
+        folderUrl:
+          result.folderUrl ||
+          `https://drive.google.com/drive/folders/${result.folderId}`,
+        folderName: result.folderName || cleanDocTitle,
+        folderPath: result.folderPath,
+        categoryFolderId: result.categoryFolderId,
+        categoryFolderName: result.categoryFolderName,
+        message: result.message,
+      };
+    } else {
+      let rawMsg = result.message || '';
+      if (rawMsg.includes('Argument cannot be null: data')) {
+        rawMsg =
+          'Script bot di Google Drive Anda masih versi lama. Buka Pengaturan Google Drive > Salin Script Bot terbaru > Deploy "Versi Baru" di script.google.com.';
+      }
+      return {
+        success: false,
+        error: rawMsg || 'Bot Google Drive gagal membuat folder dokumen.',
+      };
+    }
+  } catch (err: any) {
+    return {
+      success: false,
+      error: `Koneksi ke Bot Google Drive bermasalah: ${err.message}`,
+    };
+  }
+}
+
+/**
+ * Buat Folder Kategori Langsung di Google Drive (Level 1)
+ */
+export async function createCategoryFolderInDriveViaBot(
+  categoryCode: string,
+  categoryLabel?: string,
+  webhookUrl?: string,
+  rootFolderId: string = TARGET_FOLDER_ID
+): Promise<BotFolderResult> {
+  if (!webhookUrl || !webhookUrl.startsWith('https://script.google.com')) {
+    return {
+      success: false,
+      error: 'URL Webhook Bot Google Apps Script belum dikonfigurasi.',
+    };
+  }
+
+  const catFolderName = categoryCode.trim();
+  const payload = {
+    action: 'create_category_folder',
+    categoryCode: catFolderName,
+    categoryName: catFolderName,
+    parentId: rootFolderId,
+  };
+
+  try {
+    const response = await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    const result = await response.json();
+    if (result.status === 'success' || result.success) {
+      saveStoredCategoryFolderId(categoryCode, result.folderId);
+      return {
+        success: true,
+        folderId: result.folderId,
+        folderUrl: result.folderUrl || `https://drive.google.com/drive/folders/${result.folderId}`,
+        folderName: result.folderName || catFolderName,
+        message: result.message || `Folder kategori '${catFolderName}' berhasil dibuat di Google Drive!`,
+      };
+    } else {
+      return { success: false, error: result.message || 'Gagal membuat folder kategori.' };
+    }
+  } catch (err: any) {
+    return { success: false, error: `Koneksi bermasalah: ${err.message}` };
+  }
+}
+
+/**
  * Buat folder baru di Google Drive melalui Webhook Bot Google Apps Script.
  */
 export async function createFolderInDriveViaBot(
@@ -183,13 +371,14 @@ export async function ensureCategoryFolderInDriveViaBot(
   webhookUrl: string,
   rootFolderId: string = TARGET_FOLDER_ID
 ): Promise<BotFolderResult> {
-  const folderName = getCategoryFolderName(categoryCode, categoryLabel);
+  const folderName = categoryCode.trim();
   const cachedIds = getStoredCategoryFolderIds();
   const cachedId = cachedIds[categoryCode.toUpperCase()];
 
   // Buat atau temukan folder kategori di root TARGET_FOLDER_ID
-  const result = await createFolderInDriveViaBot(
+  const result = await createCategoryFolderInDriveViaBot(
     folderName,
+    categoryLabel,
     webhookUrl,
     rootFolderId
   );
@@ -197,7 +386,6 @@ export async function ensureCategoryFolderInDriveViaBot(
   if (result.success && result.folderId) {
     saveStoredCategoryFolderId(categoryCode, result.folderId);
   } else if (cachedId) {
-    // Fallback ke cache jika ada
     return {
       success: true,
       folderId: cachedId,
@@ -210,46 +398,39 @@ export async function ensureCategoryFolderInDriveViaBot(
 }
 
 /**
- * Buat folder dokumen (misal 0001-SOP-GP-ENG-CTO-IX-2026) langsung DI DALAM folder Kategori Surat yang sesuai.
+ * Buat folder dokumen langsung dengan hierarki lengkap
  */
 export async function createDocumentFolderInDriveViaBot(
   documentCode: string,
   categoryCode: string,
   categoryLabel: string | undefined,
   webhookUrl: string,
-  rootFolderId: string = TARGET_FOLDER_ID
-): Promise<BotFolderResult & { categoryFolderId?: string; categoryFolderName?: string }> {
-  const catFolderName = getCategoryFolderName(categoryCode, categoryLabel);
-
-  // 1. Pastikan folder kategori induk sudah ada di Google Drive
-  const catResult = await ensureCategoryFolderInDriveViaBot(
+  rootFolderId: string = TARGET_FOLDER_ID,
+  options?: {
+    documentTitle?: string;
+    subCategoryCode?: string;
+    subCategoryLabel?: string;
+    subSubCategoryCode?: string;
+    subSubCategoryLabel?: string;
+  }
+): Promise<BotFolderResult & {
+  categoryFolderId?: string;
+  categoryFolderName?: string;
+  categoryNotFound?: boolean;
+  folderPath?: string;
+}> {
+  return createHierarchicalDocumentFolderViaBot({
+    documentCode,
+    documentTitle: options?.documentTitle,
     categoryCode,
     categoryLabel,
+    subCategoryCode: options?.subCategoryCode,
+    subCategoryLabel: options?.subCategoryLabel,
+    subSubCategoryCode: options?.subSubCategoryCode,
+    subSubCategoryLabel: options?.subSubCategoryLabel,
     webhookUrl,
-    rootFolderId
-  );
-
-  const parentFolderId = catResult.folderId || rootFolderId;
-
-  // 2. Buat folder untuk dokumen di dalam folder kategori tersebut
-  const docFolderResult = await createFolderInDriveViaBot(
-    documentCode,
-    webhookUrl,
-    parentFolderId,
-    {
-      categoryCode,
-      categoryName: catFolderName,
-    }
-  );
-
-  return {
-    ...docFolderResult,
-    categoryFolderId: catResult.folderId,
-    categoryFolderName: catFolderName,
-    message: docFolderResult.success
-      ? `Folder Google Drive "${documentCode}" berhasil dibuat di dalam kategori "${catFolderName}"!`
-      : docFolderResult.error,
-  };
+    rootFolderId,
+  });
 }
 
 /**
@@ -802,7 +983,7 @@ export function getGoogleAppsScriptBotCode(folderId: string = TARGET_FOLDER_ID):
  * BOT GOOGLE DRIVE & CLOUD DATABASE - PT NIRWANA BHUMI ENERGI (NBE)
  * Fitur:
  * 1. REAL-TIME MULTI-DEVICE CLOUD DATABASE (action: "get_database", "sync_database", "save_document")
- * 2. Otomatis buat folder kategori & folder dokumen bersarang (action: "create_folder")
+ * 2. HIERARKI FOLDER 4-LEVEL OTOMATIS: Kategori (XXX) > Sub-Kategori (ZZ) > Sub-sub Kategori (AA) > Judul Dokumen (action: "fix_code_hierarchy")
  * 3. Otomatis kelompokkan file .txt registrasi ke folder khusus "Bukti Registrasi Dokumen (TXT)" (action: "organize_txt_files")
  * 4. Upload dokumen fisik & revisi ke folder kode surat (action: "upload")
  * 5. Otomatis ubah nama file revisi menjadi: [KodeSurat]-rev1, -rev2, dst
@@ -1020,27 +1201,140 @@ function doPost(e) {
     }
 
     // ========================================================
-    // AKSI 5: BUAT / CARI FOLDER DOKUMEN & KATEGORI (TOMBOL FIX KODE)
+    // AKSI 5A: BUAT FOLDER KATEGORI UTAMA DI ROOT GOOGLE DRIVE (CREATE_CATEGORY_FOLDER)
     // ========================================================
+    if (data.action === "create_category_folder") {
+      var catName = (data.categoryName || data.categoryCode || "Kategori").trim();
+      var existingCat = rootFolder.getFoldersByName(catName);
+      var catF;
+      if (existingCat.hasNext()) {
+        catF = existingCat.next();
+      } else {
+        catF = rootFolder.createFolder(catName);
+        try {
+          catF.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        } catch (eCatShare) {}
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        folderId: catF.getId(),
+        folderUrl: catF.getUrl(),
+        folderName: catF.getName(),
+        message: "Folder Kategori '" + catName + "' berhasil dibuat di Google Drive!"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // ========================================================
+    // AKSI 5B: BUAT / CARI HIERARKI FOLDER 4-LEVEL (TOMBOL FIX KODE & SISTEM SURAT)
+    // 1. Cek folder Kategori Surat (Document Type, misal: CSMS). Jika belum ada, berikan peringatan!
+    // 2. Folder Sub-Kategori (Kepanjangan Kode ZZ, misal: GP -> General Procedure)
+    // 3. Folder Sub-sub Kategori (Kepanjangan Kode AA, misal: AI -> Audit Internal)
+    // 4. Folder Judul Dokumen Keseluruhan (misal: Kebijakan Audit Internal)
+    // ========================================================
+    if (data.action === "fix_code_hierarchy" || data.action === "create_hierarchical_folder" || (data.action === "create_folder" && (data.categoryCode || data.subCategoryName || data.subSubCategoryName))) {
+      var catCode = (data.categoryCode || "").trim().toUpperCase();
+      var catLabel = (data.categoryLabel || "").trim();
+      var catName = (data.categoryName || catCode).trim();
+
+      // 1. CARI FOLDER KATEGORI SURAT (Document Type, e.g. "CSMS")
+      var catFolder = null;
+      var rootSubFolders = rootFolder.getFolders();
+      while (rootSubFolders.hasNext()) {
+        var rf = rootSubFolders.next();
+        var rfName = rf.getName().trim();
+        if (
+          rfName.toUpperCase() === catCode ||
+          rfName.toUpperCase() === catName.toUpperCase() ||
+          rfName.toUpperCase().indexOf(catCode + " -") === 0 ||
+          rfName.toUpperCase().indexOf(catCode + " ") === 0 ||
+          rfName.toUpperCase().indexOf(catCode + "(") === 0
+        ) {
+          catFolder = rf;
+          break;
+        }
+      }
+
+      // JIKA FOLDER KATEGORI BELUM ADA: Tolak dan berikan peringatan kepada user untuk update/buat di web!
+      if (!catFolder) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          success: false,
+          categoryNotFound: true,
+          categoryCode: catCode,
+          message: "Folder Kategori '" + (catCode || "Surat") + "' belum ditemukan di Google Drive. Silakan buat atau perbarui folder kategori di web terlebih dahulu."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      // 2. FOLDER SUB-KATEGORI (Kode ZZ, e.g. "GP" -> "General Procedure")
+      var subCatFolder = catFolder;
+      var subName = (data.subCategoryName || data.subCategoryCode || "").trim();
+      if (subName) {
+        var existingSub = catFolder.getFoldersByName(subName);
+        if (existingSub.hasNext()) {
+          subCatFolder = existingSub.next();
+        } else {
+          subCatFolder = catFolder.createFolder(subName);
+          try {
+            subCatFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          } catch (eSubShare) {}
+        }
+      }
+
+      // 3. FOLDER SUB-SUB KATEGORI (Kode AA, e.g. "AI" -> "Audit Internal")
+      var subSubCatFolder = subCatFolder;
+      var subSubName = (data.subSubCategoryName || data.subSubCategoryCode || "").trim();
+      if (subSubName) {
+        var existingSubSub = subCatFolder.getFoldersByName(subSubName);
+        if (existingSubSub.hasNext()) {
+          subSubCatFolder = existingSubSub.next();
+        } else {
+          subSubCatFolder = subCatFolder.createFolder(subSubName);
+          try {
+            subSubCatFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+          } catch (eSubSubShare) {}
+        }
+      }
+
+      // 4. FOLDER DOKUMEN SESUAI JUDUL DOKUMEN (e.g. "Kebijakan Audit Internal")
+      var docTitle = (data.documentTitle || data.title || data.documentCode || "Dokumen_NBE").trim();
+      var docTargetFolder = subSubCatFolder;
+      var existingDocF = subSubCatFolder.getFoldersByName(docTitle);
+      if (existingDocF.hasNext()) {
+        docTargetFolder = existingDocF.next();
+      } else {
+        docTargetFolder = subSubCatFolder.createFolder(docTitle);
+        try {
+          docTargetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        } catch (eDocShare) {}
+      }
+
+      var pathSegments = [catFolder.getName()];
+      if (subCatFolder !== catFolder) pathSegments.push(subCatFolder.getName());
+      if (subSubCatFolder !== subCatFolder) pathSegments.push(subSubCatFolder.getName());
+      pathSegments.push(docTargetFolder.getName());
+      var fullHierarchyPath = pathSegments.join(" > ");
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        success: true,
+        folderId: docTargetFolder.getId(),
+        folderUrl: docTargetFolder.getUrl(),
+        folderName: docTargetFolder.getName(),
+        folderPath: fullHierarchyPath,
+        categoryFolderId: catFolder.getId(),
+        categoryFolderName: catFolder.getName(),
+        subCategoryFolderName: subCatFolder.getName(),
+        subSubCategoryFolderName: subSubCatFolder.getName(),
+        message: "Folder Google Drive untuk '" + docTitle + "' berhasil disiapkan dalam hierarki: " + fullHierarchyPath
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // Fallback: Pembuatan folder reguler (jika tanpa hierarki kategori)
     if (data.action === "create_folder" || data.action === "find_or_create_folder") {
       var folderName = data.folderName || data.documentCode || "Dokumen_NBE";
       var parentId = data.parentId || TARGET_FOLDER_ID;
       var parentFolder = DriveApp.getFolderById(parentId);
-
-      if (data.categoryName || data.categoryCode) {
-        var catName = data.categoryName || data.categoryCode;
-        var existingCatFolders = parentFolder.getFoldersByName(catName);
-        var catFolder;
-        if (existingCatFolders.hasNext()) {
-          catFolder = existingCatFolders.next();
-        } else {
-          catFolder = parentFolder.createFolder(catName);
-          try {
-            catFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-          } catch (eCatShare) {}
-        }
-        parentFolder = catFolder;
-      }
 
       var existingFolders = parentFolder.getFoldersByName(folderName);
       var targetFolder;

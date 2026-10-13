@@ -40,14 +40,16 @@ export function getNextSequenceNumber(
 
 /**
  * Generate full standard document code:
- * Format baru: 0000-XXX-ZZ-YYY-OOO-IX-2026 (dengan Sub Kategori ZZ)
+ * Format baru: 0000-XXX-ZZ/AA-YYY-OOO-IX-2026 (dengan Sub-Kategori ZZ & Sub-sub Kategori AA)
+ * Format variasi: 0000-XXX-ZZ-YYY-OOO-IX-2026 (hanya Sub-Kategori ZZ)
  * Format lama (fallback): 0000-XXX-YYY-OOO-IX-2026
- * Example: 0001-SOP-GP-ENG-CTO-IX-2026
+ * Example: 0001-CSMS-GP/AI-FNC-CFO-IX-2026
  */
 export function generateDocumentCode(
   seq: number,
   typeCode: string,
   subCategoryCode: string | undefined,
+  subSubCategoryCode: string | undefined,
   divisionCode: string,
   approverCode: string,
   monthNumber: number,
@@ -55,8 +57,20 @@ export function generateDocumentCode(
 ): string {
   const seqStr = formatSequence(seq);
   const romanMonth = getRomanMonth(monthNumber);
-  const cleanSub = subCategoryCode && subCategoryCode.trim() ? `${subCategoryCode.trim().toUpperCase()}-` : '';
-  return `${seqStr}-${typeCode.toUpperCase()}-${cleanSub}${divisionCode.toUpperCase()}-${approverCode.toUpperCase()}-${romanMonth}-${year}`;
+
+  const cleanZZ = subCategoryCode?.trim().toUpperCase();
+  const cleanAA = subSubCategoryCode?.trim().toUpperCase();
+
+  let subPart = '';
+  if (cleanZZ && cleanAA) {
+    subPart = `${cleanZZ}/${cleanAA}-`;
+  } else if (cleanZZ) {
+    subPart = `${cleanZZ}-`;
+  } else if (cleanAA) {
+    subPart = `${cleanAA}-`;
+  }
+
+  return `${seqStr}-${typeCode.toUpperCase()}-${subPart}${divisionCode.toUpperCase()}-${approverCode.toUpperCase()}-${romanMonth}-${year}`;
 }
 
 /**
@@ -78,8 +92,9 @@ export function isCodeDuplicate(
 
 /**
  * Validate document code format:
- * Mendukung format baru (7 bagian): 0000-XXX-ZZ-YYY-OOO-IX-YYYY
- * Serta backward-compatible format lama (6 bagian): 0000-XXX-YYY-OOO-IX-YYYY
+ * Mendukung format baru dengan Sub-sub Kategori: 0000-XXX-ZZ/AA-YYY-OOO-IX-YYYY (contoh: 0001-CSMS-GP/AI-FNC-CFO-IX-2026)
+ * Mendukung format 7 bagian: 0000-XXX-ZZ-YYY-OOO-IX-YYYY
+ * Serta backward-compatible format lama 6 bagian: 0000-XXX-YYY-OOO-IX-YYYY
  */
 export function validateDocumentCode(code: string): {
   isValid: boolean;
@@ -88,6 +103,7 @@ export function validateDocumentCode(code: string): {
     seq: number;
     type: string;
     subCategory?: string;
+    subSubCategory?: string;
     division: string;
     approver: string;
     month: string;
@@ -99,7 +115,27 @@ export function validateDocumentCode(code: string): {
     return { isValid: false, message: 'Kode dokumen tidak boleh kosong.' };
   }
 
-  // Regex pattern 7 bagian: 0000-XXX-ZZ-YYY-OOO-IX-YYYY
+  // 1. Regex pattern baru dengan ZZ/AA: 0000-XXX-ZZ/AA-YYY-OOO-IX-YYYY
+  const regexSlash = /^(\d{1,5})-([A-Za-z0-9]+)-([A-Za-z0-9]+)\/([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-(\d{4})$/i;
+  const matchSlash = trimmed.match(regexSlash);
+  if (matchSlash) {
+    const [, seqStr, type, subCategory, subSubCategory, division, approver, month, yearStr] = matchSlash;
+    return {
+      isValid: true,
+      parts: {
+        seq: parseInt(seqStr, 10),
+        type: type.toUpperCase(),
+        subCategory: subCategory.toUpperCase(),
+        subSubCategory: subSubCategory.toUpperCase(),
+        division: division.toUpperCase(),
+        approver: approver.toUpperCase(),
+        month: month.toUpperCase(),
+        year: parseInt(yearStr, 10),
+      },
+    };
+  }
+
+  // 2. Regex pattern 7 bagian: 0000-XXX-ZZ-YYY-OOO-IX-YYYY
   const regex7 = /^(\d{1,5})-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-(\d{4})$/i;
   const match7 = trimmed.match(regex7);
   if (match7) {
@@ -118,7 +154,7 @@ export function validateDocumentCode(code: string): {
     };
   }
 
-  // Regex pattern 6 bagian (format lama tanpa ZZ): 0000-XXX-YYY-OOO-IX-YYYY
+  // 3. Regex pattern 6 bagian (format lama tanpa ZZ): 0000-XXX-YYY-OOO-IX-YYYY
   const regex6 = /^(\d{1,5})-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-(\d{4})$/i;
   const match6 = trimmed.match(regex6);
   if (match6) {
@@ -139,6 +175,6 @@ export function validateDocumentCode(code: string): {
   return {
     isValid: false,
     message:
-      'Format kode dokumen tidak baku. Format standar: 0000-XXX-ZZ-YYY-OOO-IX-YYYY (contoh: 0001-SOP-GP-ENG-CTO-IX-2026).',
+      'Format kode dokumen tidak baku. Format standar: 0000-XXX-ZZ/AA-YYY-OOO-IX-YYYY (contoh: 0001-CSMS-GP/AI-FNC-CFO-IX-2026).',
   };
 }

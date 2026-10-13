@@ -160,7 +160,13 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
       const codeParts = trimmedCode.split('-');
       let inferredTypeCode = initialDoc.typeCode;
       let inferredSubCategoryCode = initialDoc.subCategoryCode;
-      if (codeParts.length === 7) {
+      let inferredSubSubCategoryCode = initialDoc.subSubCategoryCode;
+      if (codeParts.length === 6 && codeParts[2]?.includes('/')) {
+        inferredTypeCode = codeParts[1];
+        const subParts = codeParts[2].split('/');
+        inferredSubCategoryCode = subParts[0];
+        inferredSubSubCategoryCode = subParts[1];
+      } else if (codeParts.length === 7) {
         inferredTypeCode = codeParts[1];
         inferredSubCategoryCode = codeParts[2];
       } else if (codeParts.length === 6) {
@@ -172,6 +178,7 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         code: trimmedCode,
         typeCode: inferredTypeCode,
         subCategoryCode: inferredSubCategoryCode,
+        subSubCategoryCode: inferredSubSubCategoryCode,
         title: title.trim(),
         description: description.trim() || undefined,
         createdBy: createdBy.trim(),

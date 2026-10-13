@@ -15,10 +15,11 @@ export interface RevisionRecord {
 
 export interface DocumentRecord {
   id: string;
-  code: string; // e.g. "0001-SOP-ENG-CTO-IX-2026"
+  code: string; // e.g. "0001-CSMS-GP/AI-FNC-CFO-IX-2026"
   seqNumber: number; // sequential number per document type
   typeCode: string; // SOP, WIK, MNL, KB, CSMS, etc.
   subCategoryCode?: string; // GP, KM, PB, PE, PR, etc. (Kode ZZ)
+  subSubCategoryCode?: string; // AI, PB, PD, IK, etc. (Kode AA)
   divisionCode: string; // GNR, ENG, OPR, FNC
   approverCode: string; // CEO, CTO, COO, CFO, MNG, SPV
   monthRoman: string; // e.g. IX
@@ -76,6 +77,7 @@ export interface CodeDefinition {
 export interface MasterCodesState {
   documentTypes: CodeDefinition[];
   subCategories: CodeDefinition[];
+  subSubCategories: CodeDefinition[];
   divisions: CodeDefinition[];
   approvers: CodeDefinition[];
 }
@@ -94,6 +96,19 @@ export const SUB_CATEGORIES: CodeDefinition[] = [
   { code: 'PB', label: 'Pembinaan (PB)', description: 'Pembinaan, pelatihan, dan pengembangan kompetensi' },
   { code: 'PE', label: 'Peralatan (PE)', description: 'Pengelolaan, inspeksi, dan sertifikasi peralatan' },
   { code: 'PR', label: 'Procedure (PR)', description: 'Prosedur teknis dan operasional spesifik' },
+];
+
+export const SUB_SUB_CATEGORIES: CodeDefinition[] = [
+  { code: 'AI', label: 'Audit Internal (AI)', description: 'Audit Internal' },
+  { code: 'PB', label: 'Pembatasan Area Berbahaya (PB)', description: 'Pembatasan Area Berbahaya' },
+  { code: 'PD', label: 'Pengendalian Dokumen (PD)', description: 'Pengendalian Dokumen' },
+  { code: 'IK', label: 'Izin kerja Beresiko Tinggi (IK)', description: 'Izin kerja Beresiko Tinggi' },
+  { code: 'BP', label: 'Pemberian Briefing de Briefing kepada pelanggan (BP)', description: 'Pemberian Briefing de Briefing kepada pelanggan' },
+  { code: 'PR', label: 'Pengendalian Rancangan (PR)', description: 'Pengendalian Rancangan' },
+  { code: 'KR', label: 'Prosedur Kalibrasi (KR)', description: 'Prosedur Kalibrasi' },
+  { code: 'PM', label: 'Penanganan Manual & Mekanis (PM)', description: 'Penanganan Manual & Mekanis' },
+  { code: 'MR', label: 'Management Resiko (MR)', description: 'Management Resiko' },
+  { code: 'PK', label: 'Pengelolaan Data K3 (PK)', description: 'Pengelolaan Data K3' },
 ];
 
 export const DIVISIONS: CodeDefinition[] = [

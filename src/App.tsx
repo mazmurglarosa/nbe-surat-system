@@ -34,6 +34,9 @@ import {
   addSubCategory,
   updateSubCategory,
   deleteSubCategory,
+  addSubSubCategory,
+  updateSubSubCategory,
+  deleteSubSubCategory,
   addDivision,
   updateDivision,
   deleteDivision,
@@ -395,6 +398,49 @@ export function App() {
     );
   };
 
+  // Sub-sub Categories (AA) Handlers
+  const handleAddSubSubCategory = (item: CodeDefinition) => {
+    const updated = addSubSubCategory(item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Tambah Sub-sub Kategori Surat',
+        details: `Menambahkan sub-sub kategori baru [${item.code}]: ${item.label}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleUpdateSubSubCategory = (code: string, item: Partial<CodeDefinition>) => {
+    const updated = updateSubSubCategory(code, item);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Ubah Sub-sub Kategori Surat',
+        details: `Memperbarui sub-sub kategori: [${code}] ${item.label || ''}`,
+        type: 'system',
+      })
+    );
+  };
+
+  const handleDeleteSubSubCategory = (code: string) => {
+    const updated = deleteSubSubCategory(code);
+    setMasterCodes(updated);
+    setActivityLogs(
+      addActivityLog({
+        userName: 'Mazmur Gusti Agung Larosa',
+        userRole: 'Direktur Keuangan',
+        action: 'Hapus Sub-sub Kategori Surat',
+        details: `Menghapus sub-sub kategori: [${code}]`,
+        type: 'system',
+      })
+    );
+  };
+
   const handleAddDivision = (item: CodeDefinition) => {
     const updated = addDivision(item);
     setMasterCodes(updated);
@@ -678,9 +724,11 @@ export function App() {
               onOpenDriveSettings={() => setIsDriveModalOpen(true)}
               documentTypes={masterCodes.documentTypes}
               subCategories={masterCodes.subCategories}
+              subSubCategories={masterCodes.subSubCategories}
               divisions={masterCodes.divisions}
               approvers={masterCodes.approvers}
               onAddSubCategory={handleAddSubCategory}
+              onAddSubSubCategory={handleAddSubSubCategory}
               onAddDocumentType={handleAddDocType}
               onNavigateToMasterCategories={() => setActiveTab('master-categories')}
             />
@@ -695,6 +743,9 @@ export function App() {
               onAddSubCategory={handleAddSubCategory}
               onUpdateSubCategory={handleUpdateSubCategory}
               onDeleteSubCategory={handleDeleteSubCategory}
+              onAddSubSubCategory={handleAddSubSubCategory}
+              onUpdateSubSubCategory={handleUpdateSubSubCategory}
+              onDeleteSubSubCategory={handleDeleteSubSubCategory}
               onAddDivision={handleAddDivision}
               onUpdateDivision={handleUpdateDivision}
               onDeleteDivision={handleDeleteDivision}
