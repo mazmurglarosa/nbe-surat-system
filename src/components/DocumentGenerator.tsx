@@ -1363,31 +1363,15 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Kategori Surat (Document Type)
                 </h2>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {docTypes.length > 5 && (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: 'var(--primary)',
-                      background: 'rgba(0, 212, 178, 0.12)',
-                      padding: '0.15rem 0.45rem',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {docTypes.length} kode (scroll)
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setQuickAddModal('type')}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: 'var(--primary)' }}
-                  title="Tambah Kategori Surat Baru"
-                >
-                  + Tambah
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddModal('type')}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: 'var(--primary)' }}
+                title="Tambah Kategori Surat Baru"
+              >
+                + Tambah
+              </button>
             </div>
 
             <div className="code-list-scroll">
@@ -1470,31 +1454,15 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Sub-Kategori Surat (Kode ZZ)
                 </h2>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {subCats.length > 5 && (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: '#06b6d4',
-                      background: 'rgba(6, 182, 212, 0.12)',
-                      padding: '0.15rem 0.45rem',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {subCats.length} kode (scroll)
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setQuickAddModal('subcategory')}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#06b6d4' }}
-                  title="Tambah Sub-Kategori Surat Baru (ZZ)"
-                >
-                  + Tambah
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddModal('subcategory')}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#06b6d4' }}
+                title="Tambah Sub-Kategori Surat Baru (ZZ)"
+              >
+                + Tambah
+              </button>
             </div>
 
             <div className="code-list-scroll">
@@ -1582,31 +1550,15 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Sub-sub Kategori Surat (Kode AA)
                 </h2>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {subSubCats.length > 5 && (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: '#c084fc',
-                      background: 'rgba(139, 92, 246, 0.15)',
-                      padding: '0.15rem 0.45rem',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {subSubCats.length} kode (scroll)
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setQuickAddModal('subsubcategory')}
-                  className="btn btn-ghost btn-sm"
-                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#a855f7' }}
-                  title="Tambah Sub-sub Kategori Baru (AA)"
-                >
-                  + Tambah
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setQuickAddModal('subsubcategory')}
+                className="btn btn-ghost btn-sm"
+                style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#a855f7' }}
+                title="Tambah Sub-sub Kategori Baru (AA)"
+              >
+                + Tambah
+              </button>
             </div>
 
             <div className="code-list-scroll">
@@ -1695,32 +1647,16 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   Pilih Penerbit Surat (Division)
                 </h2>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {divs.length > 5 && (
-                  <span
-                    style={{
-                      fontSize: '0.72rem',
-                      fontWeight: 600,
-                      color: '#38bdf8',
-                      background: 'rgba(56, 189, 248, 0.12)',
-                      padding: '0.15rem 0.45rem',
-                      borderRadius: '4px',
-                    }}
-                  >
-                    {divs.length} kode (scroll)
-                  </span>
-                )}
-                {onNavigateToMasterCategories && (
-                  <button
-                    type="button"
-                    onClick={onNavigateToMasterCategories}
-                    className="btn btn-ghost btn-sm"
-                    style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
-                  >
-                    + Kelola
-                  </button>
-                )}
-              </div>
+              {onNavigateToMasterCategories && (
+                <button
+                  type="button"
+                  onClick={onNavigateToMasterCategories}
+                  className="btn btn-ghost btn-sm"
+                  style={{ fontSize: '0.72rem', padding: '0.2rem 0.5rem', color: '#38bdf8' }}
+                >
+                  + Kelola
+                </button>
+              )}
             </div>
 
             <div className="code-list-scroll">
