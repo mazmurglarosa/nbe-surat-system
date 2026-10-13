@@ -1327,8 +1327,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '1.5rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '1.25rem',
             marginBottom: '2rem',
           }}
         >
@@ -1705,14 +1705,22 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </div>
           </div>
 
-          {/* STEP 5: Orang Yang Menyetujui (Approving Authority code) */}
-          <div className="glass-card" style={{ padding: '1.5rem' }}>
+          {/* STEP 5: Orang Yang Menyetujui (Approving Authority code) - Memanjang Horizontal ke Samping */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '1.5rem',
+              gridColumn: '1 / -1', // Memanjang ke samping horizontal
+            }}
+          >
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 marginBottom: '1rem',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
@@ -1732,9 +1740,14 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 >
                   5
                 </div>
-                <h2 style={{ fontSize: '1.05rem', fontWeight: 700 }}>
-                  Orang Yang Menyetujui (Approver)
-                </h2>
+                <div>
+                  <h2 style={{ fontSize: '1.05rem', fontWeight: 700, margin: 0 }}>
+                    Orang Yang Menyetujui (Approver)
+                  </h2>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0 0' }}>
+                    Pilih pejabat yang berwenang menandatangani dan mengesahkan dokumen ini
+                  </p>
+                </div>
               </div>
               {onNavigateToMasterCategories && (
                 <button
@@ -1748,53 +1761,96 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               )}
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {apprvs.map((app) => (
-                <div
-                  key={app.code}
-                  onClick={() => {
-                    setSelectedApprover(app.code);
-                    setApprovedBy(app.label);
-                  }}
-                  style={{
-                    padding: '0.75rem 1rem',
-                    borderRadius: 'var(--radius-md)',
-                    border:
-                      selectedApprover === app.code
+            {/* Opsi Approver Memanjang Horizontal ke Samping */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                gap: '0.75rem',
+              }}
+            >
+              {apprvs.map((app) => {
+                const isSelected = selectedApprover === app.code;
+                return (
+                  <div
+                    key={app.code}
+                    onClick={() => {
+                      setSelectedApprover(app.code);
+                      setApprovedBy(app.label);
+                    }}
+                    style={{
+                      padding: '0.85rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isSelected
                         ? '1.5px solid var(--warning)'
                         : '1px solid var(--border-subtle)',
-                    background:
-                      selectedApprover === app.code
+                      background: isSelected
                         ? 'var(--warning-bg)'
                         : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.88rem' }}>
-                      {app.label}
-                    </div>
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      gap: '0.5rem',
+                      transition: 'all 0.15s ease',
+                      boxShadow: isSelected
+                        ? '0 4px 12px rgba(245, 158, 11, 0.2)'
+                        : 'none',
+                    }}
+                  >
                     <div
                       style={{
-                        fontSize: '0.75rem',
-                        color: 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.35rem',
                       }}
                     >
-                      {app.description}
+                      <span
+                        className="badge badge-warning mono"
+                        style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}
+                      >
+                        {app.code}
+                      </span>
+                      {isSelected && (
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            color: 'var(--warning)',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          Dipilih
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.88rem',
+                          color: 'var(--text-main)',
+                        }}
+                      >
+                        {app.label}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '0.75rem',
+                          color: 'var(--text-secondary)',
+                          marginTop: '0.15rem',
+                          lineHeight: 1.3,
+                        }}
+                      >
+                        {app.description}
+                      </div>
                     </div>
                   </div>
-                  <span
-                    className="badge badge-warning mono"
-                    style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}
-                  >
-                    {app.code}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>
