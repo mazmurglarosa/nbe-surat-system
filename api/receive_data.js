@@ -1,20 +1,6 @@
-import type { IncomingMessage, ServerResponse } from 'http';
-
 const VALID_API_KEY = process.env.API_KEY || 'DRX-998877-SEC';
 
-interface ExtendedRequest extends IncomingMessage {
-  body?: any;
-  query?: Record<string, string>;
-  headers: Record<string, string | string[] | undefined>;
-}
-
-interface ExtendedResponse extends ServerResponse {
-  status: (statusCode: number) => ExtendedResponse;
-  json: (data: any) => void;
-}
-
-// Helper untuk membaca body jika belum terurai otomatis oleh runtime Vercel
-async function parseBody(req: ExtendedRequest): Promise<any> {
+async function parseBody(req) {
   if (req.body && typeof req.body === 'object') {
     return req.body;
   }
@@ -35,7 +21,7 @@ async function parseBody(req: ExtendedRequest): Promise<any> {
   });
 }
 
-export default async function handler(req: ExtendedRequest, res: ExtendedResponse) {
+export default async function handler(req, res) {
   // 1. Header CORS Baku
   res.setHeader('Content-Type', 'application/json; charset=UTF-8');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -67,7 +53,7 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
             tanggal: '2026-10-14',
             keterangan: 'Keterangan atau perihal dokumen',
           },
-          curlExample: `curl -X POST https://nbe-surat-system.vercel.app/api/receive_data -H "Content-Type: application/json" -H "X-API-KEY: DRX-998877-SEC" -d "{\\"nama\\":\\"Mazmur Gusti\\",\\"tanggal\\":\\"2026-10-14\\",\\"keterangan\\":\\"Uji Coba API\\"}"`,
+          curlExample: 'curl -X POST https://nbe-surat-system.vercel.app/api/receive_data -H "Content-Type: application/json" -H "X-API-KEY: DRX-998877-SEC" -d "{\\"nama\\":\\"Mazmur Gusti\\",\\"tanggal\\":\\"2026-10-14\\",\\"keterangan\\":\\"Uji Coba API\\"}"',
         },
         null,
         2
@@ -114,14 +100,14 @@ export default async function handler(req: ExtendedRequest, res: ExtendedRespons
   const tanggal = typeof body.tanggal === 'string' ? body.tanggal.trim() : '';
   const keterangan = typeof body.keterangan === 'string' ? body.keterangan.trim() : '';
 
-  const errors: string[] = [];
+  const errors = [];
   if (!nama) {
-    errors[] = "Parameter 'nama' wajib diisi.";
+    errors.push("Parameter 'nama' wajib diisi.");
   }
   if (!tanggal) {
-    errors[] = "Parameter 'tanggal' wajib diisi (format: YYYY-MM-DD).";
+    errors.push("Parameter 'tanggal' wajib diisi (format: YYYY-MM-DD).");
   } else if (!/^\d{4}-\d{2}-\d{2}$/.test(tanggal)) {
-    errors[] = "Format 'tanggal' tidak valid. Gunakan format YYYY-MM-DD (contoh: 2026-10-14).";
+    errors.push("Format 'tanggal' tidak valid. Gunakan format YYYY-MM-DD (contoh: 2026-10-14).");
   }
 
   if (errors.length > 0) {
