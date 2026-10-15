@@ -427,7 +427,7 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
                     ) : (
                       <>
                         <Bot size={14} />
-                        <span>🤖 Upload File Baru ke Google Drive via Bot</span>
+                        <span>Unggah File Baru ke Google Drive via Bot</span>
                       </>
                     )}
                   </button>

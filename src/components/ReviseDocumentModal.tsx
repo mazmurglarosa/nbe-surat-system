@@ -113,7 +113,7 @@ export const ReviseDocumentModal: React.FC<ReviseDocumentModalProps> = ({
 
       // Upload ke Google Drive via Bot
       if (driveSettings.botWebhookUrl) {
-        setSubmittingStatus('🤖 Mengunggah berkas revisi ke Google Drive...');
+        setSubmittingStatus('Mengunggah berkas revisi ke Google Drive...');
         const botResult = await uploadFileToDriveViaBot(
           revisedFile.dataUrl,
           targetFileName,

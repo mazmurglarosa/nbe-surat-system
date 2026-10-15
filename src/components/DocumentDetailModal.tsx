@@ -240,7 +240,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 Revisi / Status
               </span>
               <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.2rem' }}>
-                <span className="badge badge-primary mono">Rev {doc.revision}</span>
+                <span className="badge badge-primary" style={{ fontVariantNumeric: 'tabular-nums' }}>Rev {doc.revision}</span>
                 <span className="badge badge-success">{doc.status}</span>
               </div>
             </div>

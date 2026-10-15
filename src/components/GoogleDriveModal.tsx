@@ -433,7 +433,8 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
               >
                 <div>
                   <div style={{ fontWeight: 700, color: '#38bdf8', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    <span>📁 Folder Target Google Drive Aktif Saat Ini</span>
+                    <HardDrive size={15} />
+                    <span>Folder Target Google Drive Aktif Saat Ini</span>
                   </div>
                   <div
                     style={{
@@ -483,7 +484,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                     <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
                       URL Webhook Bot belum terpasang di perangkat ini. Pilih salah satu cara mudah untuk menghubungkannya:
                       <ol style={{ paddingLeft: '1.1rem', margin: '0.35rem 0 0 0' }}>
-                        <li><strong>Cara Tercepat (Otomatis):</strong> Buka laptop utama Anda, klik tombol <em>"📱 Salin Link untuk HP"</em> di modal ini, lalu kirim &amp; buka link tersebut di HP/perangkat ini.</li>
+                        <li><strong>Cara Tercepat (Otomatis):</strong> Buka laptop utama Anda, klik tombol <em>"Salin Link untuk HP"</em> di modal ini, lalu kirim &amp; buka link tersebut di HP/perangkat ini.</li>
                         <li><strong>Cara Manual:</strong> Tempelkan URL Webhook Bot Google Drive Anda di kolom bawah ini, lalu klik <strong>Simpan Konfigurasi Bot</strong>.</li>
                       </ol>
                     </div>
@@ -588,7 +589,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                       }}
                     >
                       <div style={{ fontSize: '0.78rem', color: '#bae6fd', flex: 1 }}>
-                        <strong>📱 Buka di HP atau Komputer Lain:</strong>
+                        <strong>Buka di HP atau Komputer Lain:</strong>
                         <div style={{ fontSize: '0.73rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
                           Klik tombol di samping untuk menyalin link instan. Buka di HP, dan HP otomatis terhubung ke cloud tanpa perlu setting manual!
                         </div>
@@ -613,7 +614,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   )}
 
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem', display: 'block' }}>
-                    Saat Anda menekan tombol "🤖 Upload ke Google Drive via Bot", dokumen langsung terkirim otomatis ke folder Google Drive resmi perusahaan!
+                    Saat Anda menekan tombol "Unggah ke Google Drive via Bot", dokumen langsung terkirim otomatis ke folder Google Drive resmi perusahaan!
                   </span>
                 </div>
 
@@ -764,7 +765,8 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                           gap: '0.3rem',
                         }}
                       >
-                        ⚠️ Perubahan Belum Disimpan (Klik "Simpan Konfigurasi Bot" di bawah)
+                        <AlertCircle size={14} />
+                        <span>Perubahan Belum Disimpan (Klik "Simpan Konfigurasi Bot" di bawah)</span>
                       </span>
                     )}
                   </div>
@@ -888,7 +890,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                   >
                     {syncCategoriesResult.success ? (
                       <div>
-                        <strong>✅ Berhasil sinkronisasi {syncCategoriesResult.count} folder kategori di Google Drive:</strong>
+                        <strong>Berhasil sinkronisasi {syncCategoriesResult.count} folder kategori di Google Drive:</strong>
                         <div style={{ marginTop: '0.35rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
                           {syncCategoriesResult.folders.map((f, i) => (
                             <span
@@ -901,14 +903,14 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                                 fontSize: '0.75rem',
                               }}
                             >
-                              📁 {f}
+                              {f}
                             </span>
                           ))}
                         </div>
                       </div>
                     ) : (
                       <div>
-                        <strong>❌ Gagal membuat folder kategori:</strong> {syncCategoriesResult.error}
+                        <strong>Gagal membuat folder kategori:</strong> {syncCategoriesResult.error}
                       </div>
                     )}
                   </div>
@@ -949,7 +951,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                       Kelompokkan File Registrasi (.txt) ke Folder Khusus
                     </h4>
                     <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem', lineHeight: 1.5 }}>
-                      Bot akan membuat folder <strong>📁 Bukti Registrasi Dokumen (TXT)</strong> dan otomatis memindahkan seluruh file <code>.txt</code> registrasi yang menumpuk di folder utama agar Google Drive Anda bersih dan rapi.
+                      Bot akan membuat folder <strong>Bukti Registrasi Dokumen (TXT)</strong> dan otomatis memindahkan seluruh file <code>.txt</code> registrasi yang menumpuk di folder utama agar Google Drive Anda bersih dan rapi.
                     </p>
                   </div>
                   <button
@@ -1085,7 +1087,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.75rem', marginTop: '0.5rem' }}>
                   <div style={{ background: 'rgba(56, 189, 248, 0.06)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.25)' }}>
                     <div style={{ fontWeight: 700, color: '#38bdf8', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                      ⚡ Jika MEMPERBARUI Bot yang Sudah Ada:
+                      Pembaruan Bot yang Sudah Ada:
                     </div>
                     <ol style={{ paddingLeft: '1.15rem', margin: 0, fontSize: '0.8rem', lineHeight: 1.6 }}>
                       <li>Buka proyek bot Anda di{' '}
@@ -1095,7 +1097,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
                       </li>
                       <li>Hapus semua kode lama, lalu <strong>Paste</strong> seluruh kode script terbaru di bawah ini.</li>
                       <li>Klik menu <strong>Deploy (Terapkan)</strong> &gt; pilih <strong>Kelola deployment (Manage deployments)</strong>.</li>
-                      <li>Klik ikon <strong>✏️ Pensil (Edit)</strong> di kanan atas pop-up.</li>
+                      <li>Klik ikon <strong>Pensil (Edit)</strong> di kanan atas pop-up.</li>
                       <li>Pada pilihan <strong>Versi (Version)</strong>, pilih <strong>Versi baru (New version)</strong>.</li>
                       <li>Klik <strong>Deploy (Terapkan)</strong>. Selesai! Webhook URL tetap sama, dan bot akan otomatis mengelompokkan seluruh file <code>.txt</code> registrasi ke dalam folder khusus <strong>Bukti Registrasi Dokumen (TXT)</strong> agar Google Drive Anda selalu rapi.</li>
                     </ol>
@@ -1103,7 +1105,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
 
                   <div style={{ background: 'rgba(16, 185, 129, 0.06)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
                     <div style={{ fontWeight: 700, color: '#34d399', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                      🚀 Jika Baru Pertama Kali Pasang Bot:
+                      Pemasangan Bot Baru Pertama Kali:
                     </div>
                     <ol style={{ paddingLeft: '1.15rem', margin: 0, fontSize: '0.8rem', lineHeight: 1.6 }}>
                       <li>Buka{' '}
@@ -1122,7 +1124,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
 
                   <div style={{ background: 'rgba(168, 85, 247, 0.08)', padding: '0.85rem', borderRadius: '6px', border: '1px solid rgba(168, 85, 247, 0.3)', gridColumn: '1 / -1' }}>
                     <div style={{ fontWeight: 700, color: '#c084fc', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                      🤖 Agar Aktivitas di Google Drive Menggunakan Akun Bot (Bukan Akun Pribadi Anda):
+                      Penggunaan Akun Bot Resmi di Google Drive:
                     </div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.4rem' }}>
                       Di Google Drive, riwayat pembuat dokumen akan selalu mengikuti akun Google yang melakukan <em>Deploy</em> script bot tersebut. Untuk memakai akun bot khusus:

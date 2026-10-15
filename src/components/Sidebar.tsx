@@ -389,12 +389,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       fontSize: '0.68rem',
                       fontWeight: 700,
                       padding: '0.12rem 0.4rem',
-                      borderRadius: '5px',
+                      borderRadius: '4px',
                       background: isActive
                         ? 'rgba(255, 255, 255, 0.22)'
                         : 'var(--bg-tertiary)',
                       color: isActive ? '#ffffff' : 'var(--text-secondary)',
-                      fontFamily: 'monospace',
+                      letterSpacing: '0.03em',
                     }}
                   >
                     {div.code}
@@ -405,9 +405,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         fontSize: '0.68rem',
                         fontWeight: 700,
                         padding: '0.1rem 0.38rem',
-                        borderRadius: '999px',
+                        borderRadius: '4px',
                         background: isActive ? '#ffffff' : 'rgba(2, 132, 199, 0.12)',
                         color: isActive ? '#0369a1' : '#0284c7',
+                        fontVariantNumeric: 'tabular-nums',
                       }}
                     >
                       {count}

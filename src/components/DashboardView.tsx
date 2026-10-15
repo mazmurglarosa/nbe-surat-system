@@ -199,7 +199,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             }}
           >
             <BarChart3 color="var(--primary)" size={26} />
-            {roleTitle ? `Dashboard Dokumen — ${roleTitle}` : 'Dashboard & Kontrol Dokumen'}
+            {roleTitle ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+                <span>Dashboard Dokumen</span>
+                <span className="badge badge-primary" style={{ fontSize: '0.8125rem', padding: '0.2rem 0.6rem' }}>
+                  {roleTitle}
+                </span>
+              </span>
+            ) : (
+              'Dashboard & Kontrol Dokumen'
+            )}
           </h1>
           <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', fontSize: '0.95rem' }}>
             Ringkasan jumlah surat, statistik kategori, dan daftar lengkap dokumen yang telah terdaftar resmi di PT Nirwana Bhumi Energi.
@@ -243,7 +252,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 1. TOP STATS CARDS (JUMLAH SURAT) */}
+      {/* 1. TOP STATS CARDS (JUMLAH SURAT BERHIERARKI) */}
       <div
         style={{
           display: 'grid',
@@ -252,35 +261,42 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           marginBottom: '1.75rem',
         }}
       >
-        {/* Total Dokumen */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        {/* Total Dokumen (Primary KPI) */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '1.5rem',
+            borderLeft: '4px solid var(--primary)',
+            background: 'linear-gradient(135deg, rgba(0, 212, 178, 0.05) 0%, var(--bg-card) 100%)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Total Surat Terdaftar
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+              Total Dokumen Terdaftar
             </span>
-            <div style={{ background: 'var(--primary-glow)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'var(--primary-glow)', padding: '0.45rem', borderRadius: '8px' }}>
               <FileText size={20} color="var(--primary)" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {total}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Tersimpan aman & permanen
+            Arsip resmi seluruh kategori
           </div>
         </div>
 
         {/* Diterbitkan (Published) */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--success)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
               Surat Diterbitkan
             </span>
-            <div style={{ background: 'var(--success-bg)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'var(--success-bg)', padding: '0.45rem', borderRadius: '8px' }}>
               <CheckCircle2 size={20} color="var(--success)" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {publishedCount}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
@@ -288,39 +304,52 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Review & Draft */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        {/* Review & Draft (Actionable KPI) */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '1.5rem',
+            borderLeft: inReviewCount > 0 ? '4px solid var(--warning)' : '4px solid var(--border-subtle)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Review & Draft
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+              Menunggu Review
             </span>
-            <div style={{ background: 'var(--warning-bg)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'var(--warning-bg)', padding: '0.45rem', borderRadius: '8px' }}>
               <Clock size={20} color="var(--warning)" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--warning)', marginTop: '0.5rem' }} className="mono">
-            {inReviewCount}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginTop: '0.5rem' }}>
+            <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--warning)', fontVariantNumeric: 'tabular-nums' }}>
+              {inReviewCount}
+            </div>
+            {inReviewCount > 0 && (
+              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                Perlu Verifikasi
+              </span>
+            )}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Menunggu verifikasi/approval
+            Draft & verifikasi berjalan
           </div>
         </div>
 
         {/* Approved */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid #38bdf8' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
-              Disetujui (Approved)
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+              Disetujui Direksi
             </span>
-            <div style={{ background: 'rgba(2, 132, 199, 0.15)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'rgba(2, 132, 199, 0.15)', padding: '0.45rem', borderRadius: '8px' }}>
               <Shield size={20} color="#38bdf8" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {approvedCount}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Telah divalidasi direksi
+            Telah tervalidasi
           </div>
         </div>
       </div>
@@ -414,8 +443,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.3rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span className={`badge ${isCurrent ? 'badge-primary' : 'badge-blue'} mono`}>{d.code}</span>
-                      <span style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 800 : 600 }}>
-                        {d.label.split('(')[0]} {isCurrent && '✓'}
+                      <span style={{ fontSize: '0.85rem', fontWeight: isCurrent ? 800 : 600, display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <span>{d.label.split('(')[0]}</span>
+                        {isCurrent && <Check size={14} color="var(--primary)" />}
                       </span>
                     </div>
                     <span style={{ fontSize: '0.8rem', fontWeight: 700 }} className="mono">

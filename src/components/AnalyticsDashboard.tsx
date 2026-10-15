@@ -134,17 +134,24 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
           marginBottom: '2rem',
         }}
       >
-        {/* Total Documents */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        {/* Total Documents (Primary) */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '1.5rem',
+            borderLeft: '4px solid var(--primary)',
+            background: 'linear-gradient(135deg, rgba(0, 212, 178, 0.05) 0%, var(--bg-card) 100%)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
               Total Dokumen Terdaftar
             </span>
-            <div style={{ background: 'var(--primary-glow)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'var(--primary-glow)', padding: '0.45rem', borderRadius: '8px' }}>
               <FileText size={20} color="var(--primary)" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {total}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
@@ -153,16 +160,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Published */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--success)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
               Diterbitkan (Published)
             </span>
-            <div style={{ background: 'var(--success-bg)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'var(--success-bg)', padding: '0.45rem', borderRadius: '8px' }}>
               <CheckCircle2 size={20} color="var(--success)" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {publishedCount}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
@@ -171,16 +178,22 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* In Review / Draft */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div 
+          className="glass-card" 
+          style={{ 
+            padding: '1.5rem',
+            borderLeft: (inReviewCount + draftCount) > 0 ? '4px solid var(--warning)' : '4px solid var(--border-subtle)',
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
               Review & Draft
             </span>
-            <div style={{ background: 'var(--warning-bg)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'var(--warning-bg)', padding: '0.45rem', borderRadius: '8px' }}>
               <Clock size={20} color="var(--warning)" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--warning)', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--warning)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {inReviewCount + draftCount}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
@@ -189,16 +202,16 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({
         </div>
 
         {/* Approved */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid #38bdf8' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
               Telah Disetujui
             </span>
-            <div style={{ background: 'rgba(2, 132, 199, 0.15)', padding: '0.45rem', borderRadius: '10px' }}>
+            <div style={{ background: 'rgba(2, 132, 199, 0.15)', padding: '0.45rem', borderRadius: '8px' }}>
               <Shield size={20} color="#38bdf8" />
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.5rem' }} className="mono">
+          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
             {approvedCount}
           </div>
           <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>

@@ -1318,16 +1318,18 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             <button
               onClick={() => setActiveAnalysisTab('word')}
               className={`btn btn-sm ${activeAnalysisTab === 'word' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ borderColor: '#38bdf8' }}
+              style={{ borderColor: '#38bdf8', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              📁 Folder "word" ({wordFiles.length}) - Fokus Bot
+              <Folder size={14} />
+              <span>Folder "word" ({wordFiles.length}) - Fokus Bot</span>
             </button>
             <button
               onClick={() => setActiveAnalysisTab('pdf')}
               className={`btn btn-sm ${activeAnalysisTab === 'pdf' ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ borderColor: '#f87171' }}
+              style={{ borderColor: '#f87171', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
-              📁 Folder "pdf" ({pdfFiles.length})
+              <Folder size={14} />
+              <span>Folder "pdf" ({pdfFiles.length})</span>
             </button>
           </div>
 

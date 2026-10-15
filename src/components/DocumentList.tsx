@@ -540,7 +540,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 
                   {/* Revisi */}
                   <td style={{ padding: '0.85rem 1rem' }}>
-                    <span className="badge badge-primary mono">Rev {doc.revision}</span>
+                    <span className="badge badge-primary" style={{ fontVariantNumeric: 'tabular-nums' }}>Rev {doc.revision}</span>
                   </td>
 
                   {/* Status */}
@@ -779,7 +779,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   )}
                   <span className="badge badge-blue">{doc.divisionCode}</span>
                   <span className="badge badge-warning">{doc.approverCode}</span>
-                  <span className="badge badge-primary mono">Rev {doc.revision}</span>
+                  <span className="badge badge-primary" style={{ fontVariantNumeric: 'tabular-nums' }}>Rev {doc.revision}</span>
                   {getStatusBadge(doc.status)}
                 </div>
               </div>

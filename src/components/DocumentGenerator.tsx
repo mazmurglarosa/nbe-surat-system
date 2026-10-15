@@ -20,6 +20,8 @@ import {
   Code2,
   RotateCcw,
   Save,
+  FolderPlus,
+  Link as LinkIcon,
 } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
@@ -575,7 +577,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       const targetFolderId = currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID;
 
       if (driveSettings.botWebhookUrl) {
-        setSubmittingStatus('🤖 Bot sedang mendaftarkan dokumen ke Google Drive...');
+        setSubmittingStatus('Bot sedang mendaftarkan dokumen ke Google Drive...');
         try {
           const botResult = await registerDocumentInDriveViaBot(
             {
@@ -848,7 +850,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
       {/* Live Generated Code Display Hero */}
       <div
-        className="glass-card glow-animation"
+        className="glass-card"
         style={{
           padding: '1.75rem',
           marginBottom: '2rem',
@@ -857,7 +859,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             : '1px solid var(--border-accent)',
           background: duplicate
             ? 'rgba(239, 68, 68, 0.08)'
-            : 'linear-gradient(135deg, rgba(22, 34, 60, 0.9) 0%, rgba(10, 20, 38, 0.95) 100%)',
+            : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%)',
           position: 'relative',
           overflow: 'hidden',
         }}
@@ -1069,15 +1071,19 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                       {isCreatingCategoryFolder ? (
                         <Loader2 size={14} className="animate-spin" />
                       ) : (
-                        <HardDrive size={14} />
+                        <FolderPlus size={14} />
                       )}
-                      <span>📁 Buat Folder Kategori "{fixNotification.categoryCode || selectedType}" di Google Drive Sekarang</span>
+                      <span>Buat Folder Kategori "{fixNotification.categoryCode || selectedType}" di Google Drive Sekarang</span>
                     </button>
                   </div>
                 )}
                 {fixNotification.type === 'error' && fixNotification.isOldScriptError && (
                   <div style={{ marginTop: '0.4rem', color: '#fed7aa', fontSize: '0.8rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
-                    💡 <strong>Solusi Cepat (30 detik):</strong> Klik tombol <em>"Salin Script Bot Terbaru"</em> di bawah, buka proyek Apps Script Anda, timpa/paste kodenya, lalu klik <strong>Deploy &gt; Kelola deployment &gt; Edit &gt; Versi Baru &gt; Terapkan</strong>.
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
+                      <Sparkles size={14} color="#f59e0b" />
+                      <strong>Solusi:</strong>
+                    </div>
+                    Klik tombol <em>"Salin Script Bot Terbaru"</em> di bawah, buka proyek Apps Script Anda, timpa/paste kodenya, lalu klik <strong>Deploy &gt; Kelola deployment &gt; Edit &gt; Versi Baru &gt; Terapkan</strong>.
                   </div>
                 )}
               </div>
@@ -1114,8 +1120,9 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     border: '1px solid rgba(255, 255, 255, 0.12)',
                   }}
                 >
-                  <div style={{ fontSize: '0.8rem', color: '#e2e8f0', marginBottom: '0.4rem', fontWeight: 600 }}>
-                    🔗 Sudah dapat URL Webhook Baru dari script.google.com? Tempel di sini:
+                  <div style={{ fontSize: '0.8rem', color: '#e2e8f0', marginBottom: '0.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <LinkIcon size={14} />
+                    <span>Sudah memiliki URL Webhook Baru dari script.google.com? Tempel di sini:</span>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <input
@@ -2109,7 +2116,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     ) : (
                       <>
                         <Bot size={16} />
-                        <span>🤖 Upload ke Google Drive via Bot</span>
+                        <span>Unggah ke Google Drive via Bot</span>
                       </>
                     )}
                   </button>
@@ -2285,7 +2292,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             <div style={{ fontSize: '0.85rem' }}>
               {driveSettings.botWebhookUrl ? (
                 <span style={{ color: 'var(--text-secondary)' }}>
-                  <strong style={{ color: '#34d399' }}>🤖 Bot Drive Aktif:</strong> Saat tombol ditekan, bot langsung mendaftarkan ke Google Drive NBE.
+                  <strong style={{ color: '#34d399' }}>Bot Drive Aktif:</strong> Saat tombol ditekan, bot langsung mendaftarkan ke Google Drive NBE.
                 </span>
               ) : (
                 <span style={{ color: 'var(--text-secondary)' }}>
