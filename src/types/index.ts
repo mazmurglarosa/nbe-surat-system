@@ -13,6 +13,19 @@ export interface RevisionRecord {
   revisedBy: string;
 }
 
+export interface DocumentFileItem {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl?: string; // Base64 data or object URL for local preview
+  fileUrl?: string; // Direct URL if hosted
+  googleDriveLink?: string; // Direct link to file in Google Drive
+  driveFileId?: string;
+  relativePath?: string; // Path inside folder (e.g. subfolder/file.pdf)
+  uploadedAt?: string;
+}
+
 export interface DocumentRecord {
   id: string;
   code: string; // e.g. "0001-CSMS-GP/AI-FNC-CFO-IX-2026"
@@ -45,6 +58,11 @@ export interface DocumentRecord {
   driveFolderId?: string; // ID of dedicated folder created in Google Drive for this document
   driveFolderUrl?: string; // Direct link to the dedicated folder in Google Drive
   isFixed?: boolean; // Flag indicating if the document code has been fixed
+
+  // Multi-File & Folder Support
+  isFolder?: boolean;
+  folderName?: string;
+  files?: DocumentFileItem[];
 
   // Legacy / Manual override flag
   isManualCode?: boolean;

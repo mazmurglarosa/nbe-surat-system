@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutGrid,
   FilePlus,
+  FolderPlus,
   Briefcase,
   History,
   Settings,
@@ -15,6 +16,7 @@ import { CodeDefinition, DocumentRecord, DIVISIONS } from '../types';
 export type SidebarTab =
   | 'dashboard'
   | 'create'
+  | 'create-folder'
   | 'master-categories'
   | 'logs'
   | 'settings'
@@ -218,6 +220,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Daftarkan Surat</span>
             </div>
             {activeTab === 'create' && <ChevronRight size={16} />}
+          </button>
+
+          {/* 2b. Daftarkan Folder */}
+          <button
+            onClick={() => onSelectTab('create-folder')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.7rem 0.9rem',
+              borderRadius: '10px',
+              border: 'none',
+              background:
+                activeTab === 'create-folder'
+                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
+                  : 'transparent',
+              color: activeTab === 'create-folder' ? '#ffffff' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'create-folder' ? 700 : 500,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+              boxShadow:
+                activeTab === 'create-folder'
+                  ? '0 4px 12px rgba(2, 132, 199, 0.35)'
+                  : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <FolderPlus size={18} />
+              <span>Daftarkan Folder</span>
+            </div>
+            {activeTab === 'create-folder' && <ChevronRight size={16} />}
           </button>
 
           {/* 3. Kelola Kategori & Kode */}

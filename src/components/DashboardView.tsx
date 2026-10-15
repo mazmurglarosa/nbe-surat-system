@@ -18,6 +18,8 @@ import {
   HardDrive,
   BarChart3,
   History,
+  FolderPlus,
+  Folder,
 } from 'lucide-react';
 import { DocumentRecord, CodeDefinition, DocumentStatus } from '../types';
 import { exportToCSV } from '../services/storage';
@@ -26,6 +28,7 @@ import { getMasterCodes } from '../services/masterCodes';
 interface DashboardViewProps {
   documents: DocumentRecord[];
   onNavigateToCreate: () => void;
+  onNavigateToCreateFolder?: () => void;
   onViewDocument: (doc: DocumentRecord) => void;
   onEditDocument: (doc: DocumentRecord) => void;
   onReviseDocument?: (doc: DocumentRecord) => void;
@@ -40,6 +43,7 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   documents,
   onNavigateToCreate,
+  onNavigateToCreateFolder,
   onViewDocument,
   onEditDocument,
   onReviseDocument,
@@ -218,6 +222,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <PlusCircle size={15} />
             <span>+ Daftarkan Surat Baru</span>
           </button>
+          {onNavigateToCreateFolder && (
+            <button
+              onClick={onNavigateToCreateFolder}
+              className="btn btn-secondary btn-sm"
+              style={{
+                borderColor: '#0284c7',
+                color: '#38bdf8',
+                background: 'rgba(2, 132, 199, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+              }}
+              title="Daftarkan banyak file / direktori folder sekaligus"
+            >
+              <FolderPlus size={15} />
+              <span>+ Daftarkan Folder</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -551,7 +573,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Judul Dokumen */}
                   <td style={{ padding: '0.75rem 1rem', maxWidth: '280px' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>{doc.title}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      {doc.isFolder && (
+                        <span
+                          className="badge"
+                          style={{
+                            background: 'rgba(2, 132, 199, 0.2)',
+                            color: '#38bdf8',
+                            border: '1px solid rgba(2, 132, 199, 0.45)',
+                            fontSize: '0.68rem',
+                            fontWeight: 700,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.2rem',
+                          }}
+                        >
+                          <Folder size={11} /> Folder ({doc.files?.length || 1} berkas)
+                        </span>
+                      )}
+                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{doc.title}</span>
+                    </div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
                       {doc.createdBy} • Terbit: {doc.issueDate}
                     </div>
@@ -596,8 +637,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                   {/* Berkas & Drive */}
                   <td style={{ padding: '0.75rem 1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      {(doc.fileData || doc.fileUrl) && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                      {doc.isFolder ? (
+                        <button
+                          onClick={() => onViewDocument(doc)}
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '0.2rem 0.45rem', color: '#38bdf8', fontSize: '0.72rem' }}
+                          title="Lihat semua berkas dalam folder"
+                        >
+                          <Folder size={13} /> {doc.files?.length || 1} Berkas
+                        </button>
+                      ) : (doc.fileData || doc.fileUrl) ? (
                         <button
                           onClick={() => onViewDocument(doc)}
                           className="btn btn-ghost btn-sm"
@@ -605,7 +655,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         >
                           <FileCheck size={13} /> PDF
                         </button>
-                      )}
+                      ) : null}
+
                       {doc.googleDriveLink && (
                         <a
                           href={doc.googleDriveLink}

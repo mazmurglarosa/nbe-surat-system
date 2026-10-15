@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Sidebar, SidebarTab } from './components/Sidebar';
 import { DashboardView } from './components/DashboardView';
 import { DocumentGenerator } from './components/DocumentGenerator';
+import { FolderGenerator } from './components/FolderGenerator';
 import { ActivityLogsView } from './components/ActivityLogsView';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { EditDocumentModal } from './components/EditDocumentModal';
@@ -612,6 +613,7 @@ export function App() {
             <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {activeTab === 'dashboard' && 'Dashboard Dokumen'}
               {activeTab === 'create' && 'Daftarkan Surat Baru'}
+              {activeTab === 'create-folder' && 'Daftarkan Folder (Multi-File)'}
               {activeTab === 'master-categories' && 'Kelola Master Kategori & Kode'}
               {activeTab.startsWith('div-') && (() => {
                 const code = activeTab.replace('div-', '').toUpperCase();
@@ -726,6 +728,7 @@ export function App() {
               documentTypes={masterCodes.documentTypes}
               divisions={masterCodes.divisions}
               onNavigateToCreate={() => setActiveTab('create')}
+              onNavigateToCreateFolder={() => setActiveTab('create-folder')}
               onViewDocument={(doc) => setViewingDoc(doc)}
               onEditDocument={(doc) => setEditingDoc(doc)}
               onReviseDocument={(doc) => setRevisingDoc(doc)}
@@ -735,6 +738,25 @@ export function App() {
 
           {activeTab === 'create' && (
             <DocumentGenerator
+              documents={documents}
+              onSaveDocument={handleSaveDocument}
+              driveSettings={driveSettings}
+              onNavigateToDocuments={() => setActiveTab('dashboard')}
+              onOpenDriveSettings={() => setIsDriveModalOpen(true)}
+              documentTypes={masterCodes.documentTypes}
+              subCategories={masterCodes.subCategories}
+              subSubCategories={masterCodes.subSubCategories}
+              divisions={masterCodes.divisions}
+              approvers={masterCodes.approvers}
+              onAddSubCategory={handleAddSubCategory}
+              onAddSubSubCategory={handleAddSubSubCategory}
+              onAddDocumentType={handleAddDocType}
+              onNavigateToMasterCategories={() => setActiveTab('master-categories')}
+            />
+          )}
+
+          {activeTab === 'create-folder' && (
+            <FolderGenerator
               documents={documents}
               onSaveDocument={handleSaveDocument}
               driveSettings={driveSettings}

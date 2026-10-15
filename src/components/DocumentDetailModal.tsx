@@ -9,6 +9,9 @@ import {
   History,
   Plus,
   Eye,
+  Folder,
+  File,
+  ExternalLink,
 } from 'lucide-react';
 import { DocumentRecord, RevisionRecord } from '../types';
 
@@ -29,6 +32,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   const [showAddRevision, setShowAddRevision] = useState(false);
   const [newRevisionDesc, setNewRevisionDesc] = useState('');
   const [revisedBy, setRevisedBy] = useState('');
+  const [activeFileIndex, setActiveFileIndex] = useState<number>(0);
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(doc.code);
@@ -65,7 +69,10 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
     setShowAddRevision(false);
   };
 
+  const selectedFileItem = doc.files && doc.files.length > 0 ? doc.files[activeFileIndex] : null;
   const fileSource = doc.fileData || doc.fileUrl;
+  const currentPreviewSource = selectedFileItem?.dataUrl || selectedFileItem?.fileUrl || fileSource;
+  const currentPreviewName = selectedFileItem?.name || doc.fileName;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -269,65 +276,213 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
             </div>
           )}
 
-          {/* Document File / Google Drive Links */}
-          <div
-            style={{
-              padding: '1.25rem',
-              borderRadius: 'var(--radius-md)',
-              border: '1px solid var(--border-accent)',
-              background: 'rgba(0, 212, 178, 0.04)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem',
-              marginBottom: '1.75rem',
-            }}
-          >
-            <div>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <FileText size={16} color="var(--primary)" />
-                File Terlampir:{' '}
-                <span style={{ color: 'var(--text-secondary)' }}>
-                  {doc.fileName || 'Belum ada file langsung'}
-                </span>
-              </h4>
-              {doc.googleDriveLink && (
-                <p style={{ fontSize: '0.8rem', color: '#38bdf8', marginTop: '0.25rem' }}>
-                  Link Google Drive aktif dan terhubung.
-                </p>
-              )}
+          {/* FOLDER & MULTI-FILES LIST (if doc.files exists) */}
+          {doc.files && doc.files.length > 0 && (
+            <div
+              style={{
+                marginBottom: '1.75rem',
+                padding: '1.25rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1.5px solid rgba(2, 132, 199, 0.35)',
+                background: 'rgba(2, 132, 199, 0.04)',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: '1rem',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Folder size={18} color="#38bdf8" />
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                    Berkas dalam Folder ({doc.files.length} berkas)
+                  </h4>
+                </div>
+
+                {doc.googleDriveLink && (
+                  <a
+                    href={doc.googleDriveLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{ color: '#38bdf8', fontSize: '0.78rem' }}
+                  >
+                    <HardDrive size={13} />
+                    <span>Buka Folder di Google Drive</span>
+                    <ExternalLink size={11} />
+                  </a>
+                )}
+              </div>
+
+              {/* Table of files inside this document folder */}
+              <div
+                style={{
+                  maxHeight: '220px',
+                  overflowY: 'auto',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-secondary)',
+                }}
+              >
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-muted)' }}>
+                      <th style={{ padding: '0.5rem 0.75rem' }}>#</th>
+                      <th style={{ padding: '0.5rem 0.75rem' }}>Nama Berkas</th>
+                      <th style={{ padding: '0.5rem 0.75rem' }}>Ukuran</th>
+                      <th style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {doc.files.map((file, idx) => {
+                      const isActive = activeFileIndex === idx;
+                      return (
+                        <tr
+                          key={file.id || idx}
+                          style={{
+                            borderBottom: '1px solid var(--border-subtle)',
+                            background: isActive ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
+                          }}
+                        >
+                          <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-muted)', width: '30px' }}>
+                            {idx + 1}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                              <File size={14} color="#38bdf8" />
+                              <div>
+                                <span style={{ fontWeight: isActive ? 700 : 500, color: 'var(--text-main)' }}>
+                                  {file.name}
+                                </span>
+                                {file.relativePath && file.relativePath !== file.name && (
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                                    {file.relativePath}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.5rem 0.75rem', color: 'var(--text-secondary)' }}>
+                            {file.size > 0 ? (file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(2)} MB` : `${Math.round(file.size / 1024)} KB`) : '-'}
+                          </td>
+                          <td style={{ padding: '0.5rem 0.75rem', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem' }}>
+                              {(file.dataUrl || file.fileUrl) && (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveFileIndex(idx)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{
+                                    padding: '0.2rem 0.45rem',
+                                    fontSize: '0.72rem',
+                                    color: isActive ? 'var(--primary)' : 'var(--text-secondary)',
+                                    fontWeight: isActive ? 700 : 400,
+                                  }}
+                                  title="Pilih untuk pratinjau di bawah"
+                                >
+                                  <Eye size={13} /> {isActive ? 'Aktif' : 'Pratinjau'}
+                                </button>
+                              )}
+                              {(file.dataUrl || file.fileUrl) && (
+                                <a
+                                  href={file.dataUrl || file.fileUrl}
+                                  download={file.name}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ padding: '0.2rem 0.35rem', color: 'var(--primary)' }}
+                                  title="Download Berkas Ini"
+                                >
+                                  <Download size={13} />
+                                </a>
+                              )}
+                              {file.googleDriveLink && (
+                                <a
+                                  href={file.googleDriveLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ padding: '0.2rem 0.35rem', color: '#38bdf8' }}
+                                  title="Buka Berkas di Google Drive"
+                                >
+                                  <ExternalLink size={13} />
+                                </a>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
+          )}
 
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              {doc.googleDriveLink && (
-                <a
-                  href={doc.googleDriveLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary btn-sm"
-                  style={{ color: '#38bdf8' }}
-                >
-                  <HardDrive size={14} />
-                  <span>Buka di Google Drive</span>
-                </a>
-              )}
+          {/* Document File / Google Drive Links (Single File or Overall Summary) */}
+          {(!doc.files || doc.files.length === 0) && (
+            <div
+              style={{
+                padding: '1.25rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-accent)',
+                background: 'rgba(0, 212, 178, 0.04)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '1rem',
+                marginBottom: '1.75rem',
+              }}
+            >
+              <div>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <FileText size={16} color="var(--primary)" />
+                  File Terlampir:{' '}
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    {doc.fileName || 'Belum ada file langsung'}
+                  </span>
+                </h4>
+                {doc.googleDriveLink && (
+                  <p style={{ fontSize: '0.8rem', color: '#38bdf8', marginTop: '0.25rem' }}>
+                    Link Google Drive aktif dan terhubung.
+                  </p>
+                )}
+              </div>
 
-              {fileSource && (
-                <a
-                  href={fileSource}
-                  download={doc.fileName || `${doc.code}.pdf`}
-                  className="btn btn-primary btn-sm"
-                >
-                  <Download size={14} />
-                  <span>Download File</span>
-                </a>
-              )}
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {doc.googleDriveLink && (
+                  <a
+                    href={doc.googleDriveLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    style={{ color: '#38bdf8' }}
+                  >
+                    <HardDrive size={14} />
+                    <span>Buka di Google Drive</span>
+                  </a>
+                )}
+
+                {fileSource && (
+                  <a
+                    href={fileSource}
+                    download={doc.fileName || `${doc.code}.pdf`}
+                    className="btn btn-primary btn-sm"
+                  >
+                    <Download size={14} />
+                    <span>Download File</span>
+                  </a>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Embedded PDF Viewer if file exists */}
-          {fileSource && (
+          {/* Embedded Viewer (Current Selected File or Main Document) */}
+          {currentPreviewSource && (
             <div style={{ marginBottom: '2rem' }}>
               <h4
                 style={{
@@ -340,7 +495,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 }}
               >
                 <Eye size={16} color="var(--primary)" />
-                Pratinjau Dokumen (PDF Viewer)
+                Pratinjau Berkas {currentPreviewName ? `: ${currentPreviewName}` : '(PDF Viewer)'}
               </h4>
               <div
                 style={{
@@ -353,8 +508,8 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 }}
               >
                 <iframe
-                  src={fileSource}
-                  title="PDF Preview"
+                  src={currentPreviewSource}
+                  title="Document Preview"
                   style={{ width: '100%', height: '100%', border: 'none' }}
                 />
               </div>
