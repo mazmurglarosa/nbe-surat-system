@@ -49,10 +49,23 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
     reader.readAsText(file);
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content modal-animate-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="backup-modal-title"
         style={{ maxWidth: '640px' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -69,11 +82,16 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <Database size={22} color="var(--primary)" />
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+            <h2 id="backup-modal-title" style={{ fontSize: '1.2rem', fontWeight: 700 }}>
               Pusat Pencadangan Data & Jaminan Nol Kehilangan
             </h2>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0.35rem' }}>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm"
+            style={{ padding: '0.35rem' }}
+            aria-label="Tutup jendela pencadangan"
+          >
             <X size={20} />
           </button>
         </div>

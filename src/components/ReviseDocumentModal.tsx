@@ -177,10 +177,23 @@ export const ReviseDocumentModal: React.FC<ReviseDocumentModalProps> = ({
     }
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, isSubmitting]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content modal-animate-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="revise-modal-title"
         style={{ maxWidth: '640px' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -211,7 +224,7 @@ export const ReviseDocumentModal: React.FC<ReviseDocumentModalProps> = ({
               <History size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
+              <h2 id="revise-modal-title" style={{ fontSize: '1.15rem', fontWeight: 700 }}>
                 Unggah Dokumen Revisi
               </h2>
               <span
@@ -230,6 +243,7 @@ export const ReviseDocumentModal: React.FC<ReviseDocumentModalProps> = ({
             onClick={onClose}
             className="btn btn-ghost btn-sm"
             style={{ padding: '0.35rem' }}
+            aria-label="Tutup jendela modal"
           >
             <X size={20} />
           </button>

@@ -447,7 +447,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               textAlign: 'left',
             }}
           >
-            <thead>
+            <thead className="table-sticky-header">
               <tr
                 style={{
                   borderBottom: '1px solid var(--border-subtle)',

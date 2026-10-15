@@ -209,10 +209,23 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
     }
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, isSubmitting]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content modal-animate-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-modal-title"
         style={{ maxWidth: '780px' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -229,11 +242,16 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Unlock size={20} color="var(--warning)" />
-            <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+            <h2 id="edit-modal-title" style={{ fontSize: '1.2rem', fontWeight: 700 }}>
               Edit Data Dokumen & Akses Ubah Kode
             </h2>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0.35rem' }}>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm"
+            style={{ padding: '0.35rem' }}
+            aria-label="Tutup jendela edit"
+          >
             <X size={20} />
           </button>
         </div>

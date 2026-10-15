@@ -124,18 +124,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
+              gap: '0.4rem',
               alignSelf: 'flex-start',
-              padding: '0.15rem 0.55rem',
+              padding: '0.2rem 0.6rem',
               borderRadius: '9999px',
               fontSize: '0.68rem',
-              fontWeight: 700,
+              fontWeight: 600,
               background: 'rgba(2, 132, 199, 0.1)',
-              color: '#0284c7',
+              color: '#38bdf8',
               border: '1px solid rgba(2, 132, 199, 0.25)',
-              letterSpacing: '0.04em',
+              letterSpacing: '0.03em',
             }}
           >
-            Document Control System
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 6px #10b981',
+                display: 'inline-block',
+              }}
+            />
+            <span>Enterprise Cloud Active</span>
           </div>
         </div>
 

@@ -640,7 +640,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Table of Registered Documents */}
         <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
-            <thead>
+            <thead className="table-sticky-header">
               <tr style={{ background: 'rgba(0,0,0,0.22)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '0.75rem 1rem' }}>Kode Surat</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Judul Dokumen</th>

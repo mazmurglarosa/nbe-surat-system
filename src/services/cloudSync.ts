@@ -12,6 +12,12 @@ import {
 } from './storage';
 import { getMasterCodes, saveMasterCodes, normalizeMasterCodes, mergeMasterCodes } from './masterCodes';
 import { loadActivityLogs, saveActivityLogs } from './activityLogs';
+import {
+  isSupabaseConfigured,
+  fetchDocumentsFromSupabase,
+  saveDocumentToSupabase,
+  deleteDocumentFromSupabase,
+} from './supabaseClient';
 
 /**
  * Dapatkan URL Webhook Bot aktif yang dapat digunakan oleh seluruh device
@@ -166,7 +172,7 @@ export async function syncFromCloud(): Promise<{
     const cloudDocs: DocumentRecord[] = Array.isArray(res.documents) ? res.documents : [];
 
     // Lakukan Smart Two-Way Merge
-    const { merged, needsCloudPush } = mergeDocuments(localDocs, cloudDocs);
+    let { merged, needsCloudPush } = mergeDocuments(localDocs, cloudDocs);
 
     // Simpan hasil merge ke storage lokal jika ada dokumen
     if (merged.length > 0) {
@@ -209,6 +215,19 @@ export async function syncFromCloud(): Promise<{
       }
     }
 
+    // Integrasikan data dari Supabase jika dikonfigurasi
+    if (isSupabaseConfigured) {
+      try {
+        const supaDocs = await fetchDocumentsFromSupabase();
+        if (supaDocs.length > 0) {
+          const supaMerge = mergeDocuments(merged, supaDocs);
+          merged = supaMerge.merged;
+        }
+      } catch (eSupa) {
+        console.warn('Gagal membaca dokumen dari Supabase saat sync:', eSupa);
+      }
+    }
+
     return {
       success: true,
       documents: merged,
@@ -225,6 +244,13 @@ export async function syncFromCloud(): Promise<{
  * Unggah atau perbarui 1 dokumen ke Cloud Google Drive secara background
  */
 export async function pushDocumentToCloud(doc: DocumentRecord): Promise<boolean> {
+  // Sync ke Supabase secara background jika aktif
+  if (isSupabaseConfigured) {
+    saveDocumentToSupabase(doc).catch((err) =>
+      console.warn('Gagal push dokumen ke Supabase:', err)
+    );
+  }
+
   const webhookUrl = getActiveCloudWebhookUrl();
   if (!webhookUrl) return false;
 
@@ -241,6 +267,13 @@ export async function pushDocumentToCloud(doc: DocumentRecord): Promise<boolean>
  * Hapus 1 dokumen dari Cloud Google Drive
  */
 export async function removeDocumentFromCloud(id: string, code: string): Promise<boolean> {
+  // Hapus dari Supabase secara background jika aktif
+  if (isSupabaseConfigured) {
+    deleteDocumentFromSupabase(id).catch((err) =>
+      console.warn('Gagal hapus dokumen dari Supabase:', err)
+    );
+  }
+
   const webhookUrl = getActiveCloudWebhookUrl();
   if (!webhookUrl) return false;
 

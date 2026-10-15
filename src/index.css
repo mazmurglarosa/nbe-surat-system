@@ -362,6 +362,21 @@ body {
   animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes modalEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-animate-enter {
+  animation: modalEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Modal Overlay */
 .modal-overlay {
   position: fixed;
@@ -389,6 +404,13 @@ body {
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
   position: relative;
+  animation: modalEnter 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Form validation states */
+.form-input.is-invalid, .form-select.is-invalid, .form-textarea.is-invalid {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 3px var(--danger-bg) !important;
 }
 
 /* 21st.dev Design System Utilities */
@@ -468,5 +490,25 @@ body {
 
 .table-row-hover:hover {
   background-color: var(--bg-card-hover) !important;
+}
+
+/* Sticky Table Header */
+.table-sticky-header th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Accessible focus ring for all interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 

@@ -8,10 +8,23 @@ interface PdfGuideModalProps {
 export const PdfGuideModal: React.FC<PdfGuideModalProps> = ({ onClose }) => {
   const pdfUrl = '/0001-SOP-GNR-CEO-IX-2026.pdf';
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content modal-animate-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pdf-modal-title"
         style={{ maxWidth: '980px', height: '90vh', display: 'flex', flexDirection: 'column' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -30,7 +43,7 @@ export const PdfGuideModal: React.FC<PdfGuideModalProps> = ({ onClose }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <BookOpen size={22} color="var(--primary)" />
             <div>
-              <h2 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
+              <h2 id="pdf-modal-title" style={{ fontSize: '1.15rem', fontWeight: 700 }}>
                 Pedoman Resmi Prosedur Pengendalian Dokumen NBE
               </h2>
               <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--primary)' }}>

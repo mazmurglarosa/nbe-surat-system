@@ -346,10 +346,23 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
     setIsTestingBot(false);
   };
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isTestingBot) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose, isTestingBot]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content modal-animate-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drive-modal-title"
         style={{ maxWidth: '780px' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -367,7 +380,7 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
             <Bot size={22} color="#38bdf8" />
             <div>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+              <h2 id="drive-modal-title" style={{ fontSize: '1.2rem', fontWeight: 700 }}>
                 Akun Bot & Integrasi Google Drive NBE
               </h2>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -375,7 +388,12 @@ export const GoogleDriveModal: React.FC<GoogleDriveModalProps> = ({
               </span>
             </div>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0.35rem' }}>
+          <button
+            onClick={onClose}
+            className="btn btn-ghost btn-sm"
+            style={{ padding: '0.35rem' }}
+            aria-label="Tutup jendela Google Drive"
+          >
             <X size={20} />
           </button>
         </div>

@@ -74,10 +74,23 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   const currentPreviewSource = selectedFileItem?.dataUrl || selectedFileItem?.fileUrl || fileSource;
   const currentPreviewName = selectedFileItem?.name || doc.fileName;
 
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className="modal-content animate-fade-in"
+        className="modal-content modal-animate-enter"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detail-modal-title"
         style={{ maxWidth: '900px' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -111,11 +124,13 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                 onClick={handleCopyCode}
                 className="btn btn-ghost btn-sm"
                 title="Salin Kode Dokumen"
+                aria-label="Salin Kode Dokumen"
               >
                 {copied ? <Check size={16} color="var(--success)" /> : <Copy size={16} />}
               </button>
             </div>
             <h2
+              id="detail-modal-title"
               style={{
                 fontSize: '1.25rem',
                 fontWeight: 700,
