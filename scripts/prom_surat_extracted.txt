@@ -1,0 +1,43 @@
+﻿
+
+misalnya dalam 1 kali upload folder, terdapat 10 file, ada 5 file word, dan ada 5 file pdf,
+Tahap Pertama 
+User Mengupload Folder 
+User Menekan tombol next
+Tahap Kedua
+bot otomatis melakukan analisis terhadap file file yang ada dalam 1 folder yang diupload oleh user setelah user menekan tombol next, 
+Bot otomatis menggenerate 2 folder "word" dan "pdf"
+jika isi filenya sama hanya berbeda bentuk, maka bot otomatis harus memisahkannya dahulu kedalam 2 folder yang sudah dibuat dengan otomatis tersebut sesuai kriteria jenis file (word atau pdf)
+jika ternyata bot mendapati ada isi dari jenis file pdf yang tertanya berbeda dengan isi dengan file wordnya, maka bot akan otomatis membuat copy file tersebut dalam bentuk file word, kemudian bot lanjut mengupload file yang baru dibuat menjadi word tersebut kedalam folder "word», intinya semuanya harus dibuat jadi word file, 
+Bot akan fokus ke file wordnya saja, dan mengabaikan file pdf nya 
+Bot menampilkan hasil analisis 
+Berapa jumlah dokumen yang diterima oleh sistem, 
+Berapa jumlah dokumen PDF
+Berapa jumlah dokumen WORD
+Berapa jumlah dokumen Word yang baru dibuat (jika ada dokumen pdf yang baru diconvert ke word oleh bot, jika tidak ada ditulis ”0”)
+User Menekan tombol next
+Tahap Ketiga
+Web menampilkan daftar file word yang sudah diterima (dan tombol edit dimasing masing daftar), ketika user menekan tombol edit, maka 
+Web menampilkan Preview yang menampilkan Cover, Kop header dokumen, dan tabel Reveision index 
+
+
+Buatkan tab seperti contoh
+untuk merubah 
+Judul dokumen (didalam contoh ” INTERNAL AUDIT PROCEDURES”) (Cover dan Kop)
+Informasi lain yang berkaitan dengan tab contoh, di kop, di cover,
+Tabel revisi berisi 1. Jumlah revisi, 2. Tanggal revisi, jika tidak ada revisi, maka tanggal penerbitan dokumenlah yang digunakan, 3. Description berisis ” Initial Edition – keterangan revisi” (jika belum ada revisi, maka gunakan saja judul dari dokumen tersebut. 
+Preview yang menampilkan Cover, Kop header dokumen, dan tabel Reveision index otomatis berubah mengikuti perubaha yang ada di tab tersebut.
+Preview ini berlaku di semua fil dalam daftar file yang ada.
+Bot akan otomatis merubah Cover, Kop, dan Tabel index revisi dari file word yang terdeteksi menggunakan dibuat sebelumnya diatas.
+
+User akan diberi pilihan untuk menentukan «Pilih Kategori Surat»
+User akan diberi pilihan untuk menentukan «User Menekan tombol next»
+User akan diberi pilihan untuk menentukan «Pilih Sub-sub Kategori Surat (Kode AA)»
+User akan diberi pilihan untuk menentukan ”Pilih Penerbit Surat (Division)”
+User akan diberi pilihan untuk menentukan «Orang Yang Menyetujui (Approver)»
+Jika semua file sudah di edit, user menekan tombol Upload
+Tahap Keempat
+bot akan mencari folder yang sesuai dengan "Pilihan Kategori Surat (Document Type)" dalam contoh ini dilambangkan dengan "CSMS", Jika sudah ada maka proses dilanjutkan, jika belum ada, berikan peringatan kepada user untuk mengupdate folder di web
+jika folder "CSMS" sudah ada, maka bot otomatis menggenerate folder baru sesuai dengan "Pilihan Sub-Kategori Surat (Kode ZZ)", jika di contoh ini, dilambangkan dengan "GP", maka bot akan otomatis menggenerate folder baru sesuai kepanjangan "GP", yaitu "General Procedure". Jika ternyata folder yang hendak dibuat sudah ada, maka gunakan saja folder yang sudah ada tersebut, tetapi jika folder belum ada, maka bot akan membuat folder baru untuk dokumen tersebut sesuai dengan "Pilihan Sub-Kategori Surat (Kode ZZ)"
+Di dalam folder baru dengan nama sesuai kepanjangan "Pilihan Sub-Kategori Surat (Kode ZZ)" dalam contoh ini dilambangkan dengan "GP", yaitu "General Procedure", maka bot otomatis menggenerate folder baru sesuai dengan "sub sub kategori surat". Jika di contoh ini dilambangkan dengan "AI", maka bot akan otomatis menggenerate folder baru sesuai kepanjangan "AI", yaitu "Audit Internal". Jika ternyata folder yang hendak dibuat sudah ada, maka gunakan saja folder yang sudah ada tersebut, tetapi jika folder belum ada, maka bot akan membuat folder baru untuk dokumen tersebut sesuai dengan "sub sub kategori surat"
+Di dalam folder baru dengan nama sesuai kepanjangan "sub-sub kategori surat" dalam contoh ini dilambangkan dengan "AI", yaitu "Audit Internal", maka bot membuat folder baru untuk dokumen tersebut, dengan nama folder sesuai Judul Dokumen surat keseluruhan dalam contoh ini folder akan diberi nama "Kebijakan Audit Internal"

@@ -1,0 +1,512 @@
+﻿
+STANDARD OPERATING PROCEDURE (SOP)
+SISTEM PENOMORAN &amp; PENGENDALIAN DOKUMEN TERINTEGRASI
+(INTEGRATED DOCUMENT CONTROL &amp; NUMBERING MANAGEMENT SYSTEM)
+Nomor Dokumen
+0001-SOP-GNR-CEO-X-2026
+Status Dokumen
+RESMI TERKONTROL (Controlled)
+Edisi / Revisi
+Rev. 00 (Penerbitan Awal)
+Tanggal Efektif
+10 Oktober 2026
+Divisi Pemilik
+General &amp; Management (GNR)
+Target Google Drive
+ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF
+
+LEMBAR PENGESAHAN DOKUMEN PERUSAHAAN
+DISIAPKAN OLEH
+DIPERIKSA OLEH
+DISETUJUI &amp; DISAHKAN OLEH
+Document Controller /
+Management Representative
+
+
+
+_________________________
+Tgl: 10 Oktober 2026
+Direktur Operasional (COO) &amp;
+Direktur Engineering (CTO)
+
+
+
+_________________________
+Tgl: 10 Oktober 2026
+Direktur Utama (CEO) &amp;
+Direktur Keuangan (CFO)
+
+
+
+_________________________
+Tgl: 10 Oktober 2026
+
+A. Catatan Riwayat Revisi Dokumen (Document History)
+Rev
+Tanggal
+Bagian Diubah
+Deskripsi Perubahan
+Disetujui
+00
+10/10/2026
+Seluruh Dokumen
+Penerbitan awal SOP Sistem Penomoran &amp; Kontrol Dokumen PT Nirwana Bhumi Energi berbasis Web App, Bot Google Drive, dan Alur Revisi Otomatis.
+CEO &amp; CFO
+
+BAGIAN I. STANDARD OPERATING PROCEDURE (SOP)
+1. Sistem Penomoran Dokumen &amp; Kontrol Arsip PT Nirwana Bhumi Energi
+1.1 TUJUAN (OBJECTIVES)
+Prosedur Operasional Standar (SOP) ini diterbitkan dengan tujuan utama:
+1. Menetapkan standarisasi format penomoran surat dan dokumen resmi di lingkungan PT Nirwana Bhumi Energi (NBE) agar terstruktur, seragam, dan mudah ditelusuri.
+2. Menjamin kepatuhan terhadap prinsip integritas data SATU KODE UNTUK SATU DOKUMEN (1 Kode = 1 Dokumen) guna mencegah terjadinya duplikasi nomor dokumen atau tumpang tindih arsip.
+3. Mengintegrasikan penerbitan dokumen langsung ke penyimpanan awan (Google Drive) korporat secara otomatis melalui fitur Tombol Fix Kode dan Bot Google Apps Script yang membuat subfolder khusus dan menyimpan berkas.
+4. Mengatur alur revisi dokumen terkontrol dengan penamaan otomatis berkas (contoh: -rev1, -rev2) serta pencatatan terstruktur pada indeks revisi (Revision Index).
+5. Menyediakan mekanisme penataan dokumen masa lalu (backdating) tanpa merusak keabsahan nomor urut berjalan.
+1.2 RUANG LINGKUP (SCOPE)
+Prosedur ini berlaku mengikat untuk seluruh unit kerja, divisi, dan jajaran manajemen di lingkungan PT Nirwana Bhumi Energi, yang mencakup:
+• Seluruh Dokumen Sistem Manajemen Terintegrasi: Standard Operating Procedure (SOP), Work Instruction / Instruksi Kerja (WIK), Manual Mutu &amp; K3 (MNL), serta Kebijakan Perusahaan / Policy (KB).
+• Seluruh Divisi Operasional &amp; Korporat: Divisi General/Umum (GNR), Engineering (ENG), Operation/Pembangkit (OPR), dan Finance/Keuangan (FNC).
+• Seluruh Pejabat Otoritas Pengesahan: President Director (CEO), Technical Director (CTO), Operational Director (COO), dan Finance Director (CFO).
+• Seluruh Media Penyimpanan Arsip: Aplikasi Web NBE (IndexedDB/LocalStorage), Google Drive Korporat (Folder Utama ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF), dan Salinan Fisik Terarsip.
+1.3 REFERENSI &amp; DASAR HUKUM
+Penyusunan prosedur ini mengacu pada:
+1. ISO 9001:2015 Klausul 7.5: Informasi Terdokumentasi (Documented Information - Pembuatan, Pembaruan, dan Pengendalian).
+2. Prosedur Baku Resmi PT Nirwana Bhumi Energi No: 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure).
+3. Kebijakan Manajemen Terintegrasi PT Nirwana Bhumi Energi No: 0001-KB-GNR-CEO-X-2026.
+1.4 DEFINISI &amp; TERMINOLOGI
+Istilah / Terminologi
+Definisi &amp; Pengertian Operasional
+Document Control Center (DCC)
+Unit atau petugas yang bertanggung jawab atas registrasi, verifikasi, penerbitan, pendistribusian, dan penarikan dokumen resmi perusahaan.
+Kode Dokumen Resmi
+Identitas alfanumerik tunggal yang terdiri atas 6 segmen baku: [NomorUrut]-[Kategori]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun].
+Tombol Fix Kode
+Fitur keamanan 1x klik pada sistem web yang mengunci kode dokumen, mencegah nomor dipakai pihak lain, dan secara otomatis memerintahkan Bot Google Apps Script untuk membuat subfolder baru di Google Drive perusahaan.
+Dokumen Revisi (-revX)
+Pembaruan resmi terhadap dokumen yang sudah terbit, di mana kode dasar dokumen tetap sama namun berkas fisik diberi imbuhan sufiks -rev1, -rev2, dst., dan disimpan pada folder Google Drive yang sama.
+Mode Backdating (Manual)
+Fasilitas otorisasi khusus untuk mendaftarkan dokumen fisik masa lampau yang telah disahkan sebelum implementasi sistem web, tanpa merusak urutan sekuensial dokumen baru.
+
+1.5 TANGGUNG JAWAB &amp; WEWENANG (RACI MATRIX)
+Peran / Jabatan
+Tanggung Jawab Pokok
+Status RACI
+Pemohon / Originator
+Menyusun draf dokumen, memilih parameter kategori/divisi/pengesah di web app, mengunggah naskah final PDF.
+Responsible (R)
+Document Controller (DCC)
+Memvalidasi kepatuhan format, mengeksekusi Tombol Fix Kode, memastikan folder Drive terbentuk, serta mengelola master kategori dan backup data berkala.
+Accountable (A)
+Direksi (CEO/CTO/COO/CFO)
+Meninjau substansi teknis/operasional/keuangan serta menandatangani pengesahan dokumen sesuai ruang lingkup otoritas.
+Consulted / Approver (C/A)
+Seluruh Karyawan (All Staff)
+Mengakses dokumen versi terbaru yang terkontrol dan memusnahkan/tidak menggunakan salinan usang (obsolete).
+Informed (I)
+
+2. Standar &amp; Prosedur Baku Penomoran Surat PT Nirwana Bhumi Energi
+2.1 STRUKTUR FORMAT KODE DOKUMEN
+Seluruh dokumen resmi PT Nirwana Bhumi Energi wajib menggunakan struktur format baku 6 segmen sebagai berikut:
+[NomorUrut4Digit] - [KategoriSurat] - [Divisi] - [Pengesah] - [BulanRomawi] - [Tahun]
+Contoh Prosedur Baku: 0001-SOP-GNR-CEO-X-2026
+
+2.2 DEKOMPOSISI SETIAP SEGMEN KODE
+Segmen
+Unsur Kode
+Ketentuan &amp; Penjelasan Teknis
+Segmen 1
+Nomor Urut 4 Digit (0001, 0002, ...)
+Dihitung otomatis dan sekuensial PER KATEGORI SURAT (Document Type). Contoh: SOP memiliki urutan sendiri (0001-SOP, 0002-SOP), WIK memiliki urutan sendiri (0001-WIK, dst).
+Segmen 2
+Kategori Dokumen (Doc Type)
+Kode jenis dokumen baku:
+• SOP: Standard Operating Procedure
+• WIK: Work Instruction (Instruksi Kerja)
+• MNL: Manual (Pedoman Sistem)
+• KB: Kebijakan Perusahaan (Company Policy)
+Segmen 3
+Divisi Penerbit (Division)
+Kode divisi penerbit dokumen:
+• GNR: General (Manajemen &amp; Umum)
+• ENG: Engineering (Teknik &amp; Desain)
+• OPR: Operation (Operasional &amp; Lapangan)
+• FNC: Finance (Keuangan &amp; Akuntansi)
+Segmen 4
+Otoritas Pengesah (Approver)
+Kode jabatan direksi yang mengesahkan:
+• CEO: President Director (Direktur Utama)
+• CTO: Technical Director (Direktur Teknik)
+• COO: Operational Director (Direktur Operasional)
+• CFO: Finance Director (Direktur Keuangan)
+Segmen 5
+Bulan Penerbitan (Romawi)
+Bulan otomatis terkonversi ke angka Romawi berdasarkan tanggal penerbitan dokumen: I (Januari), II (Februari), III (Maret), IV (April), V (Mei), VI (Juni), VII (Juli), VIII (Agustus), IX (September), X (Oktober), XI (November), XII (Desember).
+Segmen 6
+Tahun Penerbitan (4 Digit)
+Tahun kalender masehi 4 digit sesuai tanggal penetapan surat (misal: 2026).
+
+🛑 KETENTUAN MUTLAK: ATURAN KETAT UNIK: 1 KODE DOKUMEN = 1 DOKUMEN SAJA
+Satu kode dokumen HANYA boleh berlaku untuk 1 dokumen saja di seluruh sistem PT Nirwana Bhumi Energi. Sistem secara otomatis memverifikasi keunikan kode. Jika kode terdeteksi telah terdaftar sebelumnya, sistem akan memblokir tombol pendaftaran dan menampilkan peringatan dokumen duplikat beserta detail dokumen pemilik aslinya.
+
+3. Kebijakan Tombol &quot;Fix Kode&quot; (1x Klik) &amp; Auto-Folder Google Drive
+Untuk memastikan kepastian penomoran sebelum dokumen final didistribusikan, sistem dilengkapi mekanisme Tombol &quot;Fix Kode&quot; dengan tata kelola sebagai berikut:
+1. Aturan Klik Tunggal (1x Klik): Tombol &quot;Fix Kode&quot; yang terletak di samping tombol &quot;Copy Kode&quot; HANYA BISA DIKLIK 1 KALI per setiap kode dokumen baru.
+2. Penguncian Status Otomatis: Saat tombol Fix diklik, tombol seketika terkunci (disabled) dan berubah label menjadi &quot;Fix Terkunci&quot; dengan aksen warna hijau.
+3. Pemanggilan Otomatis Google Apps Script Bot: Sistem web secara otomatis mengirimkan sinyal ke Webhook Bot dengan parameter action: &quot;create_folder&quot; dan nama folder sesuai kode surat.
+4. Pembuatan Subfolder Google Drive: Bot secara otomatis membuat subfolder baru di dalam Folder Utama Perusahaan (Target Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) dengan nama persis sesuai kode surat tersebut.
+5. Penyimpanan ID &amp; URL Folder: Sistem menangkap ID dan tautan folder Google Drive yang dikembalikan bot dan menautkannya ke dokumen.
+6. Notifikasi &amp; Tautan Cepat: Muncul banner hijau notifikasi sukses dengan tautan langsung &quot;Buka Folder Drive&quot; sehingga pengguna dapat langsung meninjau folder tersebut.
+7. Reset Dinamis Terkendali: Jika pengguna mengubah salah satu parameter (kategori, divisi, approver, bulan, atau tahun) sehingga menghasilkan kode surat baru, tombol Fix akan aktif kembali secara otomatis khusus untuk kode baru tersebut.
+
+4. Prosedur Revisi Dokumen Terkendali &amp; Penamaan Otomatis (-revX)
+Dokumen yang telah diterbitkan dan memerlukan penyesuaian wajib mengikuti tata cara revisi terkontrol sebagai berikut:
+1. Akses Tombol Revisi: Tombol &quot;Revisi&quot; tersedia secara mencolok di setiap baris dokumen pada Dashboard, Tabel Dokumen Desktop, Kartu Mobile, dan Modal Rincian Dokumen.
+2. Modal Unggah Dokumen Revisi: Saat tombol Revisi ditekan, sistem membuka modal terdedikasi yang berisi formulir unggah berkas revisi (drag &amp; drop), input tanggal revisi, nama perevisi, dan catatan ringkasan revisi.
+3. Penamaan Otomatis Berkas (-rev1, -rev2, dst): Sistem secara otomatis mengubah nama berkas yang diunggah menjadi format baku: [KodeSurat]-rev1.pdf untuk revisi pertama, [KodeSurat]-rev2.pdf untuk revisi kedua, dan seterusnya.
+4. Penyimpanan ke Subfolder yang Sama di Google Drive: Berkas revisi otomatis diunggah dan disimpan langsung ke dalam folder Google Drive yang SAMA dengan berkas surat aslinya, sehingga seluruh riwayat versi dokumen tersimpan rapi dalam satu wadah arsip.
+5. Pembaruan Status &amp; Indeks Revisi: Sistem memperbarui nomor revisi dokumen (menjadi Rev 1, Rev 2, dst.), memperbarui tautan berkas utama ke versi terbaru, dan mencatat entri riwayat ke dalam tabel &quot;Revision Index&quot; yang berisi tanggal, nama perevisi, dan deskripsi perubahan.
+
+5. Prosedur Penghapusan Dokumen &amp; Retensi Arsip Google Drive
+Untuk menjaga kerapian basis data sekaligus mencegah hilangnya data penting secara sepihak, penghapusan dokumen diatur sebagai berikut:
+• Konfirmasi Berlapis: Penghapusan hanya dapat dilakukan oleh pengguna yang memiliki otoritas dan wajib mengonfirmasi dialog peringatan.
+• Sinkronisasi Sampah Google Drive (setTrashed): Saat dokumen dihapus dari sistem, Bot Google Apps Script otomatis memindahkan subfolder surat beserta seluruh berkas di dalamnya ke Tempat Sampah Google Drive (setTrashed = true) sehingga berkas tidak lagi tampil di folder aktif namun masih dapat dipulihkan oleh administrator jika terjadi kekeliruan.
+• Audit Trail Permanen: Setiap aksi penghapusan dokumen dicatat secara permanen di menu &quot;Log Aktivitas &amp; Audit Trail&quot; lengkap dengan nama pelaku, tanggal, dan kode dokumen yang dihapus.
+
+BAGIAN II. WORKFLOW OPERASIONAL &amp; MATRIKS ALUR KERJA
+1. Matriks Alur Kerja Pengendalian Dokumen PT Nirwana Bhumi Energi
+Tabel berikut menyajikan matriks alur kerja komprehensif mulai dari inisiasi draf hingga pengarsipan cloud dan revisi dokumen:
+Fase / Siklus
+Aktivitas Rinci
+Pelaksana
+Input Masukan
+Output / Hasil
+1. Inisiasi Draf
+Penyusunan naskah dokumen sesuai template standar NBE, penentuan kategori, divisi, dan pejabat pengesah.
+Originator (Pemohon)
+Konsep Kebijakan / SOP / Instruksi Kerja
+Draf Dokumen Final (PDF/Word)
+2. Penomoran Sistem
+Membuka Web App NBE &gt; Memilih Document Type &gt; Memilih Division &gt; Memilih Approver &gt; Memeriksa Kode Tergenerate.
+Document Controller / Originator
+Parameter Surat &amp; Tanggal Efektif
+Kode Dokumen Resmi Tergenerate (cth: 0001-SOP-GNR-CEO-X-2026)
+3. Penguncian Kode
+Menekan tombol &quot;Fix Kode&quot; (1x klik) &gt; Sistem mengunci kode &gt; Bot membuat subfolder di Google Drive korporat.
+Document Controller / Originator
+Kode Surat Aktif
+Status &quot;Fix Terkunci&quot; + Subfolder Google Drive ID &amp; URL
+4. Registrasi &amp; Upload
+Mengunggah naskah PDF final &gt; Mengisi Judul, Ringkasan, &amp; Nama Pembuat &gt; Menyimpan Dokumen ke Database.
+Document Controller
+Berkas Fisik / PDF &amp; Metadata Surat
+Dokumen Resmi Terdaftar di Sistem + Berkas Terunggah di Folder Drive
+5. Pengesahan &amp; Distribusi
+Penandatanganan oleh Direksi (CEO/CTO/COO/CFO) &gt; Publikasi salinan resmi terkontrol kepada pihak terkait.
+Direksi &amp; DCC
+Dokumen Terdaftar
+Dokumen Resmi Bertanda Tangan (Effective Document)
+6. Siklus Revisi (-revX)
+Menekan tombol &quot;Revisi&quot; &gt; Mengunggah berkas revisi baru &gt; Sistem auto-rename ke [Kode]-rev1.pdf &gt; Upload ke folder Drive yang sama &gt; Catat Revision Index.
+Originator &amp; DCC
+Berkas Revisi Baru + Catatan Perubahan
+Dokumen Terupdate (Rev 1), Arsip Riwayat Lengkap
+7. Retensi / Hapus
+Penghapusan dokumen usang/batal &gt; Bot otomatis memindahkan subfolder dan berkas ke sampah Drive &gt; Log audit tercatat.
+DCC / Administrator
+Instruksi Pembatalan Dokumen
+Folder di Trash Google Drive + Catatan Audit Trail
+
+2. Rincian Langkah Kerja (Detailed Operational Steps)
+Workflow A: Penerbitan &amp; Penomoran Dokumen Baru
+Langkah 1: Buka aplikasi web Sistem Penomoran &amp; Kontrol Dokumen PT Nirwana Bhumi Energi.
+Langkah 2: Pilih menu &quot;Daftarkan Surat Baru&quot; pada sidebar eksekutif.
+Langkah 3: Langkah 1 Form: Pilih Kategori Dokumen (SOP / WIK / MNL / KB), Divisi Penerbit (GNR / ENG / OPR / FNC), dan Otoritas Pengesah (CEO / CTO / COO / CFO).
+Langkah 4: Langkah 2 Form: Tentukan Tanggal Surat. Sistem secara otomatis mengonversi bulan ke angka Romawi dan menetapkan tahun berjalan.
+Langkah 5: Periksa Live Code Display. Pastikan tidak ada peringatan duplikasi. Gunakan tombol &quot;Copy Kode&quot; jika ingin menyalin kode ke clipboard.
+Langkah 6: Klik tombol &quot;Fix Kode&quot;. Sistem mengunci tombol menjadi &quot;Fix Terkunci&quot;, memanggil Bot Google Apps Script, membuat subfolder baru bernama kode tersebut di Google Drive perusahaan, dan menampilkan banner notifikasi sukses.
+Langkah 7: Langkah 3 Form: Isi Judul Dokumen, Nama Pembuat / Pengaju, Ringkasan Isi Surat, dan unggah berkas fisik (PDF).
+Langkah 8: Klik tombol &quot;Daftarkan &amp; Simpan Dokumen Resmi&quot;. Berkas otomatis diunggah ke subfolder Google Drive yang baru dibuat, dokumen tersimpan ke IndexedDB/LocalStorage, dan aksi dicatat ke Log Aktivitas.
+
+Workflow B: Pelaksanaan Revisi Dokumen Terkendali (-revX)
+Langkah 1: Identifikasi dokumen yang memerlukan revisi melalui Dashboard atau Menu Pencarian Dokumen.
+Langkah 2: Klik tombol &quot;Revisi&quot; (berwarna kuning/oranye) pada baris dokumen atau modal detail.
+Langkah 3: Pada modal &quot;Unggah Dokumen Revisi&quot;, unggah berkas revisi baru (format PDF/Docx).
+Langkah 4: Sistem secara otomatis mengubah nama berkas menjadi [KodeSurat]-rev1.pdf (atau nomor revisi selanjutnya jika sudah pernah direvisi).
+Langkah 5: Isi Tanggal Revisi, Nama Perevisi, dan Catatan Rinci Perubahan yang dilakukan.
+Langkah 6: Klik tombol &quot;Simpan &amp; Terapkan Revisi&quot;. Berkas revisi diunggah ke subfolder Google Drive yang SAMA dengan berkas aslinya. Sistem memperbarui nomor revisi dokumen dan menambahkan entri ke tabel &quot;Revision Index&quot;.
+
+BAGIAN III. DIAGRAM ALIR PROSES (FLOWCHART)
+1. Standar Simbol &amp; Notasi Flowchart
+Diagram alir di bawah ini menggunakan standar notasi internasional (ANSI / ISO 5807) dengan perincian simbol sebagai berikut:
+Simbol / Bentuk
+Nama Simbol
+Fungsi &amp; Makna dalam Sistem Penomoran NBE
+[ START / END ]
+Terminator
+Menandai titik awal dan titik akhir dari suatu siklus prosedur operasional.
+[ PROSES / AKSI ]
+Process Block
+Aktivitas operasional, perhitungan nomor urut sekuensial, konversi Romawi, penyimpanan basis data, atau pengunggahan berkas.
+&lt; KEPUTUSAN ? &gt;
+Decision Block
+Titik percabangan logika (misal: Apakah kode duplikat? Apakah tombol Fix sudah diklik? Apakah mode manual aktif?).
+(( CLOUD / BOT ))
+External Webhook / Storage
+Integrasi eksternal Bot Google Apps Script, pembuatan folder Google Drive, dan pengarsipan cloud.
+
+2. Flowchart 1: Alur Pembuatan &amp; Penomoran Dokumen Baru
+Berikut adalah representasi diagram alir proses lengkap untuk penerbitan dan penomoran dokumen baru:
+[ START / AWAL ]
+MULAI: INISIASI DOKUMEN BARU
+Pelaksana: Originator / Document Controller
+Aktivitas / Respon Sistem: Pengguna mengakses halaman web &quot;Daftarkan Surat Baru&quot;.
+▼
+[ LANGKAH 1.1 ]
+PEMILIHAN PARAMETER SURAT
+Pelaksana: Originator / DCC
+Aktivitas / Respon Sistem: Pilih Kategori Dokumen (Doc Type) -&gt; Pilih Divisi (Division) -&gt; Pilih Otoritas Pengesah (Approver) -&gt; Tentukan Tanggal Surat.
+▼
+[ LANGKAH 1.2 ]
+AUTO-GENERATE KODE DOKUMEN
+Pelaksana: Engine Sistem Web NBE
+Aktivitas / Respon Sistem: Hitung Nomor Urut 4-digit berikutnya (0001, 0002, ...) + Konversi Bulan ke Angka Romawi (I-XII) + Tetapkan Tahun.
+▼
+[ DECISION / PERCABANGAN ]
+VALIDASI KEUNIKAN KODE: APAKAH KODE DUPLIKAT?
+Pelaksana: Engine Sistem Web NBE
+Aktivitas / Respon Sistem: Mengecek basis data lokal (IndexedDB) dan cloud: apakah kode sudah dipakai oleh dokumen lain?
+Kondisi Keputusan: Jika DUPLIKAT: Tampilkan peringatan merah &amp; blokir pendaftaran. Jika UNIK (VALID): Lanjut ke langkah 1.4.
+▼ [JIKA KODE UNIK / VALID]
+[ LANGKAH 1.4 ]
+EKSEKUSI TOMBOL &quot;FIX KODE&quot; (1x KLIK)
+Pelaksana: Document Controller / Originator
+Aktivitas / Respon Sistem: Klik tombol &quot;Fix Kode&quot;. Tombol langsung terkunci (disabled) dan berubah label menjadi &quot;Fix Terkunci&quot; berwarna hijau.
+▼
+[ LANGKAH 1.5 ]
+PEMANGGILAN BOT GOOGLE APPS SCRIPT (CREATE_FOLDER)
+Pelaksana: Bot Webhook Google Apps Script
+Aktivitas / Respon Sistem: Bot menerima request action: &quot;create_folder&quot; -&gt; Membuat subfolder baru dengan nama [KodeSurat] di Target Folder 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF -&gt; Mengembalikan Folder ID &amp; URL.
+▼
+[ LANGKAH 1.6 ]
+PENGISIAN METADATA &amp; UPLOAD BERKAS FISIK
+Pelaksana: Originator / DCC
+Aktivitas / Respon Sistem: Input Judul Dokumen, Pembuat, Ringkasan, dan unggah berkas PDF final ke sistem.
+▼
+[ LANGKAH 1.7 ]
+SIMPAN DOKUMEN &amp; AUTO-UPLOAD KE GOOGLE DRIVE
+Pelaksana: Engine Web NBE &amp; Bot Drive
+Aktivitas / Respon Sistem: Berkas PDF otomatis diunggah ke subfolder Google Drive yang baru dibuat -&gt; Data dokumen disimpan ke IndexedDB &amp; LocalStorage -&gt; Log aktivitas dicatat.
+▼
+[ FINISH / SELESAI ]
+SELESAI: DOKUMEN RESMI TERDAFTAR &amp; TERKONTROL
+Pelaksana: Document Controller
+Aktivitas / Respon Sistem: Tampil banner notifikasi sukses dengan tautan langsung &quot;Buka Folder Drive&quot; dan &quot;Buka File&quot;. Dokumen aktif terdaftar di Dashboard.
+
+3. Flowchart 2: Alur Siklus Revisi Dokumen (-revX)
+Berikut adalah representasi diagram alir proses lengkap untuk pelaksanaan revisi dokumen terkontrol:
+[ START / AWAL ]
+MULAI: KEBUTUHAN REVISI DOKUMEN
+Pelaksana: Originator / Dept Head
+Aktivitas / Respon Sistem: Adanya perubahan prosedur, pembaruan regulasi, atau penyesuaian proses operasional.
+▼
+[ LANGKAH 2.1 ]
+PILIH DOKUMEN &amp; KLIK TOMBOL &quot;REVISI&quot;
+Pelaksana: Document Controller / Originator
+Aktivitas / Respon Sistem: Buka Dashboard / Tabel Dokumen -&gt; Temukan dokumen sasaran -&gt; Klik tombol &quot;Revisi&quot; (kuning/oranye).
+▼
+[ LANGKAH 2.2 ]
+FORMULIR UNGGAH REVISI &amp; CATATAN PERUBAHAN
+Pelaksana: Originator / DCC
+Aktivitas / Respon Sistem: Sistem menampilkan modal &quot;Unggah Dokumen Revisi&quot; -&gt; Pengguna mengunggah naskah revisi baru, mengisi Tanggal Revisi, Nama Perevisi, dan Catatan Revisi.
+▼
+[ LANGKAH 2.3 ]
+AUTO-RENAME BERKAS: [KodeSurat]-revX.pdf
+Pelaksana: Engine Sistem Web NBE
+Aktivitas / Respon Sistem: Sistem secara otomatis mengubah nama berkas yang diunggah menjadi format: [KodeSurat]-rev1.pdf (atau -rev2, -rev3, dst.).
+▼
+[ LANGKAH 2.4 ]
+UNGGAH BERKAS REVISI KE SUBFOLDER DRIVE YANG SAMA
+Pelaksana: Bot Webhook Google Apps Script
+Aktivitas / Respon Sistem: Bot mengunggah berkas revisi baru langsung ke dalam subfolder Google Drive yang SAMA dengan dokumen aslinya.
+▼
+[ LANGKAH 2.5 ]
+PEMBARUAN STATUS DOKUMEN &amp; REVISION INDEX
+Pelaksana: Engine Sistem Web NBE
+Aktivitas / Respon Sistem: Update nomor revisi dokumen (menjadi Rev 1) -&gt; Catat entri riwayat ke tabel &quot;Revision Index&quot; -&gt; Catat log audit revisi.
+▼
+[ FINISH / SELESAI ]
+SELESAI: DOKUMEN REVISI AKTIF &amp; SALINAN LAMA SUPERSEDED
+Pelaksana: Document Controller
+Aktivitas / Respon Sistem: Dokumen revisi resmi berlaku. Dokumen lama otomatis berstatus usang (superseded/obsolete).
+
+4. Flowchart 3: Alur Penghapusan Dokumen &amp; Retensi Drive Trash
+Berikut adalah representasi diagram alir proses untuk penghapusan dokumen dan sinkronisasi Google Drive:
+[ START / AWAL ]
+MULAI: PERMINTAAN PENGHAPUSAN DOKUMEN
+Pelaksana: Authorized DCC / Manajemen
+Aktivitas / Respon Sistem: Dokumen dibatalkan atau terbukti salah pendaftaran.
+▼
+[ DECISION / PERCABANGAN ]
+KONFIRMASI KEAMANAN PENGHAPUSAN
+Pelaksana: Pengguna Berwenang
+Aktivitas / Respon Sistem: Sistem memunculkan dialog konfirmasi: &quot;Apakah Anda yakin ingin menghapus surat ini beserta seluruh berkas di Google Drive?&quot;
+Kondisi Keputusan: Jika Dibatalkan: Kembali ke daftar. Jika Dikonfirmasi: Lanjut ke langkah 3.2.
+▼ [JIKA DIKONFIRMASI]
+[ LANGKAH 3.2 ]
+PEMANGGILAN BOT DRIVE (ACTION: &quot;DELETE&quot;)
+Pelaksana: Bot Webhook Google Apps Script
+Aktivitas / Respon Sistem: Sistem mengirim instruksi delete ke bot -&gt; Bot mengeksekusi DriveApp.getFolderById(folderId).setTrashed(true) -&gt; Memindahkan subfolder beserta seluruh berkas ke Sampah Google Drive.
+▼
+[ LANGKAH 3.3 ]
+PENGHAPUSAN DATA DARI BASIS DATA SISTEM
+Pelaksana: Engine Sistem Web NBE
+Aktivitas / Respon Sistem: Hapus record dokumen dari IndexedDB dan LocalStorage.
+▼
+[ LANGKAH 3.4 ]
+PEREKAMAN AUDIT TRAIL PERMANEN
+Pelaksana: Engine Sistem Web NBE
+Aktivitas / Respon Sistem: Mencatat entri pada Log Aktivitas: Nama pengguna, tanggal, kode dokumen, dan keterangan &quot;Penghapusan Surat &amp; Folder Drive&quot;.
+▼
+[ FINISH / SELESAI ]
+SELESAI: PENGHAPUSAN BERSIH &amp; TERDOKUMENTASI
+Pelaksana: Document Controller
+Aktivitas / Respon Sistem: Daftar dokumen diperbarui. Data fisik aman di sampah cloud untuk kemungkinan pemulihan darurat.
+
+BAGIAN IV. LAMPIRAN TEKNIS &amp; INTEGRASI BOT GOOGLE DRIVE
+1. Script Bot Google Apps Script Siap Pakai
+Kode skrip Google Apps Script di bawah ini merupakan kode resmi siap salin untuk dipasang pada Google Apps Script Web App perusahaan. Skrip ini menangani tiga aksi utama: create_folder, upload, dan delete:
+/**
+ * BOT GOOGLE DRIVE - PT NIRWANA BHUMI ENERGI (NBE)
+ * Target Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF
+ */
+var TARGET_FOLDER_ID = &quot;1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF&quot;;
+
+function doPost(e) {
+  try {
+    var data = JSON.parse(e.postData.contents);
+
+    // AKSI 1: BUAT SUBFOLDER BARU (TOMBOL FIX KODE)
+    if (data.action === &quot;create_folder&quot;) {
+      var folderName = data.folderName || data.documentCode || &quot;Dokumen_NBE&quot;;
+      var parentFolder = DriveApp.getFolderById(TARGET_FOLDER_ID);
+      var existing = parentFolder.getFoldersByName(folderName);
+      var targetFolder = existing.hasNext() ? existing.next() : parentFolder.createFolder(folderName);
+      targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: &quot;success&quot;,
+        folderId: targetFolder.getId(),
+        folderUrl: targetFolder.getUrl()
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // AKSI 2: HAPUS SURAT &amp; FOLDER (PINDAH KE SAMPAH)
+    if (data.action === &quot;delete&quot;) {
+      if (data.folderId &amp;&amp; data.folderId !== TARGET_FOLDER_ID) {
+        DriveApp.getFolderById(data.folderId).setTrashed(true);
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: &quot;success&quot;
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // AKSI 3: UPLOAD BERKAS (AWAL &amp; REVISI -rev1, -rev2, dst)
+    var folder = DriveApp.getFolderById(data.folderId || TARGET_FOLDER_ID);
+    var fileName = data.fileName || &quot;dokumen.pdf&quot;;
+    if (data.isRevision &amp;&amp; data.documentCode) {
+      fileName = data.documentCode + &quot;-rev&quot; + (data.revision || 1) + &quot;.pdf&quot;;
+    }
+
+    var blob = Utilities.newBlob(Utilities.base64Decode(data.base64), data.mimeType || &quot;application/pdf&quot;, fileName);
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: &quot;success&quot;,
+      fileId: file.getId(),
+      viewUrl: file.getUrl()
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: &quot;error&quot;,
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+2. Panduan Penerapan (Deployment) Web App Google Apps Script
+1. Buka Google Drive perusahaan dengan akun yang memiliki hak akses terhadap Target Folder ID 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF.
+2. Buka script.google.com dan buat proyek baru dengan judul &quot;Bot Google Drive NBE&quot;.
+3. Salin seluruh kode script pada Bagian 1 di atas dan tempelkan ke editor Code.gs.
+4. Klik Deploy &gt; New Deployment &gt; Pilih tipe &quot;Web app&quot;.
+5. Konfigurasi Deployment:
+   • Execute as: &quot;Me&quot; (akun pemilik Google Drive)
+   • Who has access: &quot;Anyone&quot; (agar aplikasi web NBE dapat mengirim data via Webhook)
+6. Klik Deploy, izinkan perizinan akun (Authorize Access), lalu salin URL Web App yang dihasilkan.
+7. Buka Web App NBE &gt; Klik tombol &quot;Bot Google Drive&quot; di navbar atas &gt; Masukkan URL Web App ke kolom &quot;URL Webhook Google Apps Script&quot; &gt; Klik &quot;Tes Koneksi Bot&quot; &gt; Klik &quot;Simpan Pengaturan&quot;.
+
+3. Master Prompt Replikasi Sistem Penomoran &amp; Kontrol Dokumen NBE
+Berikut adalah Master Prompt lengkap yang dapat digunakan untuk mereplikasi atau memperluas aplikasi web di lingkungan Antigravity IDE baru:
+Buatkan aplikasi web lengkap &quot;Sistem Penomoran &amp; Kontrol Dokumen PT Nirwana Bhumi Energi (NBE)&quot; berbasis React 19, TypeScript, dan Vite dengan estetika modern, responsif, dan kaya fitur tanpa error linter.
+
+### 1. STANDAR PENOMORAN SURAT RESMI (NBE PROCEDURE):
+Format penomoran: [NomorUrut4Digit]-[KategoriSurat]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]
+Contoh: 0001-SOP-GNR-CEO-X-2026 (mengacu pada prosedur baku PT Nirwana Bhumi Energi).
+- Nomor urut 4 digit (0001, 0002, ...) dihitung otomatis dan sekuensial per Kategori Surat (Document Type).
+- Bulan otomatis terkonversi ke angka Romawi (I s/d XII) berdasarkan tanggal surat, dan tahun otomatis sesuai tahun berjalan.
+- Kategori bawaan: SOP (Standard Operating Procedure), WIK (Work Instruction), MNL (Manual), KB (Policy).
+- Divisi bawaan: GNR (General), ENG (Engineering), OPR (Operation), FNC (Finance).
+- Pengesah bawaan: CEO (President Director), CTO (Technical Director), COO (Operational Director), CFO (Finance Director).
+- Aturan Unik: 1 Kode Dokumen HANYA boleh berlaku untuk 1 dokumen saja. Jika kode bentrok, tampilkan peringatan dokumen duplikat.
+- Sediakan tombol &quot;Ubah Kode Manual&quot; / Mode Backdating untuk memasukkan dokumen lampau yang belum sempat terdata.
+
+### 2. TOMBOL COPY &amp; TOMBOL FIX KODE (1x KLIK):
+- Di sebelah tombol &quot;Copy Kode&quot;, buatkan tombol &quot;Fix Kode&quot;.
+- Aturan tombol Fix: HANYA BISA DIKLIK 1 KALI per setiap kode surat baru.
+- Ketika tombol Fix diklik:
+  1. Tombol langsung terkunci (disabled) dan berubah label menjadi &quot;Fix Terkunci&quot; dengan warna hijau.
+  2. Bot Google Apps Script otomatis dipanggil (aksi &quot;create_folder&quot;) untuk membuat folder baru di Google Drive perusahaan dengan nama persis sesuai kode surat tersebut.
+  3. Sistem menyimpan ID dan Link folder Google Drive tersebut.
+  4. Muncul banner notifikasi sukses dengan tautan langsung &quot;Buka Folder Drive&quot;.
+  5. Jika user mengubah parameter surat sehingga membentuk kode surat baru, tombol Fix aktif kembali khusus untuk kode baru tersebut.
+
+### 3. INTEGRASI GOOGLE DRIVE BOT &amp; TARGET FOLDER:
+- Target Folder ID Utama: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF.
+- Sediakan modal &quot;Pengaturan Google Drive &amp; Bot&quot; yang berisi:
+  - Input URL Webhook Google Apps Script Web App.
+  - Tombol &quot;Tes Koneksi Bot&quot;.
+  - Tab &quot;Kode Script Bot&quot; yang menyediakan kode Google Apps Script lengkap siap salin yang menangani aksi:
+    * &quot;create_folder&quot;: otomatis membuat folder baru dengan nama kode surat.
+    * &quot;upload&quot;: mengunggah berkas ke folder surat tersebut.
+    * &quot;delete&quot;: otomatis menghapus folder &amp; berkas surat dari Google Drive saat surat dihapus dari sistem.
+- Ketika user mengunggah berkas fisik saat membuat surat, berkas otomatis diunggah langsung ke dalam folder khusus kode surat tersebut di Google Drive.
+- Ketika user menghapus surat di sistem, surat di database terhapus DAN bot otomatis memindahkan folder serta berkas surat tersebut di Google Drive ke sampah (setTrashed).
+
+### 4. FITUR REVISI DOKUMEN &amp; PENAMAAN OTOMATIS (-rev1):
+- Di daftar dokumen (tabel desktop &amp; card mobile), di dashboard, dan di modal rincian dokumen, buatkan tombol &quot;Revisi&quot; yang mencolok.
+- Ketika tombol Revisi diklik:
+  1. Langsung muncul modal &quot;Unggah Dokumen Revisi&quot;.
+  2. Terdapat form drag-and-drop unggah berkas revisi baru, tanggal revisi, nama perevisi, dan catatan revisi.
+  3. Nama file otomatis diubah menjadi format: [KodeSurat]-rev1.pdf (atau -rev2, -rev3 jika revisi bertahap).
+  4. Berkas revisi otomatis diunggah dan disimpan ke dalam folder Google Drive yang SAMA dengan surat aslinya.
+  5. Sistem memperbarui nomor revisi dokumen (Rev 1), nama file, serta mencatat riwayat ke tabel &quot;Revision Index&quot;.
+
+### 5. SIDEBAR EKSEKUTIF &amp; NAVIGASI:
+- Header sidebar menampilkan logo perusahaan (+BG.png) dengan teks &quot;PT NIRWANA BHUMI ENERGI&quot; berwarna biru (#0284c7) dan badge &quot;Document Control System&quot;.
+- Menu Navigasi:
+  1. Dashboard Utama: Kartu metrik KPI, grafik distribusi per kategori surat, breakdown per divisi, dan tabel ringkasan surat terbaru.
+  2. Buat Surat Baru: Generator penomoran langkah 1-2-3 interaktif, tombol Copy, tombol Fix, form upload file, dan pendaftaran dokumen resmi.
+  3. Kelola Kategori &amp; Kode: Halaman master data untuk menambah, mengedit, dan menghapus Kategori Surat, Divisi, dan Approver secara dinamis.
+  4. Ruang Direksi (Direktur): Tab filter cepat dokumen per pengesah (CEO, CTO, COO, CFO).
+  5. Log Aktivitas &amp; Audit Trail: Rekam jejak seluruh aksi (Penerbitan baru, revisi -rev1, ubah kode manual, penghapusan surat &amp; folder drive).
+  6. Backup &amp; Restore Data: Fitur ekspor/impor seluruh database ke JSON dan ekspor tabel ke CSV.
+  7. Toggle Dark Mode &amp; Light Mode.
+
+### 6. PENYIMPANAN DATA &amp; TEKNOLOGI:
+- Penyimpanan dual-engine: IndexedDB + LocalStorage agar data dokumen tidak hilang saat refresh atau tutup browser.
+- Sediakan juga skema database Convex di folder convex/ (schema.ts, documents.ts) untuk opsi sinkronisasi cloud.
+- Sediakan file konfigurasi Vercel (vercel.json) dengan rewrite routing SPA ke index.html.
+- Pastikan kode bersih dari warning linter (oxlint / eslint / react compiler purity rules), tidak ada unused import, dan npm run build sukses 100%.
+
+=== AKHIR DOKUMEN SOP, WORKFLOW, &amp; FLOWCHART PT NIRWANA BHUMI ENERGI ===
