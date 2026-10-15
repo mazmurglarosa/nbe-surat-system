@@ -95,6 +95,16 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     new Set(documents.map((d) => d.year).filter(Boolean))
   ).sort((a, b) => b - a);
 
+  // Status counts for 21st.dev segmented control
+  const statusCounts = {
+    ALL: documents.length,
+    Published: documents.filter((d) => d.status === 'Published').length,
+    Approved: documents.filter((d) => d.status === 'Approved').length,
+    'In Review': documents.filter((d) => d.status === 'In Review').length,
+    Draft: documents.filter((d) => d.status === 'Draft').length,
+    Archived: documents.filter((d) => d.status === 'Archived').length,
+  };
+
   // Copy code handler
   const handleCopy = (code: string, id: string) => {
     navigator.clipboard.writeText(code);
@@ -203,11 +213,63 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         </div>
       </div>
 
-      {/* Search and Filters Bar */}
+      {/* 21st.dev Search & Interactive Filters Bar */}
       <div
-        className="glass-card"
+        className="bento-card"
         style={{ padding: '1.25rem', marginBottom: '1.5rem' }}
       >
+        {/* Status Horizontal Segmented Control */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+          <div className="segmented-control">
+            {[
+              { id: 'ALL', label: 'Semua' },
+              { id: 'Published', label: 'Published' },
+              { id: 'Approved', label: 'Approved' },
+              { id: 'In Review', label: 'In Review' },
+              { id: 'Draft', label: 'Draft' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setSelectedStatus(tab.id)}
+                className={`segmented-item ${selectedStatus === tab.id ? 'active' : ''}`}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className="mono"
+                  style={{
+                    fontSize: '0.7rem',
+                    padding: '0.1rem 0.45rem',
+                    borderRadius: '9999px',
+                    background: selectedStatus === tab.id ? 'rgba(0, 212, 178, 0.25)' : 'rgba(255, 255, 255, 0.08)',
+                    color: selectedStatus === tab.id ? 'var(--primary)' : 'var(--text-muted)',
+                    fontWeight: 700,
+                  }}
+                >
+                  {statusCounts[tab.id as keyof typeof statusCounts] || 0}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* Quick Clear Filter if any active */}
+          {(searchTerm || selectedType !== 'ALL' || selectedDivision !== 'ALL' || selectedStatus !== 'ALL' || selectedYear !== 'ALL') && (
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setSelectedType('ALL');
+                setSelectedDivision('ALL');
+                setSelectedStatus('ALL');
+                setSelectedYear('ALL');
+              }}
+              className="btn btn-ghost btn-sm"
+              style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}
+            >
+              Reset Filter
+            </button>
+          )}
+        </div>
+
         <div
           style={{
             display: 'grid',
@@ -216,7 +278,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             alignItems: 'center',
           }}
         >
-          {/* Search Box */}
+          {/* Search Box with 21st.dev Kbd Hint */}
           <div style={{ position: 'relative', gridColumn: 'span 2' }}>
             <Search
               size={18}
@@ -234,8 +296,20 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Cari kode (0001-SOP...), judul, divisi, atau pengesah..."
               className="form-input"
-              style={{ paddingLeft: '2.5rem' }}
+              style={{ paddingLeft: '2.5rem', paddingRight: '3rem' }}
             />
+            <span
+              className="kbd"
+              style={{
+                position: 'absolute',
+                right: '0.85rem',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+              }}
+            >
+              ⌘K
+            </span>
           </div>
 
           {/* Filter Type */}
@@ -267,22 +341,6 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   {d.code} - {d.label.split('(')[0]}
                 </option>
               ))}
-            </select>
-          </div>
-
-          {/* Filter Status */}
-          <div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="form-select"
-            >
-              <option value="ALL">Semua Status</option>
-              <option value="Published">Published</option>
-              <option value="Approved">Approved</option>
-              <option value="In Review">In Review</option>
-              <option value="Draft">Draft</option>
-              <option value="Archived">Archived</option>
             </select>
           </div>
 
@@ -380,7 +438,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         </div>
       ) : viewMode === 'table' ? (
         /* TABLE VIEW */
-        <div className="glass-card" style={{ overflowX: 'auto' }}>
+        <div className="bento-card" style={{ overflowX: 'auto', padding: 0 }}>
           <table
             style={{
               width: '100%',
@@ -393,7 +451,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               <tr
                 style={{
                   borderBottom: '1px solid var(--border-subtle)',
-                  background: 'rgba(0,0,0,0.15)',
+                  background: 'rgba(0,0,0,0.22)',
                   color: 'var(--text-secondary)',
                   textTransform: 'uppercase',
                   fontSize: '0.75rem',
@@ -414,16 +472,10 @@ export const DocumentList: React.FC<DocumentListProps> = ({
               {filteredDocuments.map((doc) => (
                 <tr
                   key={doc.id}
+                  className="table-row-hover"
                   style={{
                     borderBottom: '1px solid var(--border-subtle)',
-                    transition: 'background-color 0.15s ease',
                   }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)')
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.backgroundColor = 'transparent')
-                  }
                 >
                   {/* Kode Dokumen with Copy */}
                   <td style={{ padding: '0.85rem 1rem' }}>
@@ -667,7 +719,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           {filteredDocuments.map((doc) => (
             <div
               key={doc.id}
-              className="glass-card"
+              className="bento-card"
               style={{
                 padding: '1.25rem',
                 display: 'flex',

@@ -848,20 +848,21 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         </p>
       </div>
 
-      {/* Live Generated Code Display Hero */}
+      {/* 21st.dev Interactive Code Hero */}
       <div
-        className="glass-card"
+        className="bento-card"
         style={{
           padding: '1.75rem',
           marginBottom: '2rem',
           border: duplicate
-            ? '2px solid var(--danger)'
+            ? '1px solid var(--danger)'
+            : isCodeFixed
+            ? '1px solid rgba(16, 185, 129, 0.5)'
             : '1px solid var(--border-accent)',
           background: duplicate
             ? 'rgba(239, 68, 68, 0.08)'
-            : 'linear-gradient(135deg, var(--bg-card) 0%, var(--bg-secondary) 100%)',
+            : 'var(--bg-card)',
           position: 'relative',
-          overflow: 'hidden',
         }}
       >
         <div
@@ -873,25 +874,18 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             gap: '1rem',
           }}
         >
-          <div>
+          <div style={{ flex: '1 1 500px' }}>
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                marginBottom: '0.5rem',
+                marginBottom: '0.65rem',
+                flexWrap: 'wrap',
               }}
             >
-              <span
-                style={{
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.08em',
-                  color: 'var(--primary)',
-                }}
-              >
-                Kode Dokumen Resmi Tergenerate
+              <span className="badge badge-primary mono" style={{ fontSize: '0.7rem' }}>
+                KODE GENERATOR RESMI
               </span>
               {isManualOverride ? (
                 <span className="badge badge-warning">
@@ -901,115 +895,141 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               ) : (
                 <span className="badge badge-primary">
                   <Lock size={12} />
-                  Auto-Sequence Standar
+                  Auto-Sequence Aktif
+                </span>
+              )}
+              {isCodeFixed && (
+                <span className="badge badge-success">
+                  <CheckCircle2 size={12} />
+                  Drive Folder Siap
+                </span>
+              )}
+              {duplicate && (
+                <span className="badge badge-danger">
+                  <AlertCircle size={12} />
+                  Duplikat Terdeteksi
                 </span>
               )}
             </div>
 
-            {/* The Main Code */}
+            {/* The Main Code Display Box */}
             <div
-              className="mono"
               style={{
-                fontSize: 'clamp(1.5rem, 3.5vw, 2.4rem)',
-                fontWeight: 800,
-                letterSpacing: '0.04em',
-                color: duplicate ? 'var(--danger)' : '#ffffff',
-                textShadow: duplicate ? 'none' : '0 2px 10px rgba(0, 212, 178, 0.4)',
-                wordBreak: 'break-all',
+                background: 'rgba(0, 0, 0, 0.35)',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem 1.25rem',
+                marginTop: '0.25rem',
+                marginBottom: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                flexWrap: 'wrap',
               }}
             >
-              {activeCode}
+              <div
+                className="mono"
+                style={{
+                  fontSize: 'clamp(1.4rem, 3.2vw, 2.2rem)',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  color: duplicate ? 'var(--danger)' : 'var(--text-main)',
+                  wordBreak: 'break-all',
+                }}
+              >
+                {activeCode}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="btn btn-secondary btn-sm"
+                  style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem' }}
+                  title="Salin kode ke clipboard"
+                >
+                  {copied ? <Check size={14} color="var(--success)" /> : <Copy size={14} />}
+                  <span>{copied ? 'Tersalin' : 'Copy'}</span>
+                  <span className="kbd" style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>⌘C</span>
+                </button>
+              </div>
             </div>
 
-            {/* Code Breakdown Explanation */}
+            {/* Code Breakdown Explanation Pills */}
             <div
               style={{
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '0.4rem',
-                marginTop: '0.75rem',
               }}
             >
               <span className="badge badge-blue">
-                No. Urut: {formatSequence(effectiveSequence)}
+                No: {formatSequence(effectiveSequence)}
               </span>
-              <span className="badge badge-info" style={{ background: 'rgba(6, 182, 212, 0.2)', color: '#22d3ee', border: '1px solid rgba(6, 182, 212, 0.4)' }}>
-                Sub-Kategori (ZZ): {selectedSubCategory}
+              <span className="badge badge-purple">
+                Tipe: {selectedType}
               </span>
-              <span className="badge" style={{ background: 'rgba(236, 72, 153, 0.2)', color: '#f472b6', border: '1px solid rgba(236, 72, 153, 0.4)' }}>
-                Sub-sub Kategori (AA): {selectedSubSubCategory}
+              <span className="badge badge-info" style={{ background: 'rgba(6, 182, 212, 0.15)', color: '#22d3ee', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+                Sub (ZZ): {selectedSubCategory}
+              </span>
+              <span className="badge" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
+                Sub-sub (AA): {selectedSubSubCategory}
               </span>
               <span className="badge badge-primary">Divisi: {selectedDivision}</span>
-              <span className="badge badge-warning">Penyetuju: {selectedApprover}</span>
+              <span className="badge badge-warning">Approver: {selectedApprover}</span>
               <span className="badge badge-blue">Bulan: {getRomanMonth(monthNumber)}</span>
               <span className="badge badge-purple">Tahun: {year}</span>
             </div>
           </div>
 
-          {/* Action Buttons: Copy, Fix, & Toggle Manual Edit */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <button
-                type="button"
-                onClick={handleCopyCode}
-                className="btn btn-primary btn-lg"
-                style={{ flex: 1, minWidth: '140px' }}
-                title="Salin kode ini ke clipboard"
-              >
-                {copied ? <Check size={18} /> : <Copy size={18} />}
-                <span>{copied ? 'Tersalin!' : 'Copy Kode'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={handleFixCode}
-                disabled={isCodeFixed || isFixingCode || Boolean(duplicate)}
-                className={`btn btn-lg ${isCodeFixed ? 'btn-success' : 'btn-warning'}`}
-                style={{
-                  flex: 1,
-                  minWidth: '140px',
-                  background: isCodeFixed
-                    ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
-                    : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
-                  borderColor: isCodeFixed ? '#10b981' : '#f59e0b',
-                  color: '#ffffff',
-                  fontWeight: 600,
-                  cursor: isCodeFixed ? 'default' : duplicate ? 'not-allowed' : 'pointer',
-                  opacity: duplicate ? 0.6 : 1,
-                  boxShadow: isCodeFixed
-                    ? '0 0 16px rgba(16, 185, 129, 0.35)'
-                    : '0 0 16px rgba(245, 158, 11, 0.25)',
-                }}
-                title={
-                  isCodeFixed
-                    ? 'Kode telah di-Fix dan folder Google Drive telah dibuat (Hanya bisa 1x klik per kode baru)'
-                    : 'Kunci kode surat ini & otomatis buat folder baru di Google Drive'
-                }
-              >
-                {isFixingCode ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" />
-                    <span>Membuat Folder...</span>
-                  </>
-                ) : isCodeFixed ? (
-                  <>
-                    <CheckCircle2 size={18} />
-                    <span>Fix Terkunci</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={18} />
-                    <span>Fix Kode</span>
-                  </>
-                )}
-              </button>
-            </div>
+          {/* Action Buttons: Fix Code & Manual Toggle */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', alignSelf: 'center' }}>
+            <button
+              type="button"
+              onClick={handleFixCode}
+              disabled={isCodeFixed || isFixingCode || Boolean(duplicate)}
+              className={`btn btn-lg ${isCodeFixed ? 'btn-success' : 'btn-warning'}`}
+              style={{
+                minWidth: '160px',
+                background: isCodeFixed
+                  ? 'linear-gradient(135deg, #059669 0%, #10b981 100%)'
+                  : 'linear-gradient(135deg, #d97706 0%, #f59e0b 100%)',
+                borderColor: isCodeFixed ? '#10b981' : '#f59e0b',
+                color: '#ffffff',
+                fontWeight: 600,
+                cursor: isCodeFixed ? 'default' : duplicate ? 'not-allowed' : 'pointer',
+                opacity: duplicate ? 0.6 : 1,
+              }}
+              title={
+                isCodeFixed
+                  ? 'Kode telah di-Fix dan folder Google Drive telah dibuat'
+                  : 'Kunci kode surat ini & otomatis buat folder baru di Google Drive'
+              }
+            >
+              {isFixingCode ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>Membuat Folder...</span>
+                </>
+              ) : isCodeFixed ? (
+                <>
+                  <CheckCircle2 size={18} />
+                  <span>Fix Terkunci</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={18} />
+                  <span>Fix Kode</span>
+                </>
+              )}
+            </button>
 
             <button
               type="button"
               onClick={handleToggleManual}
               className="btn btn-secondary btn-sm"
-              title="Ubah kode dokumen secara bebas (misal untuk upload dokumen lama)"
+              title="Ubah kode dokumen secara manual jika diperlukan"
             >
               {isManualOverride ? <Lock size={14} /> : <Unlock size={14} />}
               <span>{isManualOverride ? 'Kunci Kembali ke Auto' : 'Ubah Kode Manual'}</span>

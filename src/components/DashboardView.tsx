@@ -20,6 +20,10 @@ import {
   History,
   FolderPlus,
   Folder,
+  TrendingUp,
+  ArrowUpRight,
+  Activity,
+  Sparkles,
 } from 'lucide-react';
 import { DocumentRecord, CodeDefinition, DocumentStatus } from '../types';
 import { exportToCSV } from '../services/storage';
@@ -252,104 +256,175 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 1. TOP STATS CARDS (JUMLAH SURAT BERHIERARKI) */}
+      {/* 1. 21ST.DEV STYLE BENTO GRID METRICS */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
           gap: '1.25rem',
-          marginBottom: '1.75rem',
+          marginBottom: '2rem',
         }}
       >
-        {/* Total Dokumen (Primary KPI) */}
+        {/* Bento Hero Card: Total Dokumen & Live Ratio */}
         <div 
-          className="glass-card" 
+          className="bento-card" 
           style={{ 
-            padding: '1.5rem',
-            borderLeft: '4px solid var(--primary)',
-            background: 'linear-gradient(135deg, rgba(0, 212, 178, 0.05) 0%, var(--bg-card) 100%)',
+            padding: '1.6rem',
+            gridColumn: 'span 2',
+            background: 'linear-gradient(135deg, rgba(0, 212, 178, 0.06) 0%, var(--bg-card) 100%)',
+            border: '1px solid var(--border-accent)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            minHeight: '190px',
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-              Total Dokumen Terdaftar
-            </span>
-            <div style={{ background: 'var(--primary-glow)', padding: '0.45rem', borderRadius: '8px' }}>
-              <FileText size={20} color="var(--primary)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '2.4rem', fontWeight: 800, color: 'var(--text-main)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
-            {total}
-          </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Arsip resmi seluruh kategori
-          </div>
-        </div>
-
-        {/* Diterbitkan (Published) */}
-        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid var(--success)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-              Surat Diterbitkan
-            </span>
-            <div style={{ background: 'var(--success-bg)', padding: '0.45rem', borderRadius: '8px' }}>
-              <CheckCircle2 size={20} color="var(--success)" />
-            </div>
-          </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
-            {publishedCount}
-          </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Resmi berlaku di NBE
-          </div>
-        </div>
-
-        {/* Review & Draft (Actionable KPI) */}
-        <div 
-          className="glass-card" 
-          style={{ 
-            padding: '1.5rem',
-            borderLeft: inReviewCount > 0 ? '4px solid var(--warning)' : '4px solid var(--border-subtle)',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-              Menunggu Review
-            </span>
-            <div style={{ background: 'var(--warning-bg)', padding: '0.45rem', borderRadius: '8px' }}>
-              <Clock size={20} color="var(--warning)" />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginTop: '0.5rem' }}>
-            <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--warning)', fontVariantNumeric: 'tabular-nums' }}>
-              {inReviewCount}
-            </div>
-            {inReviewCount > 0 && (
-              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
-                Perlu Verifikasi
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span className="badge badge-primary" style={{ padding: '0.2rem 0.55rem' }}>
+                  <Activity size={13} />
+                  <span>Sistem Arsip Resmi NBE</span>
+                </span>
+                <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+                  <span>Cloud Active</span>
+                </span>
+              </div>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                Diperbarui Real-time
               </span>
-            )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '2.8rem', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+                {total}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                Total Surat Terdaftar di Seluruh Divisi
+              </div>
+            </div>
           </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Draft & verifikasi berjalan
+
+          {/* Micro Distribution Bar (21st.dev Signature) */}
+          <div style={{ marginTop: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+              <span>Distribusi Status:</span>
+              <span style={{ fontWeight: 600 }}>
+                {publishedCount} Terbit · {approvedCount} Setuju · {inReviewCount} Review
+              </span>
+            </div>
+            <div style={{ width: '100%', height: '8px', background: 'var(--bg-tertiary)', borderRadius: '6px', overflow: 'hidden', display: 'flex', gap: '2px' }}>
+              <div 
+                style={{ 
+                  width: total > 0 ? `${(publishedCount / total) * 100}%` : '0%', 
+                  background: 'var(--success)', 
+                  transition: 'width 0.3s ease' 
+                }} 
+                title={`Diterbitkan: ${publishedCount}`}
+              />
+              <div 
+                style={{ 
+                  width: total > 0 ? `${(approvedCount / total) * 100}%` : '0%', 
+                  background: '#38bdf8', 
+                  transition: 'width 0.3s ease' 
+                }} 
+                title={`Disetujui: ${approvedCount}`}
+              />
+              <div 
+                style={{ 
+                  width: total > 0 ? `${(inReviewCount / total) * 100}%` : '0%', 
+                  background: 'var(--warning)', 
+                  transition: 'width 0.3s ease' 
+                }} 
+                title={`In Review: ${inReviewCount}`}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Approved */}
-        <div className="glass-card" style={{ padding: '1.5rem', borderLeft: '4px solid #38bdf8' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
-              Disetujui Direksi
-            </span>
-            <div style={{ background: 'rgba(2, 132, 199, 0.15)', padding: '0.45rem', borderRadius: '8px' }}>
-              <Shield size={20} color="#38bdf8" />
+        {/* Bento Cell: Diterbitkan (Published) */}
+        <div className="bento-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                Surat Diterbitkan
+              </span>
+              <div style={{ background: 'var(--success-bg)', padding: '0.45rem', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+                <CheckCircle2 size={18} color="var(--success)" />
+              </div>
+            </div>
+            <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--success)', marginTop: '0.65rem', fontVariantNumeric: 'tabular-nums' }}>
+              {publishedCount}
             </div>
           </div>
-          <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.5rem', fontVariantNumeric: 'tabular-nums' }}>
-            {approvedCount}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', marginTop: '0.75rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Efektivitas</span>
+            <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+              {total > 0 ? Math.round((publishedCount / total) * 100) : 0}% Aktif
+            </span>
           </div>
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-            Telah tervalidasi
+        </div>
+
+        {/* Bento Cell: Menunggu Review (Actionable) */}
+        <div 
+          className="bento-card" 
+          style={{ 
+            padding: '1.5rem', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between',
+            border: inReviewCount > 0 ? '1px solid rgba(245, 158, 11, 0.4)' : undefined,
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                Menunggu Review
+              </span>
+              <div style={{ background: 'var(--warning-bg)', padding: '0.45rem', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
+                <Clock size={18} color="var(--warning)" />
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', marginTop: '0.65rem' }}>
+              <div style={{ fontSize: '2.2rem', fontWeight: 800, color: 'var(--warning)', fontVariantNumeric: 'tabular-nums' }}>
+                {inReviewCount}
+              </div>
+              {inReviewCount > 0 && (
+                <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                  Perlu Verifikasi
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', marginTop: '0.75rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Status Dokumen</span>
+            <span style={{ fontSize: '0.75rem', color: inReviewCount > 0 ? '#f59e0b' : 'var(--text-muted)', fontWeight: 600 }}>
+              {inReviewCount > 0 ? 'Menunggu Approval' : 'Semua Bersih'}
+            </span>
+          </div>
+        </div>
+
+        {/* Bento Cell: Disetujui Direksi */}
+        <div className="bento-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
+                Disetujui Direksi
+              </span>
+              <div style={{ background: 'rgba(2, 132, 199, 0.15)', padding: '0.45rem', borderRadius: '8px', border: '1px solid rgba(2, 132, 199, 0.25)' }}>
+                <Shield size={18} color="#38bdf8" />
+              </div>
+            </div>
+            <div style={{ fontSize: '2.2rem', fontWeight: 800, color: '#38bdf8', marginTop: '0.65rem', fontVariantNumeric: 'tabular-nums' }}>
+              {approvedCount}
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '0.75rem', borderTop: '1px solid var(--border-subtle)', marginTop: '0.75rem' }}>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Tingkat Validasi</span>
+            <span className="badge badge-blue" style={{ fontSize: '0.72rem' }}>
+              {total > 0 ? Math.round((approvedCount / total) * 100) : 0}% Disetujui
+            </span>
           </div>
         </div>
       </div>
@@ -364,7 +439,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         }}
       >
         {/* Distribusi Kategori Surat */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div className="bento-card" style={{ padding: '1.5rem' }}>
           <h3
             style={{
               fontSize: '1rem',
@@ -403,7 +478,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Distribusi Divisi */}
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
+        <div className="bento-card" style={{ padding: '1.5rem' }}>
           <h3
             style={{
               fontSize: '1rem',
@@ -472,7 +547,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       </div>
 
       {/* 3. APA SAJA YANG SUDAH TERDAFTAR (DAFTAR SURAT) */}
-      <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+      <div className="bento-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         <div
           style={{
             display: 'flex',
@@ -484,16 +559,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           }}
         >
           <div>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
-              Daftar Surat & Dokumen yang Sudah Terdaftar ({filteredDocs.length})
-            </h3>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+              <span className="badge badge-primary mono" style={{ fontSize: '0.7rem' }}>LIVE ARSIP</span>
+              <h3 style={{ fontSize: '1.15rem', fontWeight: 700 }}>
+                Daftar Surat & Dokumen Terdaftar ({filteredDocs.length})
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
               Telusuri berkas, buka pratinjau PDF, dan salin kode resmi dokumen.
             </p>
           </div>
 
-          {/* Quick Search */}
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Quick Search with 21st.dev Kbd Hint */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
               <Search
                 size={16}
@@ -504,10 +582,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Cari kode atau judul surat..."
+                placeholder="Cari kode atau judul..."
                 className="form-input"
-                style={{ paddingLeft: '2.3rem', width: '240px', fontSize: '0.85rem' }}
+                style={{ paddingLeft: '2.3rem', paddingRight: '2.75rem', width: '250px', fontSize: '0.85rem' }}
               />
+              <span
+                className="kbd"
+                style={{
+                  position: 'absolute',
+                  right: '0.6rem',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                }}
+              >
+                ⌘K
+              </span>
             </div>
 
             <select
@@ -551,7 +641,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: 'rgba(0,0,0,0.18)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
+              <tr style={{ background: 'rgba(0,0,0,0.22)', borderBottom: '1px solid var(--border-subtle)', color: 'var(--text-secondary)' }}>
                 <th style={{ padding: '0.75rem 1rem' }}>Kode Surat</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Judul Dokumen</th>
                 <th style={{ padding: '0.75rem 1rem' }}>Kategori & Divisi</th>
@@ -566,9 +656,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               {filteredDocs.map((doc) => (
                 <tr
                   key={doc.id}
+                  className="table-row-hover"
                   style={{ borderBottom: '1px solid var(--border-subtle)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                 >
                   {/* Kode Surat */}
                   <td style={{ padding: '0.75rem 1rem' }}>
