@@ -56,7 +56,7 @@ interface MasterCategoriesViewProps {
   initialTab?: ActiveCategoryTab;
 }
 
-type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers' | 'template';
+type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers';
 
 export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   initialTab = 'types',
@@ -376,55 +376,35 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
-            onClick={activeTab === 'template' ? handleResetTemplate : handleReset}
+            onClick={handleReset}
             className="btn btn-secondary btn-sm"
-            title={activeTab === 'template' ? 'Kembalikan acuan template ke standar bawaan SOP NBE' : 'Kembalikan ke standar awal SOP'}
+            title="Kembalikan master kode ke standar awal SOP"
           >
             <RotateCcw size={15} />
-            <span>{activeTab === 'template' ? 'Reset Template SOP' : 'Reset ke Default SOP'}</span>
+            <span>Reset ke Default SOP</span>
           </button>
-          {activeTab === 'template' ? (
-            <button
-              onClick={handleSaveTemplate}
-              disabled={isSavingTemplate}
-              className="btn btn-primary btn-sm"
-              style={{
-                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
-                border: 'none',
-                fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.4rem',
-                boxShadow: '0 2px 10px rgba(2, 132, 199, 0.25)',
-              }}
-            >
-              <Save size={16} />
-              <span>{isSavingTemplate ? 'Menyimpan...' : 'Simpan Acuan Template'}</span>
-            </button>
-          ) : (
-            <button
-              onClick={handleOpenAdd}
-              className="btn btn-primary btn-sm"
-              style={{
-                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
-                border: 'none',
-                fontWeight: 600,
-              }}
-            >
-              <Plus size={16} />
-              <span>
-                {activeTab === 'types'
-                  ? '+ Tambah Kategori Surat'
-                  : activeTab === 'subcategories'
-                  ? '+ Tambah Sub-Kategori (ZZ)'
-                  : activeTab === 'subsubcategories'
-                  ? '+ Tambah Sub-sub Kategori (AA)'
-                  : activeTab === 'divisions'
-                  ? '+ Tambah Divisi Penerbit'
-                  : '+ Tambah Otoritas Pengesahan'}
-              </span>
-            </button>
-          )}
+          <button
+            onClick={handleOpenAdd}
+            className="btn btn-primary btn-sm"
+            style={{
+              background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+              border: 'none',
+              fontWeight: 600,
+            }}
+          >
+            <Plus size={16} />
+            <span>
+              {activeTab === 'types'
+                ? '+ Tambah Kategori Surat'
+                : activeTab === 'subcategories'
+                ? '+ Tambah Sub-Kategori (ZZ)'
+                : activeTab === 'subsubcategories'
+                ? '+ Tambah Sub-sub Kategori (AA)'
+                : activeTab === 'divisions'
+                ? '+ Tambah Divisi Penerbit'
+                : '+ Tambah Otoritas Pengesahan'}
+            </span>
+          </button>
         </div>
       </div>
 
@@ -505,44 +485,13 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         >
           5. Otoritas Pengesahan ({masterCodes.approvers.length})
         </button>
-        <button
-          type="button"
-          onClick={() => { setActiveTab('template'); setSearchQuery(''); }}
-          className={`btn btn-sm ${activeTab === 'template' ? 'btn-primary' : 'btn-ghost'}`}
-          style={{
-            fontSize: '0.8rem',
-            whiteSpace: 'nowrap',
-            borderRadius: '8px',
-            fontWeight: activeTab === 'template' ? 800 : 500,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.45rem',
-            border: activeTab === 'template' ? 'none' : '1px solid var(--border-subtle)',
-          }}
-        >
-          <Sparkles size={15} color={activeTab === 'template' ? '#fff' : 'var(--accent)'} />
-          <span>6. Acuan Template Dokumen & Panduan Standardisasi Bot</span>
-          <span
-            className="badge"
-            style={{
-              fontSize: '0.62rem',
-              background: activeTab === 'template' ? 'rgba(255,255,255,0.25)' : 'rgba(2, 132, 199, 0.15)',
-              color: activeTab === 'template' ? '#ffffff' : '#0284c7',
-              padding: '0.1rem 0.45rem',
-              borderRadius: '4px',
-              fontWeight: 800,
-            }}
-          >
-            BARU
-          </span>
-        </button>
       </div>
 
-      {/* 6 Main Tabs Grid */}
+      {/* 5 Main Tabs Grid */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
           gap: '0.85rem',
           marginBottom: '1.75rem',
         }}
@@ -863,92 +812,199 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             Approving Authority Code (contoh: CEO, CTO, COO, CFO, MNG, SPV)
           </p>
         </div>
+      </div>
 
-        {/* TAB 6: Acuan Template Dokumen (NEW TAB TAHAP 3) */}
+      {/* 1. MASTER CODES FILTER & LIST CARD (TABS 1 - 5) */}
+      <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
+        {/* Action Bar */}
         <div
-          onClick={() => {
-            setActiveTab('template');
-            setSearchQuery('');
-          }}
           style={{
-            cursor: 'pointer',
-            padding: '1.25rem',
-            borderRadius: 'var(--radius-lg)',
-            border:
-              activeTab === 'template'
-                ? '2px solid #0284c7'
-                : '1px solid var(--border-subtle)',
-            background:
-              activeTab === 'template'
-                ? 'rgba(2, 132, 199, 0.12)'
-                : 'var(--bg-secondary)',
-            transition: 'all 0.2s ease',
-            boxShadow:
-              activeTab === 'template'
-                ? '0 4px 16px rgba(2, 132, 199, 0.18)'
-                : 'none',
-            position: 'relative',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginBottom: '1.5rem',
           }}
         >
-          <div
-            style={{
-              position: 'absolute',
-              top: '-10px',
-              right: '12px',
-              background: '#0284c7',
-              color: '#ffffff',
-              fontSize: '0.62rem',
-              fontWeight: 800,
-              padding: '0.15rem 0.5rem',
-              borderRadius: '6px',
-              letterSpacing: '0.04em',
-            }}
-          >
-            TAHAP 3 • BARU
+          <div style={{ position: 'relative', minWidth: '260px' }}>
+            <Search
+              size={16}
+              style={{
+                position: 'absolute',
+                left: '12px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-muted)',
+              }}
+            />
+            <input
+              type="text"
+              placeholder={`Cari kode, nama, atau deskripsi ${
+                activeTab === 'types'
+                  ? 'kategori surat'
+                  : activeTab === 'subcategories'
+                  ? 'sub-kategori surat'
+                  : activeTab === 'subsubcategories'
+                  ? 'sub-sub kategori surat'
+                  : activeTab === 'divisions'
+                  ? 'divisi'
+                  : 'otoritas'
+              }...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="form-input"
+              style={{ paddingLeft: '2.4rem' }}
+            />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <button
+            onClick={handleOpenAdd}
+            className="btn btn-primary btn-sm"
+            style={{
+              background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+              border: 'none',
+              fontWeight: 600,
+            }}
+          >
+            <Plus size={16} />
+            <span>
+              {activeTab === 'types'
+                ? '+ Tambah Kategori Baru'
+                : activeTab === 'subcategories'
+                ? '+ Tambah Sub-Kategori Baru'
+                : activeTab === 'subsubcategories'
+                ? '+ Tambah Sub-sub Kategori Baru'
+                : activeTab === 'divisions'
+                ? '+ Tambah Divisi Baru'
+                : '+ Tambah Otoritas Baru'}
+            </span>
+          </button>
+        </div>
+
+        {/* Items List */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {filteredList.map((item) => {
+            const badgeColor =
+              activeTab === 'types'
+                ? '#10b981'
+                : activeTab === 'subcategories'
+                ? '#06b6d4'
+                : activeTab === 'subsubcategories'
+                ? '#8b5cf6'
+                : activeTab === 'divisions'
+                ? '#0284c7'
+                : '#f59e0b';
+
+            return (
               <div
+                key={item.code}
                 style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: '#0284c7',
-                  color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 800,
-                  fontSize: '0.9rem',
+                  justifyContent: 'space-between',
+                  padding: '1rem 1.25rem',
+                  borderRadius: 'var(--radius-md)',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  gap: '1rem',
+                  flexWrap: 'wrap',
                 }}
               >
-                6
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '240px' }}>
+                  <span
+                    className="badge mono"
+                    style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      padding: '0.35rem 0.75rem',
+                      background: `${badgeColor}22`,
+                      color: badgeColor,
+                      border: `1px solid ${badgeColor}55`,
+                      letterSpacing: '0.05em',
+                      minWidth: '55px',
+                      textAlign: 'center',
+                    }}
+                  >
+                    {item.code}
+                  </span>
+
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span>{item.label}</span>
+                      {item.isCustom && (
+                        <span
+                          style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '4px',
+                            background: 'rgba(56, 189, 248, 0.15)',
+                            color: '#38bdf8',
+                          }}
+                        >
+                          Kustom
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-secondary)',
+                        marginTop: '0.2rem',
+                      }}
+                    >
+                      {item.description}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => handleOpenEdit(item)}
+                    className="btn btn-secondary btn-sm"
+                    title="Ubah Nama & Deskripsi"
+                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
+                  >
+                    <Edit2 size={13} />
+                    <span>Ubah</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleDelete(item)}
+                    className="btn btn-ghost btn-sm"
+                    title="Hapus Kategori"
+                    style={{ padding: '0.35rem 0.65rem', color: '#ef4444', fontSize: '0.78rem' }}
+                  >
+                    <Trash2 size={13} />
+                    <span>Hapus</span>
+                  </button>
+                </div>
               </div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                Acuan Template Dokumen & Panduan Standardisasi Bot
-              </h3>
-            </div>
-            <span
-              className="badge mono"
+            );
+          })}
+
+          {filteredList.length === 0 && (
+            <div
               style={{
-                background: 'rgba(2, 132, 199, 0.2)',
-                color: '#0284c7',
-                fontWeight: 700,
+                textAlign: 'center',
+                padding: '3rem 1rem',
+                color: 'var(--text-muted)',
               }}
             >
-              TXT & PDF
-            </span>
-          </div>
-          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-            Pedoman Dasar Utama (.txt) & Acuan Visual Tata Letak (.pdf) untuk Bot AI & Konverter Dokumen
-          </p>
+              <Info size={32} style={{ margin: '0 auto 0.5rem auto' }} />
+              <p style={{ fontWeight: 600 }}>Tidak ada data yang cocok dengan pencarian.</p>
+              <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                Silakan gunakan tombol tambah untuk mendaftarkan kode baru.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* TAB CONTENT: EITHER TEMPLATE PANEL OR MASTER CODES TABLE */}
-      {activeTab === 'template' ? (
-        <div className="glass-card animate-fade-in" style={{ padding: '1.75rem' }}>
+      {/* 2. ACUAN TEMPLATE DOKUMEN & PANDUAN STANDARDISASI BOT (TERLETAK DIBAWAH DAFTAR KODE) */}
+      <div className="glass-card animate-fade-in" style={{ padding: '1.75rem', marginBottom: '2rem' }}>
           {/* Hidden File Inputs */}
           <input
             ref={txtInputRef}
@@ -1502,196 +1558,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             </div>
           </div>
         </div>
-      ) : (
-        /* MASTER CODES FILTER & LIST CARD (FOR TABS 1 - 5) */
-        <div className="glass-card" style={{ padding: '1.5rem' }}>
-          {/* Action Bar */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '1rem',
-              marginBottom: '1.5rem',
-            }}
-          >
-            <div style={{ position: 'relative', minWidth: '260px' }}>
-              <Search
-                size={16}
-                style={{
-                  position: 'absolute',
-                  left: '12px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-muted)',
-                }}
-              />
-              <input
-                type="text"
-                placeholder={`Cari kode, nama, atau deskripsi ${
-                  activeTab === 'types'
-                    ? 'kategori surat'
-                    : activeTab === 'subcategories'
-                    ? 'sub-kategori surat'
-                    : activeTab === 'subsubcategories'
-                    ? 'sub-sub kategori surat'
-                    : activeTab === 'divisions'
-                    ? 'divisi'
-                    : 'otoritas'
-                }...`}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="form-input"
-                style={{ paddingLeft: '2.4rem' }}
-              />
-            </div>
 
-            <button
-              onClick={handleOpenAdd}
-              className="btn btn-primary btn-sm"
-              style={{
-                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
-                border: 'none',
-                fontWeight: 600,
-              }}
-            >
-              <Plus size={16} />
-              <span>
-                {activeTab === 'types'
-                  ? '+ Tambah Kategori Baru'
-                  : activeTab === 'subcategories'
-                  ? '+ Tambah Sub-Kategori Baru'
-                  : activeTab === 'subsubcategories'
-                  ? '+ Tambah Sub-sub Kategori Baru'
-                  : activeTab === 'divisions'
-                  ? '+ Tambah Divisi Baru'
-                  : '+ Tambah Otoritas Baru'}
-              </span>
-            </button>
-          </div>
-
-          {/* Items List */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            {filteredList.map((item) => {
-              const badgeColor =
-                activeTab === 'types'
-                  ? '#10b981'
-                  : activeTab === 'subcategories'
-                  ? '#06b6d4'
-                  : activeTab === 'subsubcategories'
-                  ? '#8b5cf6'
-                  : activeTab === 'divisions'
-                  ? '#0284c7'
-                  : '#f59e0b';
-
-              return (
-                <div
-                  key={item.code}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '1rem 1.25rem',
-                    borderRadius: 'var(--radius-md)',
-                    background: 'var(--bg-secondary)',
-                    border: '1px solid var(--border-subtle)',
-                    gap: '1rem',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '240px' }}>
-                    <span
-                      className="badge mono"
-                      style={{
-                        fontSize: '0.9rem',
-                        fontWeight: 800,
-                        padding: '0.35rem 0.75rem',
-                        background: `${badgeColor}22`,
-                        color: badgeColor,
-                        border: `1px solid ${badgeColor}55`,
-                        letterSpacing: '0.05em',
-                        minWidth: '55px',
-                        textAlign: 'center',
-                      }}
-                    >
-                      {item.code}
-                    </span>
-
-                    <div>
-                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>{item.label}</span>
-                        {item.isCustom && (
-                          <span
-                            style={{
-                              fontSize: '0.65rem',
-                              fontWeight: 700,
-                              padding: '0.1rem 0.4rem',
-                              borderRadius: '4px',
-                              background: 'rgba(56, 189, 248, 0.15)',
-                              color: '#38bdf8',
-                            }}
-                          >
-                            Kustom
-                          </span>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          fontSize: '0.8rem',
-                          color: 'var(--text-secondary)',
-                          marginTop: '0.2rem',
-                        }}
-                      >
-                        {item.description}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => handleOpenEdit(item)}
-                      className="btn btn-secondary btn-sm"
-                      title="Ubah Nama & Deskripsi"
-                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
-                    >
-                      <Edit2 size={13} />
-                      <span>Ubah</span>
-                    </button>
-
-                    <button
-                      onClick={() => handleDelete(item)}
-                      className="btn btn-ghost btn-sm"
-                      title="Hapus Kategori"
-                      style={{ padding: '0.35rem 0.65rem', color: '#ef4444', fontSize: '0.78rem' }}
-                    >
-                      <Trash2 size={13} />
-                      <span>Hapus</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            {filteredList.length === 0 && (
-              <div
-                style={{
-                  textAlign: 'center',
-                  padding: '3rem 1rem',
-                  color: 'var(--text-muted)',
-                }}
-              >
-                <Info size={32} style={{ margin: '0 auto 0.5rem auto' }} />
-                <p style={{ fontWeight: 600 }}>Tidak ada data yang cocok dengan pencarian.</p>
-                <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                  Silakan gunakan tombol tambah untuk mendaftarkan kode baru.
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Modal Add / Edit */}
       {isModalOpen && (
