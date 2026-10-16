@@ -78,6 +78,8 @@ export const DEFAULT_TEMPLATE_SETTINGS: DocumentTemplateSettings = {
   lastUpdated: new Date().toISOString(),
 };
 
+import { supabase } from './supabaseClient';
+
 export function loadTemplateSettings(): DocumentTemplateSettings {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_TEMPLATE_SETTINGS);
@@ -104,8 +106,75 @@ export function saveTemplateSettings(settings: DocumentTemplateSettings): void {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('nbe_template_settings_updated', { detail: payload }));
     }
+
+    // Persist to Supabase Cloud
+    if (supabase) {
+      (async () => {
+        try {
+          const { error } = await supabase
+            .from('document_templates')
+            .upsert({
+              id: 'primary_template',
+              txt_guidelines_name: settings.txtGuidelinesName,
+              txt_guidelines_content: settings.txtGuidelinesContent,
+              pdf_layout_name: settings.pdfLayoutName,
+              pdf_layout_data_url: settings.pdfLayoutDataUrl || null,
+              paper_size: settings.paperSize,
+              orientation: settings.orientation,
+              margin_top_cm: settings.marginTopCm,
+              margin_bottom_cm: settings.marginBottomCm,
+              margin_left_cm: settings.marginLeftCm,
+              margin_right_cm: settings.marginRightCm,
+              font_family: settings.fontFamily,
+              last_updated: payload.lastUpdated,
+            });
+          if (error) {
+            console.warn('Supabase template upsert warning:', error.message);
+          }
+        } catch (err: any) {
+          console.warn('Supabase template upsert error:', err?.message || err);
+        }
+      })();
+    }
   } catch (err) {
     console.error('Failed saving template settings:', err);
+  }
+}
+
+export async function syncTemplateSettingsFromSupabase(): Promise<DocumentTemplateSettings | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('document_templates')
+      .select('*')
+      .eq('id', 'primary_template')
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    const cloudSettings: DocumentTemplateSettings = {
+      txtGuidelinesName: data.txt_guidelines_name || DEFAULT_TEMPLATE_SETTINGS.txtGuidelinesName,
+      txtGuidelinesContent: data.txt_guidelines_content || DEFAULT_TEMPLATE_SETTINGS.txtGuidelinesContent,
+      pdfLayoutName: data.pdf_layout_name || DEFAULT_TEMPLATE_SETTINGS.pdfLayoutName,
+      pdfLayoutDataUrl: data.pdf_layout_data_url || '',
+      paperSize: data.paper_size || 'A4',
+      orientation: data.orientation || 'portrait',
+      marginTopCm: Number(data.margin_top_cm) || 2.54,
+      marginBottomCm: Number(data.margin_bottom_cm) || 2.54,
+      marginLeftCm: Number(data.margin_left_cm) || 2.54,
+      marginRightCm: Number(data.margin_right_cm) || 2.54,
+      fontFamily: data.font_family || 'Arial, sans-serif',
+      lastUpdated: data.last_updated || new Date().toISOString(),
+    };
+
+    localStorage.setItem(STORAGE_KEY_TEMPLATE_SETTINGS, JSON.stringify(cloudSettings));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('nbe_template_settings_updated', { detail: cloudSettings }));
+    }
+    return cloudSettings;
+  } catch (err) {
+    console.warn('Sync template from Supabase error:', err);
+    return null;
   }
 }
 
@@ -115,8 +184,17 @@ export function resetTemplateSettings(): DocumentTemplateSettings {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('nbe_template_settings_updated', { detail: DEFAULT_TEMPLATE_SETTINGS }));
     }
+    if (supabase) {
+      saveTemplateSettings(DEFAULT_TEMPLATE_SETTINGS);
+    }
   } catch (err) {
     console.error('Failed resetting template settings:', err);
   }
   return DEFAULT_TEMPLATE_SETTINGS;
 }
+
+// Background sync on load if browser is active
+if (typeof window !== 'undefined') {
+  syncTemplateSettingsFromSupabase();
+}
+

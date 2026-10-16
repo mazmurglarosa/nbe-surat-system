@@ -207,3 +207,95 @@ INSERT INTO public.master_codes (category_group, code, label, description, is_cu
 ('approvers', 'MNG', 'Department Manager', 'Penyetujuan tingkat General Manager / Manager Divisi', FALSE),
 ('approvers', 'SPV', 'Supervisor / Lead', 'Penyetujuan tingkat Penyelia / Project Lead', FALSE)
 ON CONFLICT (category_group, code) DO NOTHING;
+
+-- ==============================================================================
+-- 7. TABEL: document_templates (Acuan Template Dokumen TXT & PDF NBE)
+-- ==============================================================================
+CREATE TABLE IF NOT EXISTS public.document_templates (
+    id TEXT PRIMARY KEY DEFAULT 'primary_template',
+    txt_guidelines_name TEXT,
+    txt_guidelines_content TEXT NOT NULL,
+    pdf_layout_name TEXT,
+    pdf_layout_data_url TEXT,
+    paper_size TEXT NOT NULL DEFAULT 'A4' CHECK (paper_size IN ('A4', 'Letter', 'F4')),
+    orientation TEXT NOT NULL DEFAULT 'portrait' CHECK (orientation IN ('portrait', 'landscape')),
+    margin_top_cm NUMERIC(4, 2) NOT NULL DEFAULT 2.54,
+    margin_bottom_cm NUMERIC(4, 2) NOT NULL DEFAULT 2.54,
+    margin_left_cm NUMERIC(4, 2) NOT NULL DEFAULT 2.54,
+    margin_right_cm NUMERIC(4, 2) NOT NULL DEFAULT 2.54,
+    font_family TEXT NOT NULL DEFAULT 'Arial, sans-serif',
+    last_updated TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.document_templates ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow anon all document_templates" ON public.document_templates;
+CREATE POLICY "Allow anon all document_templates" ON public.document_templates FOR ALL USING (true) WITH CHECK (true);
+
+-- Seed Data Template Dokumen Baku NBE
+INSERT INTO public.document_templates (
+    id, txt_guidelines_name, txt_guidelines_content, pdf_layout_name,
+    paper_size, orientation, margin_top_cm, margin_bottom_cm,
+    margin_left_cm, margin_right_cm, font_family, last_updated
+) VALUES (
+    'primary_template',
+    'Panduan_Standar_Dokumen_NBE_CSMS.txt',
+    'PANDUAN STANDARISASI DOKUMEN & FORMAT PROSEDUR RESMI
+PT NIRWANA BHUMI ENERGI (NBE)
+Sistem Manajemen Terintegrasi & Pengendalian Dokumen Terkontrol (CSMS / ISO 9001 / ISO 45001)
+
+1. ATURAN UMUM FORMAT DOKUMEN
+   - Seluruh dokumen prosedur wajib memiliki Halaman Cover, Kop Header Resmi, dan Tabel Revision Index.
+   - Ukuran kertas baku: A4 (210 mm x 297 mm), Orientasi: Portrait (Tegak).
+   - Margin standar: Atas 2.54 cm, Bawah 2.54 cm, Kiri 2.54 cm, Kanan 2.54 cm.
+   - Tipografi: Font Arial atau Calibri dengan keterbacaan tinggi.
+   - Nomor halaman diletakkan di pojok kanan bawah (contoh: Page X of Y).
+
+2. TATA LETAK HALAMAN COVER (HALAMAN 1)
+   - Bagian Atas: Logo resmi PT Nirwana Bhumi Energi (Nirwana Bhumi Energy).
+   - Bagian Tengah: Judul Dokumen (Title) ditulis dengan huruf kapital tebal (Uppercase Bold), ukuran 16-18pt, letter-spacing proporsional.
+   - Bagian Bawah Kanan: Blok pengesahan otorisasi 3 tingkat:
+     * Approved by : Otoritas Penyetuju (misal: Direktur Keuangan / CFO)
+     * Verified by : Otoritas Verifikasi (misal: Auditor Internal Utama / MR)
+     * Prepared by : Pembuat Dokumen (misal: Mazmur L)
+
+3. TATA LETAK KOP HEADER & REVISION INDEX (HALAMAN 2)
+   - Kop Header Dokumen berbentuk tabel kotak tertutup dengan garis hitam tegas 1.5pt:
+     * Sisi Kiri: Logo NBE dan akronim "NBE".
+     * Sisi Kanan:
+       Baris 1: "SISTEM PENGENDALI INTERNAL" (Bold, rata tengah)
+       Baris 2: "Standar Operasional Prosedur (SOP)" / Kategori Surat
+       Baris 3: Judul Prosedur Dokumen (Bold Uppercase)
+       Baris 4: Informasi metadata 3 kolom:
+         [Revisi: X] | [Nomor Kode Resmi NBE] | [Tanggal Penerbitan]
+   - Tabel Revision Index tepat di bawah Kop Header:
+     * Memiliki 4 kolom utama: Revisi, Tanggal, Deskripsi Perubahan, Direvisi Oleh.
+     * Revisi 0 diisi: "Initial Edition – Penerbitan Dokumen Standar [Judul Dokumen] ([Kode Dokumen])".
+     * Baris revisi selanjutnya ditambahkan secara berurutan sesuai pembaruan isi.
+
+4. STRUKTUR BAB ISI PROSEDUR (HALAMAN 3 DAN SETERUSNYA)
+   Setiap berkas dokumen Word yang distandarisasi oleh Bot wajib memuat bab-bab pokok berikut:
+   1. TUJUAN (OBJECTIVE): Maksud dan sasaran spesifik penerapan prosedur.
+   2. RUANG LINGKUP (SCOPE): Batasan departemen, area kerja, dan personel yang terkait.
+   3. REFERENSI & DEFINISI (DEFINITIONS): Rujukan perundangan, ISO/CSMS, dan istilah teknis.
+   4. TANGGUNG JAWAB & WEWENANG (RESPONSIBILITIES): Peran pihak pembuat, pelaksana, dan pemeriksa.
+   5. URAIAN PROSEDUR & TAHAPAN KERJA (PROCEDURE WORKFLOW): Alur operasional langkah demi langkah.
+   6. DOKUMEN TERKAIT & REKAMAN (RECORDS): Formulir, checklist, dan bukti pelaksanaan.
+   7. LAMPIRAN (ATTACHMENTS): Format lampiran isian resmi.
+
+5. ATURAN KONVERSI & BOT GOOGLE DOCS
+   - Bot akan membedah setiap file Word (.docx) atau hasil konversi PDF.
+   - Bot mempertahankan teks inti dokumen asli, lalu membungkusnya secara otomatis dengan Cover standar, Kop Header resmi, dan Tabel Index Revisi sesuai acuan template ini.
+   - Seluruh dokumen Word dapat dikonversi ke Google Docs menggunakan MCP Google Docs untuk kolaborasi real-time.',
+    'Contoh_Visual_Layout_Standar_NBE.pdf',
+    'A4',
+    'portrait',
+    2.54,
+    2.54,
+    2.54,
+    2.54,
+    'Arial, sans-serif',
+    NOW()
+) ON CONFLICT (id) DO NOTHING;
+
