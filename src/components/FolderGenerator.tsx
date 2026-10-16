@@ -250,6 +250,18 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   const [isCreatingCategoryFolder, setIsCreatingCategoryFolder] = useState<boolean>(false);
   const [categoryMissingAlert, setCategoryMissingAlert] = useState<boolean>(false);
 
+  // Accessible keyboard Escape handler for Google Docs modal dialog
+  useEffect(() => {
+    if (!docsModalNotice) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDocsModalNotice(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [docsModalNotice]);
+
   // Auto-calculated sequential code
   const autoSequence = getNextSequenceNumber(documents, selectedType);
   const effectiveSequence = isManualOverride && customSequence !== '' ? Number(customSequence) : autoSequence;
@@ -281,7 +293,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       {
         revision: revision,
         date: formatIssueDate(issueDate),
-        description: `Edisi Awal – Penerbitan Dokumen Standar CSMS PT NBE (${activeCode})`,
+        description: `Edisi Awal - Penerbitan Dokumen Standar CSMS PT NBE (${activeCode})`,
         revisedBy: preparedBy,
       },
     ],

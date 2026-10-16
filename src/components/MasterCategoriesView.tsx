@@ -1159,7 +1159,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               className="glass-card"
               style={{
                 padding: '1.35rem',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
+                border: '1px solid rgba(0, 212, 178, 0.3)',
                 background: 'var(--bg-secondary)',
                 display: 'flex',
                 flexDirection: 'column',
@@ -1173,8 +1173,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                       style={{
                         padding: '0.35rem',
                         borderRadius: '6px',
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        color: '#f87171',
+                        background: 'rgba(0, 212, 178, 0.15)',
+                        color: '#00d4b2',
                       }}
                     >
                       <BookOpen size={18} />
@@ -1193,9 +1193,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                     fontWeight: 700,
                     padding: '0.2rem 0.5rem',
                     borderRadius: '6px',
-                    background: 'rgba(239, 68, 68, 0.15)',
-                    color: '#f87171',
-                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    background: 'rgba(0, 212, 178, 0.15)',
+                    color: '#00d4b2',
+                    border: '1px solid rgba(0, 212, 178, 0.3)',
                     whiteSpace: 'nowrap',
                   }}
                 >
@@ -1207,23 +1207,23 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               <div
                 onClick={() => pdfInputRef.current?.click()}
                 style={{
-                  border: '2px dashed rgba(239, 68, 68, 0.4)',
+                  border: '2px dashed rgba(0, 212, 178, 0.4)',
                   borderRadius: 'var(--radius-md)',
                   padding: '1.25rem',
                   textAlign: 'center',
-                  background: 'rgba(239, 68, 68, 0.03)',
+                  background: 'rgba(0, 212, 178, 0.03)',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                 }}
-                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#f87171')}
-                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)')}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#00d4b2')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(0, 212, 178, 0.4)')}
               >
-                <Upload size={24} color="#f87171" style={{ margin: '0 auto 0.4rem auto' }} />
+                <Upload size={24} color="#00d4b2" style={{ margin: '0 auto 0.4rem auto' }} />
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
                   Klik untuk Unggah Berkas Acuan Visual (.pdf)
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                  Berkas aktif: <strong style={{ color: '#f87171' }}>{templateSettings.pdfLayoutName || 'Contoh_Visual_Layout_Standar_NBE.pdf'}</strong>
+                  Berkas aktif: <strong style={{ color: '#00d4b2' }}>{templateSettings.pdfLayoutName || 'Contoh_Visual_Layout_Standar_NBE.pdf'}</strong>
                 </div>
               </div>
 
@@ -1329,13 +1329,13 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             className="glass-card"
             style={{
               padding: '1.35rem 1.5rem',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              border: '1px solid var(--border-subtle)',
               background: 'var(--bg-secondary)',
               marginBottom: '1.5rem',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-              <Sliders size={18} color="#818cf8" />
+              <Sliders size={18} color="var(--primary)" />
               <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
                 3. Pengaturan Ukuran Kertas & Standar Cetak (Kondisi Nyata Dokumen)
               </h4>
