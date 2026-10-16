@@ -65,6 +65,16 @@ import {
   generateStandardNbeDocx,
   DocumentTemplateData,
 } from '../services/docTemplateGenerator';
+import {
+  loadTemplateSettings,
+  DocumentTemplateSettings,
+} from '../services/templateSettings';
+import {
+  getGoogleDocsRegistry,
+  saveGoogleDocEntry,
+  convertWordToGoogleDocViaMcp,
+  SyncedGoogleDoc,
+} from '../services/googleDocsService';
 
 function generateDocumentId(): string {
   return `doc-folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -183,9 +193,30 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   // TAHAP 3: STANDARDIZATION & METADATA
   const [selectedWordIndex, setSelectedWordIndex] = useState<number>(0);
   const [fileCustomizations, setFileCustomizations] = useState<Record<string, FileMetadataCustomization>>({});
-  const [previewTab, setPreviewTab] = useState<'both' | 'cover' | 'header'>('both');
+  const [previewTab, setPreviewTab] = useState<'all' | 'cover' | 'header' | 'body' | 'both'>('all');
   const [isGeneratingDocx, setIsGeneratingDocx] = useState<boolean>(false);
   const [isExpandedPreview, setIsExpandedPreview] = useState<boolean>(false);
+
+  // Template settings & Google Docs MCP integration
+  const [templateSettings, setTemplateSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
+  const [googleDocsRegistry, setGoogleDocsRegistry] = useState<Record<string, SyncedGoogleDoc>>(() => getGoogleDocsRegistry());
+  const [isConvertingToDocs, setIsConvertingToDocs] = useState<boolean>(false);
+  const [docsModalNotice, setDocsModalNotice] = useState<SyncedGoogleDoc | null>(null);
+
+  useEffect(() => {
+    const handleTemplateUpdated = (e: any) => {
+      setTemplateSettings(e.detail || loadTemplateSettings());
+    };
+    const handleDocsUpdated = (e: any) => {
+      setGoogleDocsRegistry(e.detail || getGoogleDocsRegistry());
+    };
+    window.addEventListener('nbe_template_settings_updated', handleTemplateUpdated);
+    window.addEventListener('nbe_google_docs_updated', handleDocsUpdated);
+    return () => {
+      window.removeEventListener('nbe_template_settings_updated', handleTemplateUpdated);
+      window.removeEventListener('nbe_google_docs_updated', handleDocsUpdated);
+    };
+  }, []);
 
   // GLOBAL PARAMETERS (Shared defaults)
   const [selectedType, setSelectedType] = useState<string>(docTypes[0]?.code || 'CSMS');
@@ -649,6 +680,74 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     });
 
     alert('Parameter pengesahan, divisi, kategori, dan tabel revisi berhasil diseragamkan ke semua file Word!');
+  };
+
+  // Google Docs MCP Bot Handlers
+  const handleConvertToGoogleDoc = async (file: AnalyzedFileItem) => {
+    const custom = fileCustomizations[file.id] || activeCustomization;
+    setIsConvertingToDocs(true);
+    try {
+      const res = await convertWordToGoogleDocViaMcp({
+        fileId: file.id,
+        fileName: file.name,
+        title: custom.title,
+        code: custom.code,
+        revision: custom.revision,
+        issueDate: custom.issueDate,
+        preparedBy: custom.preparedBy,
+        verifiedBy: custom.verifiedBy,
+        approvedBy: custom.approvedBy,
+        revisions: custom.revisions || [],
+      });
+      setGoogleDocsRegistry((prev) => ({ ...prev, [file.id]: res }));
+      setDocsModalNotice(res);
+    } catch (err: any) {
+      alert(`Gagal mengonversi ke Google Docs: ${err.message}`);
+    } finally {
+      setIsConvertingToDocs(false);
+    }
+  };
+
+  const handleConvertAllToGoogleDocs = async () => {
+    if (wordFiles.length === 0) return;
+    setIsConvertingToDocs(true);
+    let lastDoc: SyncedGoogleDoc | null = null;
+    try {
+      for (const wf of wordFiles) {
+        const custom = fileCustomizations[wf.id] || activeCustomization;
+        const res = await convertWordToGoogleDocViaMcp({
+          fileId: wf.id,
+          fileName: wf.name,
+          title: custom.title,
+          code: custom.code,
+          revision: custom.revision,
+          issueDate: custom.issueDate,
+          preparedBy: custom.preparedBy,
+          verifiedBy: custom.verifiedBy,
+          approvedBy: custom.approvedBy,
+          revisions: custom.revisions || [],
+        });
+        lastDoc = res;
+      }
+      setGoogleDocsRegistry(getGoogleDocsRegistry());
+      if (lastDoc) {
+        setDocsModalNotice(lastDoc);
+      }
+    } catch (err: any) {
+      alert(`Gagal mengonversi seluruh berkas: ${err.message}`);
+    } finally {
+      setIsConvertingToDocs(false);
+    }
+  };
+
+  const handleSelectAndScrollToPreview = (idx: number) => {
+    setSelectedWordIndex(idx);
+    setTimeout(() => {
+      const el = document.getElementById('document-preview-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 50);
   };
 
   // Download physically generated .docx with Cover, Kop & Revision Index
@@ -1562,6 +1661,26 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
+                  onClick={handleConvertAllToGoogleDocs}
+                  disabled={isConvertingToDocs}
+                  className="btn btn-primary btn-sm"
+                  style={{
+                    fontSize: '0.78rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    fontWeight: 700,
+                    background: 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)',
+                    border: 'none',
+                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+                  }}
+                  title="Jadikan seluruh file Word menjadi Google Docs yang dapat diedit oleh Bot melalui Google Docs MCP"
+                >
+                  <Sparkles size={14} />
+                  <span>{isConvertingToDocs ? 'Mengonversi ke Docs...' : '⚡ Konversi Seluruh Berkas ke Google Docs (MCP Bot)'}</span>
+                </button>
+                <button
+                  type="button"
                   onClick={handleApplyToAllWordFiles}
                   className="btn btn-secondary btn-sm"
                   style={{
@@ -1573,7 +1692,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   }}
                   title="Salin parameter divisi, kategori, dan tabel revisi aktif ke semua berkas Word"
                 >
-                  <Sparkles size={14} color="var(--primary)" />
+                  <Copy size={14} color="var(--primary)" />
                   <span>Seragamkan ke Semua File</span>
                 </button>
               </div>
@@ -1582,7 +1701,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             {/* Structured Table of Word Files with Edit & Preview Actions */}
             <div
               style={{
-                maxHeight: '260px',
+                maxHeight: '270px',
                 overflowY: 'auto',
                 border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
@@ -1596,18 +1715,19 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     <th style={{ padding: '0.65rem 0.75rem' }}>Nama Berkas Word</th>
                     <th style={{ padding: '0.65rem 0.75rem' }}>Kode Resmi NBE</th>
                     <th style={{ padding: '0.65rem 0.75rem' }}>Judul Prosedur (Cover & Kop)</th>
-                    <th style={{ padding: '0.65rem 0.75rem', width: '125px' }}>Status Edit</th>
-                    <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center', width: '180px' }}>Aksi</th>
+                    <th style={{ padding: '0.65rem 0.75rem', width: '140px' }}>Google Docs (MCP)</th>
+                    <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center', width: '230px' }}>Aksi Bot / Web</th>
                   </tr>
                 </thead>
                 <tbody>
                   {wordFiles.map((wf, idx) => {
                     const isSelected = selectedWordIndex === idx;
                     const c = fileCustomizations[wf.id] || activeCustomization;
+                    const syncedDoc = googleDocsRegistry[wf.id];
                     return (
                       <tr
                         key={wf.id}
-                        onClick={() => setSelectedWordIndex(idx)}
+                        onClick={() => handleSelectAndScrollToPreview(idx)}
                         style={{
                           borderBottom: '1px solid var(--border-subtle)',
                           background: isSelected ? 'rgba(2, 132, 199, 0.12)' : 'transparent',
@@ -1663,12 +1783,12 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                           </span>
                         </td>
                         <td style={{ padding: '0.6rem 0.75rem' }}>
-                          {isSelected ? (
+                          {syncedDoc ? (
                             <span
                               style={{
-                                background: 'rgba(2, 132, 199, 0.25)',
-                                border: '1px solid #0284c7',
-                                color: '#38bdf8',
+                                background: 'rgba(99, 102, 241, 0.2)',
+                                border: '1px solid rgba(99, 102, 241, 0.4)',
+                                color: '#a5b4fc',
                                 padding: '0.2rem 0.55rem',
                                 borderRadius: '12px',
                                 fontSize: '0.72rem',
@@ -1677,8 +1797,10 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                                 alignItems: 'center',
                                 gap: '0.3rem',
                               }}
+                              title="Telah dijadikan Google Docs yang dapat diedit oleh Bot"
                             >
-                              ● Sedang Diedit
+                              <FileText size={12} />
+                              <span>Docs Siap Edit</span>
                             </span>
                           ) : (
                             <span
@@ -1690,17 +1812,17 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                                 fontSize: '0.72rem',
                               }}
                             >
-                              Siap
+                              Siap Dikonversi
                             </span>
                           )}
                         </td>
                         <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedWordIndex(idx);
+                                handleSelectAndScrollToPreview(idx);
                               }}
                               className={`btn btn-xs ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
                               style={{
@@ -1710,9 +1832,29 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                                 alignItems: 'center',
                                 gap: '0.3rem',
                               }}
+                              title="Sunting data & lihat kondisi nyata preview di bawah"
                             >
                               <Edit3 size={12} />
-                              <span>{isSelected ? 'Aktif' : 'Edit & Preview'}</span>
+                              <span>{isSelected ? 'Sedang Diedit' : 'Edit & Preview'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleConvertToGoogleDoc(wf);
+                              }}
+                              disabled={isConvertingToDocs}
+                              className="btn btn-secondary btn-xs"
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 600,
+                                color: '#818cf8',
+                                borderColor: 'rgba(99, 102, 241, 0.4)',
+                              }}
+                              title="Buka / Konversi ke Google Docs menggunakan MCP Docs"
+                            >
+                              <FileText size={12} />
+                              <span>Docs</span>
                             </button>
                             <button
                               type="button"
@@ -1723,7 +1865,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                               disabled={isGeneratingDocx}
                               className="btn btn-secondary btn-xs"
                               style={{ fontSize: '0.72rem' }}
-                              title="Unduh file Word hasil standarisasi berkas ini"
+                              title="Unduh berkas Word hasil standarisasi"
                             >
                               <Download size={12} />
                               <span>.docx</span>
@@ -1738,17 +1880,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             </div>
           </div>
 
-          {/* SPLIT SECTION: FORM EDITOR (LEFT) AND LIVE PREVIEW (RIGHT) */}
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isExpandedPreview ? '1fr' : '1.1fr 1fr',
-              gap: '1.5rem',
-            }}
-          >
-            {/* LEFT COLUMN: EDIT FORM + REVISION TABLE + CLASSIFICATION */}
-            {!isExpandedPreview && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* VERTICAL FORM SECTION (FULL WIDTH) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                 {/* 1. Detail & Data Dokumen (image2.png layout) */}
                 <div className="glass-card" style={{ padding: '1.5rem' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
@@ -2113,423 +2246,1017 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   </div>
                 </div>
               </div>
-            )}
 
-            {/* RIGHT COLUMN: REALTIME LIVE PREVIEW (Cover, Kop Header & Revision Table as in image1.png) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* ============================================================= */}
+              {/* DOCUMENT PREVIEW SECTION (PLACED BELOW CLASSIFICATION CARD)    */}
+              {/* ============================================================= */}
               <div
+                id="document-preview-section"
+                className="glass-card animate-fade-in"
                 style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '0.4rem 0',
-                  flexWrap: 'wrap',
-                  gap: '0.5rem',
+                  padding: '1.75rem',
+                  border: '1.5px solid rgba(0, 212, 178, 0.35)',
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                  <Eye size={17} color="var(--primary)" />
-                  <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>Live Realtime Document Preview</span>
-                </div>
-
-                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTab('both')}
-                    className={`btn btn-sm ${previewTab === 'both' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: '0.75rem' }}
-                    title="Tampilkan Halaman Cover dan Kop & Index Revisi bersandingan"
-                  >
-                    Dua Halaman (Side-by-Side)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTab('cover')}
-                    className={`btn btn-sm ${previewTab === 'cover' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: '0.75rem' }}
-                  >
-                    Halaman 1 (Cover)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPreviewTab('header')}
-                    className={`btn btn-sm ${previewTab === 'header' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{ fontSize: '0.75rem' }}
-                  >
-                    Halaman 2 (Kop & Index Revisi)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsExpandedPreview(!isExpandedPreview)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.75rem' }}
-                    title={isExpandedPreview ? 'Kembalikan ke tampilan form' : 'Perluas preview ke layar penuh'}
-                  >
-                    {isExpandedPreview ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
-                  </button>
-                  {activeWordFile && (
-                    <button
-                      type="button"
-                      onClick={() => handleDownloadDocxPreview(activeWordFile)}
-                      disabled={isGeneratingDocx}
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                      title="Unduh file Word hasil kompilasi Cover & Kop"
-                    >
-                      <Download size={13} />
-                      <span>Unduh .docx</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* DOCUMENT PAGES CONTAINER */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns:
-                    previewTab === 'both'
-                      ? 'repeat(auto-fit, minmax(290px, 1fr))'
-                      : '1fr',
-                  gap: '1.25rem',
-                }}
-              >
-                {/* PAGE 1: COVER VIEW (Shows if 'both' or 'cover') */}
-                {(previewTab === 'both' || previewTab === 'cover') && (
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      color: '#0f172a',
-                      borderRadius: '8px',
-                      padding: '2.25rem 1.75rem',
-                      minHeight: '560px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      fontFamily: 'serif',
-                      position: 'relative',
-                    }}
-                  >
-                    {/* Header: Logo */}
-                    <div style={{ textAlign: 'center', paddingTop: '1.5rem' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.65rem',
-                          marginBottom: '0.5rem',
-                        }}
-                      >
-                        <img
-                          src="/+BG.png"
-                          alt="Logo NBE"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                          }}
-                          style={{ height: '48px', objectFit: 'contain' }}
-                        />
-                        <div style={{ textAlign: 'left' }}>
-                          <div
-                            style={{
-                              fontSize: '1.25rem',
-                              fontWeight: 900,
-                              color: '#0284c7',
-                              lineHeight: 1.1,
-                              fontFamily: 'sans-serif',
-                            }}
-                          >
-                            Nirwana Bhumi Energy
-                          </div>
-                          <div
-                            style={{
-                              fontSize: '0.78rem',
-                              fontWeight: 700,
-                              color: '#334155',
-                              fontFamily: 'sans-serif',
-                            }}
-                          >
-                            PT Nirwana Bhumi Energi
-                          </div>
-                        </div>
-                      </div>
+                {/* PREVIEW TOOLBAR & HEADER */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1.25rem',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                    paddingBottom: '1rem',
+                  }}
+                >
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <Eye size={20} color="var(--primary)" />
+                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
+                        Pratinjau Nyata Seluruh Halaman Dokumen (Realtime Paper Preview)
+                      </h3>
                     </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: 0 }}>
+                      Kondisi nyata tata letak Google Docs & Word otomatis disesuaikan dengan acuan template dokumen (TXT & PDF).
+                    </p>
+                  </div>
 
-                    {/* Centered Document Title */}
-                    <div style={{ textAlign: 'center', margin: 'auto 0', padding: '1rem 0' }}>
-                      <h1
-                        style={{
-                          fontSize: previewTab === 'both' ? '1.2rem' : '1.45rem',
-                          fontWeight: 900,
-                          color: '#0f172a',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          lineHeight: 1.4,
-                          maxWidth: '92%',
-                          margin: '0 auto',
-                          fontFamily: 'sans-serif',
-                        }}
-                      >
-                        {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
-                      </h1>
-                    </div>
-
-                    {/* Bottom Approval Box */}
-                    <div
+                  {/* ACTIVE PAPER & TEMPLATE BADGES */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <span
                       style={{
-                        alignSelf: 'flex-end',
-                        width: '260px',
-                        fontSize: '0.78rem',
-                        fontFamily: 'sans-serif',
-                        color: '#1e293b',
+                        fontSize: '0.75rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(0, 212, 178, 0.15)',
+                        color: 'var(--primary)',
+                        fontWeight: 700,
+                        border: '1px solid rgba(0, 212, 178, 0.3)',
                       }}
                     >
-                      <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                        <span style={{ fontWeight: 700 }}>Approved by</span>
-                        <span>: {activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'}</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.25rem', marginBottom: '0.25rem' }}>
-                        <span style={{ fontWeight: 700 }}>Verified by</span>
-                        <span>: {activeCustomization.verifiedBy || 'Auditor Internal Utama'}</span>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.25rem' }}>
-                        <span style={{ fontWeight: 700 }}>Prepared by</span>
-                        <span>: {activeCustomization.preparedBy || 'Mazmur L'}</span>
-                      </div>
-                    </div>
+                      Kertas: {templateSettings.paperSize} ({templateSettings.paperSize === 'A4' ? '210 × 297 mm' : templateSettings.paperSize === 'Letter' ? '216 × 279 mm' : '215 × 330 mm'})
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        color: '#38bdf8',
+                        fontWeight: 700,
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                      }}
+                    >
+                      Margin: {templateSettings.marginTopCm ?? 2.54} cm
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(168, 85, 247, 0.12)',
+                        color: '#c084fc',
+                        fontWeight: 700,
+                        border: '1px solid rgba(168, 85, 247, 0.25)',
+                      }}
+                    >
+                      Acuan TXT: {templateSettings.txtGuidelinesName || 'template_sop_standar_nbe.txt'}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '0.3rem 0.65rem',
+                        borderRadius: '6px',
+                        background: 'rgba(245, 158, 11, 0.12)',
+                        color: '#fbbf24',
+                        fontWeight: 700,
+                        border: '1px solid rgba(245, 158, 11, 0.25)',
+                      }}
+                    >
+                      Acuan PDF: {templateSettings.pdfLayoutName || 'pedoman_tata_letak_sop.pdf'}
+                    </span>
                   </div>
-                )}
+                </div>
 
-                {/* PAGE 2: KOP HEADER & REVISION INDEX TABLE (Shows if 'both' or 'header') */}
-                {(previewTab === 'both' || previewTab === 'header') && (
-                  <div
-                    style={{
-                      background: '#ffffff',
-                      color: '#0f172a',
-                      borderRadius: '8px',
-                      padding: '2rem 1.65rem',
-                      minHeight: '560px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'space-between',
-                      fontFamily: 'sans-serif',
-                      position: 'relative',
-                    }}
-                  >
-                    <div>
-                      {/* KOP HEADER BOX (Matching image1.png) */}
+                {/* CONTROLS: PAGE SELECTION TABS & EXPORT/DOCS BUTTONS */}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1.5rem',
+                    flexWrap: 'wrap',
+                    gap: '0.75rem',
+                  }}
+                >
+                  {/* Page Filter Tabs */}
+                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('all')}
+                      className={`btn btn-sm ${previewTab === 'all' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'all' ? 800 : 600 }}
+                    >
+                      Semua Halaman (Lengkap)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('cover')}
+                      className={`btn btn-sm ${previewTab === 'cover' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'cover' ? 800 : 600 }}
+                    >
+                      Halaman 1 (Cover Dokumen)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('header')}
+                      className={`btn btn-sm ${previewTab === 'header' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'header' ? 800 : 600 }}
+                    >
+                      Halaman 2 (Kop & Index Revisi)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('body')}
+                      className={`btn btn-sm ${previewTab === 'body' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'body' ? 800 : 600 }}
+                    >
+                      Halaman 3+ (Isi Bab Standar)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewTab('both')}
+                      className={`btn btn-sm ${previewTab === 'both' ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'both' ? 800 : 600 }}
+                    >
+                      Dua Halaman (Side-by-Side)
+                    </button>
+                  </div>
+
+                  {/* Actions for current active word file */}
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {activeWordFile && (
+                      <>
+                        {googleDocsRegistry[activeWordFile.id] ? (
+                          <button
+                            type="button"
+                            onClick={() => setDocsModalNotice(googleDocsRegistry[activeWordFile.id])}
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: '0.78rem',
+                              color: '#38bdf8',
+                              borderColor: 'rgba(56, 189, 248, 0.4)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                            }}
+                          >
+                            <ExternalLink size={14} />
+                            <span>Buka Google Docs Terhubung</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleConvertToGoogleDoc(activeWordFile)}
+                            disabled={isConvertingToDocs}
+                            className="btn btn-secondary btn-sm"
+                            style={{
+                              fontSize: '0.78rem',
+                              color: 'var(--primary)',
+                              borderColor: 'rgba(0, 212, 178, 0.4)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                            }}
+                          >
+                            <Sparkles size={14} />
+                            <span>Jadikan Google Docs (MCP)</span>
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadDocxPreview(activeWordFile)}
+                          disabled={isGeneratingDocx}
+                          className="btn btn-secondary btn-sm"
+                          style={{
+                            fontSize: '0.78rem',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.35rem',
+                          }}
+                          title="Unduh file Word hasil standarisasi Cover & Kop"
+                        >
+                          <Download size={14} />
+                          <span>Unduh .docx</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* REALISTIC DOCUMENT CANVAS (DARK BACKGROUND WITH CRISP WHITE PAPER PAGES) */}
+                <div
+                  style={{
+                    background: '#090d16',
+                    padding: '2.5rem 1.5rem',
+                    borderRadius: 'var(--radius-lg)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex',
+                    flexDirection: previewTab === 'both' ? 'row' : 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '2.5rem',
+                    overflowX: 'auto',
+                    minHeight: '650px',
+                  }}
+                >
+                  {/* ======================================================== */}
+                  {/* PAGE 1: COVER DOKUMEN RESMI                              */}
+                  {/* ======================================================== */}
+                  {(previewTab === 'all' || previewTab === 'cover' || previewTab === 'both') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: previewTab === 'both' ? '48%' : '100%', maxWidth: '794px' }}>
                       <div
                         style={{
-                          border: '1.5px solid #000000',
-                          display: 'grid',
-                          gridTemplateColumns: '110px 1fr',
-                          marginBottom: '1.5rem',
+                          marginBottom: '0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: '#94a3b8',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          padding: '0.2rem 0.75rem',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
                         }}
                       >
-                        {/* Left: Logo */}
-                        <div
-                          style={{
-                            borderRight: '1.5px solid #000000',
-                            padding: '0.5rem',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <img
-                            src="/+BG.png"
-                            alt="NBE"
-                            onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                        <FileText size={13} color="var(--primary)" />
+                        <span>Halaman 1 dari 4 • Cover Dokumen Resmi Standar NBE ({templateSettings.paperSize})</span>
+                      </div>
+
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          color: '#0f172a',
+                          borderRadius: '2px',
+                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
+                          width: '100%',
+                          minHeight: previewTab === 'both' ? '680px' : '960px',
+                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          fontFamily: 'serif',
+                          position: 'relative',
+                        }}
+                      >
+                        {/* Header: Centered Logo & Corporate Title */}
+                        <div style={{ textAlign: 'center', paddingTop: '1rem' }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: '0.75rem',
+                              marginBottom: '0.75rem',
                             }}
-                            style={{ maxHeight: '38px', objectFit: 'contain' }}
+                          >
+                            <img
+                              src="/+BG.png"
+                              alt="Logo NBE"
+                              onError={(e) => {
+                                (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                              }}
+                              style={{ height: '54px', objectFit: 'contain' }}
+                            />
+                            <div style={{ textAlign: 'left' }}>
+                              <div
+                                style={{
+                                  fontSize: '1.45rem',
+                                  fontWeight: 900,
+                                  color: '#0284c7',
+                                  lineHeight: 1.1,
+                                  fontFamily: 'sans-serif',
+                                }}
+                              >
+                                Nirwana Bhumi Energy
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: '0.85rem',
+                                  fontWeight: 700,
+                                  color: '#334155',
+                                  fontFamily: 'sans-serif',
+                                }}
+                              >
+                                PT Nirwana Bhumi Energi
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              height: '2px',
+                              background: 'linear-gradient(90deg, transparent, #0284c7, transparent)',
+                              margin: '0.85rem auto',
+                              maxWidth: '65%',
+                            }}
                           />
-                          <span style={{ fontSize: '0.68rem', fontWeight: 800, marginTop: '0.15rem', color: '#0284c7' }}>
-                            NBE
-                          </span>
                         </div>
 
-                        {/* Right: Table Info */}
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        {/* Centered Document Title */}
+                        <div style={{ textAlign: 'center', margin: 'auto 0', padding: '2rem 0' }}>
                           <div
                             style={{
-                              borderBottom: '1px solid #000',
-                              padding: '0.3rem 0.45rem',
-                              textAlign: 'center',
-                              fontSize: '0.78rem',
+                              fontSize: '0.85rem',
                               fontWeight: 800,
-                              letterSpacing: '0.02em',
+                              color: '#64748b',
+                              letterSpacing: '0.12em',
+                              textTransform: 'uppercase',
+                              marginBottom: '0.65rem',
+                              fontFamily: 'sans-serif',
                             }}
                           >
-                            SISTEM PENGENDALI INTERNAL
+                            STANDAR OPERASIONAL PROSEDUR
                           </div>
-                          <div
+                          <h1
                             style={{
-                              borderBottom: '1px solid #000',
-                              padding: '0.3rem 0.45rem',
-                              textAlign: 'center',
-                              fontSize: '0.74rem',
-                              fontWeight: 700,
-                            }}
-                          >
-                            Standar Operasional Prosedur (SOP)
-                          </div>
-                          <div
-                            style={{
-                              borderBottom: '1px solid #000',
-                              padding: '0.35rem 0.45rem',
-                              textAlign: 'center',
-                              fontSize: '0.84rem',
+                              fontSize: previewTab === 'both' ? '1.3rem' : '1.75rem',
                               fontWeight: 900,
                               color: '#0f172a',
                               textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                              lineHeight: 1.35,
+                              maxWidth: '92%',
+                              margin: '0 auto',
+                              fontFamily: 'sans-serif',
                             }}
                           >
                             {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
-                          </div>
+                          </h1>
                           <div
                             style={{
-                              display: 'grid',
-                              gridTemplateColumns: '65px 1fr 115px',
-                              padding: '0.25rem 0.45rem',
-                              fontSize: '0.66rem',
-                              alignItems: 'center',
+                              fontSize: '0.95rem',
+                              fontWeight: 700,
+                              color: '#0284c7',
+                              marginTop: '0.75rem',
+                              fontFamily: 'monospace',
                             }}
                           >
-                            <span>Revisi: {activeCustomization.revision || 0}</span>
-                            <span className="mono" style={{ textAlign: 'center', fontWeight: 800 }}>
-                              {activeCustomization.code}
-                            </span>
-                            <span style={{ textAlign: 'right' }}>
-                              Tanggal: {formatIssueDate(activeCustomization.issueDate)}
-                            </span>
+                            {activeCustomization.code}
+                          </div>
+                        </div>
+
+                        {/* Bottom 3-Tier Approval Box (as in image1.png & user PDF guideline) */}
+                        <div
+                          style={{
+                            alignSelf: 'flex-end',
+                            width: '290px',
+                            fontSize: '0.82rem',
+                            fontFamily: 'sans-serif',
+                            color: '#1e293b',
+                            borderTop: '1px solid #cbd5e1',
+                            paddingTop: '0.85rem',
+                          }}
+                        >
+                          <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '0.35rem', marginBottom: '0.35rem' }}>
+                            <span style={{ fontWeight: 700, color: '#475569' }}>Approved by</span>
+                            <span style={{ fontWeight: 600 }}>: {activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '0.35rem', marginBottom: '0.35rem' }}>
+                            <span style={{ fontWeight: 700, color: '#475569' }}>Verified by</span>
+                            <span style={{ fontWeight: 600 }}>: {activeCustomization.verifiedBy || 'Auditor Internal Utama'}</span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '0.35rem' }}>
+                            <span style={{ fontWeight: 700, color: '#475569' }}>Prepared by</span>
+                            <span style={{ fontWeight: 600 }}>: {activeCustomization.preparedBy || 'Mazmur L'}</span>
                           </div>
                         </div>
                       </div>
+                    </div>
+                  )}
 
-                      {/* REVISION INDEX SECTION */}
-                      <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-                        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'none', margin: 0 }}>
-                          Revision Index
-                        </h4>
+                  {/* ======================================================== */}
+                  {/* PAGE 2: KOP HEADER & REVISION INDEX TABLE                */}
+                  {/* ======================================================== */}
+                  {(previewTab === 'all' || previewTab === 'header' || previewTab === 'both') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: previewTab === 'both' ? '48%' : '100%', maxWidth: '794px' }}>
+                      <div
+                        style={{
+                          marginBottom: '0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: '#94a3b8',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          padding: '0.2rem 0.75rem',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <FileText size={13} color="var(--primary)" />
+                        <span>Halaman 2 dari 4 • Kop Standar & Tabel Index Revisi ({templateSettings.paperSize})</span>
                       </div>
 
-                      {/* REVISION TABLE (4 Columns matching image1.png) */}
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem', border: '1.5px solid #000' }}>
-                        <thead>
-                          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 800 }}>
-                            <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.4rem', textAlign: 'center', width: '50px' }}>
-                              Revisi
-                            </th>
-                            <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.4rem', textAlign: 'center', width: '95px' }}>
-                              Tanggal
-                            </th>
-                            <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.5rem', textAlign: 'center' }}>
-                              Deskripsi Perubahan
-                            </th>
-                            <th style={{ padding: '0.35rem 0.4rem', textAlign: 'center', width: '85px' }}>
-                              Direvisi Oleh
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {activeCustomization.revisions && activeCustomization.revisions.length > 0 ? (
-                            activeCustomization.revisions.map((rev, rIdx) => (
-                              <tr key={rIdx} style={{ borderBottom: '1px solid #000' }}>
-                                <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center', fontWeight: 700 }}>
-                                  {rev.revision}
-                                </td>
-                                <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center' }}>
-                                  {rev.date}
-                                </td>
-                                <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.5rem' }}>
-                                  {rev.description}
-                                </td>
-                                <td style={{ padding: '0.4rem 0.35rem', textAlign: 'center' }}>
-                                  {rev.revisedBy}
-                                </td>
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          color: '#0f172a',
+                          borderRadius: '2px',
+                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
+                          width: '100%',
+                          minHeight: previewTab === 'both' ? '680px' : '960px',
+                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          fontFamily: 'sans-serif',
+                          position: 'relative',
+                        }}
+                      >
+                        <div>
+                          {/* KOP HEADER BOX (Matching image1.png & user PDF guideline) */}
+                          <div
+                            style={{
+                              border: '1.5px solid #000000',
+                              display: 'grid',
+                              gridTemplateColumns: '120px 1fr',
+                              marginBottom: '1.75rem',
+                            }}
+                          >
+                            {/* Left: Logo */}
+                            <div
+                              style={{
+                                borderRight: '1.5px solid #000000',
+                                padding: '0.65rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                textAlign: 'center',
+                              }}
+                            >
+                              <img
+                                src="/+BG.png"
+                                alt="NBE"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                                }}
+                                style={{ maxHeight: '42px', objectFit: 'contain' }}
+                              />
+                              <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '0.25rem', color: '#0284c7' }}>
+                                NBE
+                              </span>
+                            </div>
+
+                            {/* Right: Table Info */}
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <div
+                                style={{
+                                  borderBottom: '1px solid #000',
+                                  padding: '0.35rem 0.5rem',
+                                  textAlign: 'center',
+                                  fontSize: '0.82rem',
+                                  fontWeight: 800,
+                                  letterSpacing: '0.02em',
+                                }}
+                              >
+                                SISTEM PENGENDALI INTERNAL
+                              </div>
+                              <div
+                                style={{
+                                  borderBottom: '1px solid #000',
+                                  padding: '0.3rem 0.5rem',
+                                  textAlign: 'center',
+                                  fontSize: '0.76rem',
+                                  fontWeight: 700,
+                                }}
+                              >
+                                Standar Operasional Prosedur (SOP)
+                              </div>
+                              <div
+                                style={{
+                                  borderBottom: '1px solid #000',
+                                  padding: '0.4rem 0.5rem',
+                                  textAlign: 'center',
+                                  fontSize: '0.88rem',
+                                  fontWeight: 900,
+                                  color: '#0f172a',
+                                  textTransform: 'uppercase',
+                                }}
+                              >
+                                {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
+                              </div>
+                              <div
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: '75px 1fr 125px',
+                                  padding: '0.3rem 0.5rem',
+                                  fontSize: '0.7rem',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <span>Revisi: {activeCustomization.revision || 0}</span>
+                                <span className="mono" style={{ textAlign: 'center', fontWeight: 800 }}>
+                                  {activeCustomization.code}
+                                </span>
+                                <span style={{ textAlign: 'right' }}>
+                                  Tanggal: {formatIssueDate(activeCustomization.issueDate)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* REVISION INDEX SECTION */}
+                          <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+                            <h4 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'none', margin: 0 }}>
+                              Revision Index
+                            </h4>
+                          </div>
+
+                          {/* REVISION TABLE (4 Columns matching image1.png) */}
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', border: '1.5px solid #000' }}>
+                            <thead>
+                              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #000', fontWeight: 800 }}>
+                                <th style={{ borderRight: '1px solid #000', padding: '0.45rem 0.5rem', textAlign: 'center', width: '60px' }}>
+                                  Revisi
+                                </th>
+                                <th style={{ borderRight: '1px solid #000', padding: '0.45rem 0.5rem', textAlign: 'center', width: '105px' }}>
+                                  Tanggal
+                                </th>
+                                <th style={{ borderRight: '1px solid #000', padding: '0.45rem 0.6rem', textAlign: 'center' }}>
+                                  Deskripsi Perubahan
+                                </th>
+                                <th style={{ padding: '0.45rem 0.5rem', textAlign: 'center', width: '95px' }}>
+                                  Direvisi Oleh
+                                </th>
                               </tr>
-                            ))
-                          ) : (
-                            <tr style={{ borderBottom: '1px solid #000' }}>
-                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center' }}>0</td>
-                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center' }}>
-                                {formatIssueDate(activeCustomization.issueDate)}
-                              </td>
-                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.5rem' }}>
-                                Initial Edition – {activeCustomization.title} ({activeCustomization.code})
-                              </td>
-                              <td style={{ padding: '0.4rem 0.35rem', textAlign: 'center' }}>
-                                {activeCustomization.preparedBy || 'Mazmur L'}
-                              </td>
-                            </tr>
-                          )}
-                          {/* Clean placeholder rows matching image1.png */}
-                          {Array.from({ length: Math.max(0, 3 - (activeCustomization.revisions?.length || 1)) }).map((_, emptyIdx) => (
-                            <tr key={`empty-${emptyIdx}`} style={{ borderBottom: '1px solid #000' }}>
-                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem' }}>&nbsp;</td>
-                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem' }}>&nbsp;</td>
-                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem' }}>&nbsp;</td>
-                              <td style={{ padding: '0.4rem' }}>&nbsp;</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                            </thead>
+                            <tbody>
+                              {activeCustomization.revisions && activeCustomization.revisions.length > 0 ? (
+                                activeCustomization.revisions.map((rev, rIdx) => (
+                                  <tr key={rIdx} style={{ borderBottom: '1px solid #000' }}>
+                                    <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center', fontWeight: 700 }}>
+                                      {rev.revision}
+                                    </td>
+                                    <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center' }}>
+                                      {rev.date}
+                                    </td>
+                                    <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.6rem' }}>
+                                      {rev.description}
+                                    </td>
+                                    <td style={{ padding: '0.45rem 0.4rem', textAlign: 'center' }}>
+                                      {rev.revisedBy}
+                                    </td>
+                                  </tr>
+                                ))
+                              ) : (
+                                <tr style={{ borderBottom: '1px solid #000' }}>
+                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center' }}>0</td>
+                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center' }}>
+                                    {formatIssueDate(activeCustomization.issueDate)}
+                                  </td>
+                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.6rem' }}>
+                                    Initial Edition – {activeCustomization.title} ({activeCustomization.code})
+                                  </td>
+                                  <td style={{ padding: '0.45rem 0.4rem', textAlign: 'center' }}>
+                                    {activeCustomization.preparedBy || 'Mazmur L'}
+                                  </td>
+                                </tr>
+                              )}
+                              {/* Clean placeholder rows matching image1.png */}
+                              {Array.from({ length: Math.max(0, 4 - (activeCustomization.revisions?.length || 1)) }).map((_, emptyIdx) => (
+                                <tr key={`empty-${emptyIdx}`} style={{ borderBottom: '1px solid #000' }}>
+                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
+                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
+                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
+                                  <td style={{ padding: '0.45rem' }}>&nbsp;</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
 
-                    {/* Footer Line */}
-                    <div
-                      style={{
-                        borderTop: '1px solid #94a3b8',
-                        paddingTop: '0.35rem',
-                        marginTop: '1rem',
-                        display: 'flex',
-                        justifyContent: 'flex-end',
-                        fontSize: '0.7rem',
-                        color: '#64748b',
-                      }}
-                    >
-                      <span>Page 2 of 6</span>
+                        {/* Page 2 Footer Line */}
+                        <div
+                          style={{
+                            borderTop: '1px solid #94a3b8',
+                            paddingTop: '0.45rem',
+                            marginTop: '1.5rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: '0.72rem',
+                            color: '#64748b',
+                          }}
+                        >
+                          <span className="mono">{activeCustomization.code}</span>
+                          <span>Halaman 2 dari 4</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
 
-              {/* STAGE 3 NAVIGATION BUTTONS */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginTop: '0.75rem',
-                  flexWrap: 'wrap',
-                  gap: '0.75rem',
-                }}
-              >
-                <button onClick={() => setCurrentStage(2)} className="btn btn-secondary">
-                  <ChevronLeft size={16} />
-                  <span>Kembali ke Analisis</span>
-                </button>
-                <button
-                  onClick={() => setCurrentStage(4)}
-                  className="btn btn-primary"
+                  {/* ======================================================== */}
+                  {/* PAGE 3: BATANG TUBUH PROSEDUR (BAB I s/d BAB IV)         */}
+                  {/* ======================================================== */}
+                  {(previewTab === 'all' || previewTab === 'body') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '794px' }}>
+                      <div
+                        style={{
+                          marginBottom: '0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: '#94a3b8',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          padding: '0.2rem 0.75rem',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <FileText size={13} color="var(--primary)" />
+                        <span>Halaman 3 dari 4 • Batang Tubuh SOP (Bab I s/d Bab IV) – Sesuai Acuan TXT ({templateSettings.paperSize})</span>
+                      </div>
+
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          color: '#0f172a',
+                          borderRadius: '2px',
+                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
+                          width: '100%',
+                          minHeight: '960px',
+                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          fontFamily: 'serif',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        <div>
+                          {/* Mini running Kop on Body Pages */}
+                          <div
+                            style={{
+                              borderBottom: '1.5px solid #000000',
+                              paddingBottom: '0.4rem',
+                              marginBottom: '1.5rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontFamily: 'sans-serif',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            <span style={{ fontWeight: 800, color: '#0284c7' }}>PT NIRWANA BHUMI ENERGI</span>
+                            <span className="mono" style={{ fontWeight: 700 }}>{activeCustomization.code}</span>
+                          </div>
+
+                          <div style={{ fontFamily: 'sans-serif', fontSize: '0.85rem' }}>
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB I. TUJUAN (PURPOSE)
+                              </h4>
+                              <p style={{ color: '#334155', margin: 0, textAlign: 'justify' }}>
+                                Prosedur baku ini disusun untuk memberikan panduan komprehensif, terstruktur, dan terukur dalam pelaksanaan {activeCustomization.title || 'prosedur operasional'} di lingkungan PT Nirwana Bhumi Energi guna memastikan efisiensi kerja, mitigasi risiko operasional, kepatuhan regulasi, serta konsistensi standar mutu perusahaan.
+                              </p>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB II. RUANG LINGKUP (SCOPE)
+                              </h4>
+                              <p style={{ color: '#334155', margin: 0, textAlign: 'justify' }}>
+                                Prosedur operasional standar ini berlaku secara menyeluruh di lingkungan PT Nirwana Bhumi Energi, mencakup seluruh divisi penerbit ({activeCustomization.divisionCode || 'GNR'}), unit kerja operasional, personil terkait, subkontraktor, serta seluruh aktivitas yang berada dalam cakupan {activeCustomization.title || 'dokumen ini'}.
+                              </p>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB III. DEFINISI & REFERENSI
+                              </h4>
+                              <ul style={{ color: '#334155', margin: 0, paddingLeft: '1.25rem' }}>
+                                <li><strong>Perusahaan:</strong> PT Nirwana Bhumi Energi (NBE).</li>
+                                <li><strong>SOP:</strong> Standar Operasional Prosedur baku bernomor resmi {activeCustomization.code}.</li>
+                                <li><strong>Approver:</strong> Otoritas pengesahan resmi ({activeCustomization.approvedBy || 'CFO'}).</li>
+                                <li><strong>Referensi:</strong> Manual Sistem Manajemen Terintegrasi NBE dan ISO 9001/14001/45001.</li>
+                              </ul>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB IV. TANGGUNG JAWAB & WEWENANG
+                              </h4>
+                              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.4rem', color: '#334155' }}>
+                                <span style={{ fontWeight: 700 }}>Penyusun:</span>
+                                <span>{activeCustomization.preparedBy || 'Mazmur L'} (Bertanggung jawab merumuskan teknis prosedur)</span>
+                                <span style={{ fontWeight: 700 }}>Verifikator:</span>
+                                <span>{activeCustomization.verifiedBy || 'Auditor Internal Utama'} (Memverifikasi keselarasan sistem)</span>
+                                <span style={{ fontWeight: 700 }}>Pengesah:</span>
+                                <span>{activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'} (Otorisasi implementasi resmi)</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Page 3 Footer Line */}
+                        <div
+                          style={{
+                            borderTop: '1px solid #94a3b8',
+                            paddingTop: '0.45rem',
+                            marginTop: '1.5rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: '0.72rem',
+                            color: '#64748b',
+                            fontFamily: 'sans-serif',
+                          }}
+                        >
+                          <span className="mono">{activeCustomization.code}</span>
+                          <span>Halaman 3 dari 4</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ======================================================== */}
+                  {/* PAGE 4: BATANG TUBUH PROSEDUR (BAB V s/d BAB VII)         */}
+                  {/* ======================================================== */}
+                  {(previewTab === 'all' || previewTab === 'body') && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '794px' }}>
+                      <div
+                        style={{
+                          marginBottom: '0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: '#94a3b8',
+                          background: 'rgba(255, 255, 255, 0.06)',
+                          padding: '0.2rem 0.75rem',
+                          borderRadius: '20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                        }}
+                      >
+                        <FileText size={13} color="var(--primary)" />
+                        <span>Halaman 4 dari 4 • Batang Tubuh SOP (Bab V s/d Bab VII & Lampiran) ({templateSettings.paperSize})</span>
+                      </div>
+
+                      <div
+                        style={{
+                          background: '#ffffff',
+                          color: '#0f172a',
+                          borderRadius: '2px',
+                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
+                          width: '100%',
+                          minHeight: '960px',
+                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          fontFamily: 'serif',
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        <div>
+                          {/* Mini running Kop on Body Pages */}
+                          <div
+                            style={{
+                              borderBottom: '1.5px solid #000000',
+                              paddingBottom: '0.4rem',
+                              marginBottom: '1.5rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              fontFamily: 'sans-serif',
+                              fontSize: '0.75rem',
+                            }}
+                          >
+                            <span style={{ fontWeight: 800, color: '#0284c7' }}>PT NIRWANA BHUMI ENERGI</span>
+                            <span className="mono" style={{ fontWeight: 700 }}>{activeCustomization.code}</span>
+                          </div>
+
+                          <div style={{ fontFamily: 'sans-serif', fontSize: '0.85rem' }}>
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB V. URAIAN PROSEDUR & ALUR KERJA (WORKFLOW)
+                              </h4>
+                              <p style={{ color: '#334155', margin: 0, textAlign: 'justify', marginBottom: '0.5rem' }}>
+                                Alur kerja pelaksanaan {activeCustomization.title || 'prosedur ini'} dijalankan melalui tahapan baku berurutan:
+                              </p>
+                              <ol style={{ color: '#334155', margin: 0, paddingLeft: '1.25rem' }}>
+                                <li style={{ marginBottom: '0.25rem' }}>Inisiasi & identifikasi kebutuhan tugas operasional sesuai mandat divisi {activeCustomization.divisionCode}.</li>
+                                <li style={{ marginBottom: '0.25rem' }}>Verifikasi kelengkapan data administratif dan kepatuhan standar mutu NBE.</li>
+                                <li style={{ marginBottom: '0.25rem' }}>Eksekusi prosedur teknis dengan pendokumentasian bukti rekaman kerja lengkap.</li>
+                                <li>Review akhir, evaluasi kinerja berkala, dan penyerahan laporan kepada otoritas pengesahan.</li>
+                              </ol>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB VI. DOKUMEN & REKAMAN TERKAIT
+                              </h4>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', border: '1px solid #cbd5e1' }}>
+                                <thead>
+                                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
+                                    <th style={{ padding: '0.35rem 0.5rem', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Nama Dokumen / Rekaman</th>
+                                    <th style={{ padding: '0.35rem 0.5rem', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Masa Simpan</th>
+                                    <th style={{ padding: '0.35rem 0.5rem', textAlign: 'left' }}>Penanggung Jawab</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
+                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>Formulir Evaluasi & Catatan Prosedur {activeCustomization.title}</td>
+                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>5 Tahun</td>
+                                    <td style={{ padding: '0.35rem 0.5rem' }}>Divisi {activeCustomization.divisionCode || 'GNR'}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>Berita Acara Pengesahan Dokumen Resmi</td>
+                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>Permanen</td>
+                                    <td style={{ padding: '0.35rem 0.5rem' }}>Sekretariat Manajemen NBE</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+
+                            <div style={{ marginBottom: '1.25rem' }}>
+                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
+                                BAB VII. LAMPIRAN FORMULIR
+                              </h4>
+                              <p style={{ color: '#334155', margin: 0 }}>
+                                Lampiran formulir pendukung dan template isian teknis telah diselaraskan dengan hierarki 4-tingkat penyimpanan Google Drive perusahaan.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Page 4 Footer Line */}
+                        <div
+                          style={{
+                            borderTop: '1px solid #94a3b8',
+                            paddingTop: '0.45rem',
+                            marginTop: '1.5rem',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: '0.72rem',
+                            color: '#64748b',
+                            fontFamily: 'sans-serif',
+                          }}
+                        >
+                          <span className="mono">{activeCustomization.code}</span>
+                          <span>Halaman 4 dari 4 (Dokumen Lengkap)</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* STAGE 3 NAVIGATION BUTTONS */}
+                <div
                   style={{
-                    padding: '0.75rem 2rem',
-                    fontWeight: 800,
-                    display: 'inline-flex',
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: '0.5rem',
-                    boxShadow: '0 4px 14px rgba(0, 212, 178, 0.3)',
+                    marginTop: '1.75rem',
+                    flexWrap: 'wrap',
+                    gap: '1rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                    paddingTop: '1.25rem',
                   }}
                 >
-                  <span>Semua File Selesai Diedit • Lanjut Upload ke Google Drive (Tahap 4)</span>
-                  <ArrowRight size={16} />
-                </button>
+                  <button onClick={() => setCurrentStage(2)} className="btn btn-secondary">
+                    <ChevronLeft size={16} />
+                    <span>Kembali ke Analisis</span>
+                  </button>
+                  <button
+                    onClick={() => setCurrentStage(4)}
+                    className="btn btn-primary"
+                    style={{
+                      padding: '0.85rem 2.25rem',
+                      fontWeight: 800,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.65rem',
+                      boxShadow: '0 4px 18px rgba(0, 212, 178, 0.35)',
+                    }}
+                  >
+                    <span>Semua File Selesai Diedit • Lanjut Upload ke Google Drive (Tahap 4)</span>
+                    <ArrowRight size={17} />
+                  </button>
+                </div>
               </div>
+            </div>
+          )}
+
+      {/* ============================================================= */}
+      {/* MODAL NOTICE: GOOGLE DOCS VIA MCP                              */}
+      {/* ============================================================= */}
+      {docsModalNotice && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.75)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            padding: '1.5rem',
+          }}
+          onClick={() => setDocsModalNotice(null)}
+        >
+          <div
+            className="glass-card animate-fade-in"
+            style={{
+              maxWidth: '560px',
+              width: '100%',
+              padding: '2rem',
+              border: '1.5px solid rgba(56, 189, 248, 0.4)',
+              background: '#0d1322',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '10px',
+                  background: 'rgba(56, 189, 248, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Sparkles size={22} color="#38bdf8" />
+              </div>
+              <div>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+                  Google Docs Terhubung (MCP Bot)
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: 0 }}>
+                  Berkas telah siap diedit otomatis oleh bot atau dibuka di browser.
+                </p>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: 'rgba(0, 0, 0, 0.4)',
+                padding: '1rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                marginBottom: '1.25rem',
+                fontSize: '0.82rem',
+              }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.45rem', marginBottom: '0.45rem' }}>
+                <span style={{ color: '#94a3b8' }}>Judul Dokumen:</span>
+                <span style={{ fontWeight: 700, color: '#f8fafc' }}>{docsModalNotice.title}</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.45rem', marginBottom: '0.45rem' }}>
+                <span style={{ color: '#94a3b8' }}>Kode Dokumen:</span>
+                <span className="mono" style={{ fontWeight: 700, color: 'var(--primary)' }}>
+                  {docsModalNotice.code}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.45rem', marginBottom: '0.45rem' }}>
+                <span style={{ color: '#94a3b8' }}>Google Doc ID:</span>
+                <span className="mono" style={{ fontSize: '0.75rem', color: '#38bdf8' }}>
+                  {docsModalNotice.googleDocId}
+                </span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.45rem' }}>
+                <span style={{ color: '#94a3b8' }}>Sinkronisasi:</span>
+                <span style={{ color: '#4ade80', fontWeight: 700 }}>
+                  Aktif (Mengikuti Acuan Template TXT & PDF)
+                </span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                onClick={() => setDocsModalNotice(null)}
+                className="btn btn-secondary"
+              >
+                Tutup
+              </button>
+              <a
+                href={docsModalNotice.googleDocUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', textDecoration: 'none' }}
+              >
+                <ExternalLink size={15} />
+                <span>Buka Google Docs di Tab Baru</span>
+              </a>
             </div>
           </div>
         </div>

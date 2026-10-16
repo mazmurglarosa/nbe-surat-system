@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   CodeDefinition,
   MasterCodesState,
@@ -15,7 +15,25 @@ import {
   X,
   Save,
   Info,
+  FileText,
+  Upload,
+  FileCode,
+  Sliders,
+  Sparkles,
+  BookOpen,
+  Layers,
+  Check,
+  Copy,
+  ExternalLink,
 } from 'lucide-react';
+import {
+  loadTemplateSettings,
+  saveTemplateSettings,
+  resetTemplateSettings,
+  DocumentTemplateSettings,
+  DEFAULT_TEMPLATE_GUIDELINES,
+  DEFAULT_TEMPLATE_SETTINGS,
+} from '../services/templateSettings';
 
 interface MasterCategoriesViewProps {
   masterCodes: MasterCodesState;
@@ -37,7 +55,7 @@ interface MasterCategoriesViewProps {
   onResetDefaults: () => void;
 }
 
-type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers';
+type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers' | 'template';
 
 export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   masterCodes,
@@ -61,6 +79,12 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   const [activeTab, setActiveTab] = useState<ActiveCategoryTab>('types');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Acuan Template Dokumen state
+  const [templateSettings, setTemplateSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
+  const [isSavingTemplate, setIsSavingTemplate] = useState<boolean>(false);
+  const txtInputRef = useRef<HTMLInputElement>(null);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
+
   // Form modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
@@ -76,6 +100,65 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   const showSuccessBanner = (msg: string) => {
     setActionSuccess(msg);
     setTimeout(() => setActionSuccess(null), 3500);
+  };
+
+  const handleTxtUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const content = evt.target?.result as string;
+      setTemplateSettings((prev) => ({
+        ...prev,
+        txtGuidelinesName: file.name,
+        txtGuidelinesContent: content,
+      }));
+      showSuccessBanner(`Berkas teks acuan utama "${file.name}" berhasil dimuat!`);
+    };
+    reader.readAsText(file);
+  };
+
+  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result as string;
+      setTemplateSettings((prev) => ({
+        ...prev,
+        pdfLayoutName: file.name,
+        pdfLayoutDataUrl: dataUrl,
+      }));
+      showSuccessBanner(`Berkas PDF acuan visual "${file.name}" berhasil dimuat!`);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveTemplate = () => {
+    setIsSavingTemplate(true);
+    saveTemplateSettings(templateSettings);
+    setTimeout(() => {
+      setIsSavingTemplate(false);
+      showSuccessBanner('Acuan Template Dokumen (.txt & .pdf) berhasil disimpan dan disinkronkan ke seluruh sistem!');
+    }, 400);
+  };
+
+  const handleResetTemplate = () => {
+    if (confirm('Kembalikan Acuan Template Dokumen ke standar baku SOP PT Nirwana Bhumi Energi?')) {
+      const res = resetTemplateSettings();
+      setTemplateSettings(res);
+      showSuccessBanner('Acuan Template Dokumen telah dikembalikan ke standar baku SOP NBE.');
+    }
+  };
+
+  const handleDownloadTxtGuidelines = () => {
+    const blob = new Blob([templateSettings.txtGuidelinesContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = templateSettings.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleOpenAdd = () => {
@@ -274,35 +357,55 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
-            onClick={handleReset}
+            onClick={activeTab === 'template' ? handleResetTemplate : handleReset}
             className="btn btn-secondary btn-sm"
-            title="Kembalikan ke standar awal SOP"
+            title={activeTab === 'template' ? 'Kembalikan acuan template ke standar bawaan SOP NBE' : 'Kembalikan ke standar awal SOP'}
           >
             <RotateCcw size={15} />
-            <span>Reset ke Default SOP</span>
+            <span>{activeTab === 'template' ? 'Reset Template SOP' : 'Reset ke Default SOP'}</span>
           </button>
-          <button
-            onClick={handleOpenAdd}
-            className="btn btn-primary btn-sm"
-            style={{
-              background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
-              border: 'none',
-              fontWeight: 600,
-            }}
-          >
-            <Plus size={16} />
-            <span>
-              {activeTab === 'types'
-                ? '+ Tambah Kategori Surat'
-                : activeTab === 'subcategories'
-                ? '+ Tambah Sub-Kategori (ZZ)'
-                : activeTab === 'subsubcategories'
-                ? '+ Tambah Sub-sub Kategori (AA)'
-                : activeTab === 'divisions'
-                ? '+ Tambah Divisi Penerbit'
-                : '+ Tambah Otoritas Pengesahan'}
-            </span>
-          </button>
+          {activeTab === 'template' ? (
+            <button
+              onClick={handleSaveTemplate}
+              disabled={isSavingTemplate}
+              className="btn btn-primary btn-sm"
+              style={{
+                background: 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)',
+                border: 'none',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.3)',
+              }}
+            >
+              <Save size={16} />
+              <span>{isSavingTemplate ? 'Menyimpan...' : 'Simpan Acuan Template'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleOpenAdd}
+              className="btn btn-primary btn-sm"
+              style={{
+                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+                border: 'none',
+                fontWeight: 600,
+              }}
+            >
+              <Plus size={16} />
+              <span>
+                {activeTab === 'types'
+                  ? '+ Tambah Kategori Surat'
+                  : activeTab === 'subcategories'
+                  ? '+ Tambah Sub-Kategori (ZZ)'
+                  : activeTab === 'subsubcategories'
+                  ? '+ Tambah Sub-sub Kategori (AA)'
+                  : activeTab === 'divisions'
+                  ? '+ Tambah Divisi Penerbit'
+                  : '+ Tambah Otoritas Pengesahan'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -328,11 +431,11 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         </div>
       )}
 
-      {/* 5 Main Tabs */}
+      {/* 6 Main Tabs */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
           gap: '1rem',
           marginBottom: '1.75rem',
         }}
@@ -653,196 +756,815 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             Approving Authority Code (contoh: CEO, CTO, COO, CFO, MNG, SPV)
           </p>
         </div>
-      </div>
 
-      {/* Filter and Content Card */}
-      <div className="glass-card" style={{ padding: '1.5rem' }}>
-        {/* Action Bar */}
+        {/* TAB 6: Acuan Template Dokumen (NEW TAB TAHAP 3) */}
         <div
+          onClick={() => {
+            setActiveTab('template');
+            setSearchQuery('');
+          }}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '1rem',
-            marginBottom: '1.5rem',
+            cursor: 'pointer',
+            padding: '1.25rem',
+            borderRadius: 'var(--radius-lg)',
+            border:
+              activeTab === 'template'
+                ? '2px solid #6366f1'
+                : '1px solid var(--border-subtle)',
+            background:
+              activeTab === 'template'
+                ? 'rgba(99, 102, 241, 0.12)'
+                : 'var(--bg-secondary)',
+            transition: 'all 0.2s ease',
+            boxShadow:
+              activeTab === 'template'
+                ? '0 4px 16px rgba(99, 102, 241, 0.25)'
+                : 'none',
           }}
         >
-          <div style={{ position: 'relative', minWidth: '260px' }}>
-            <Search
-              size={16}
-              style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: 'var(--text-muted)',
-              }}
-            />
-            <input
-              type="text"
-              placeholder={`Cari kode, nama, atau deskripsi ${
-                activeTab === 'types'
-                  ? 'kategori surat'
-                  : activeTab === 'subcategories'
-                  ? 'sub-kategori surat'
-                  : activeTab === 'subsubcategories'
-                  ? 'sub-sub kategori surat'
-                  : activeTab === 'divisions'
-                  ? 'divisi'
-                  : 'otoritas'
-              }...`}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-input"
-              style={{ paddingLeft: '2.4rem' }}
-            />
-          </div>
-
-          <button
-            onClick={handleOpenAdd}
-            className="btn btn-primary btn-sm"
-            style={{
-              background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
-              border: 'none',
-              fontWeight: 600,
-            }}
-          >
-            <Plus size={16} />
-            <span>
-              {activeTab === 'types'
-                ? '+ Tambah Kategori Baru'
-                : activeTab === 'subcategories'
-                ? '+ Tambah Sub-Kategori Baru'
-                : activeTab === 'subsubcategories'
-                ? '+ Tambah Sub-sub Kategori Baru'
-                : activeTab === 'divisions'
-                ? '+ Tambah Divisi Baru'
-                : '+ Tambah Otoritas Baru'}
-            </span>
-          </button>
-        </div>
-
-        {/* Items List */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {filteredList.map((item) => {
-            const badgeColor =
-              activeTab === 'types'
-                ? '#10b981'
-                : activeTab === 'subcategories'
-                ? '#06b6d4'
-                : activeTab === 'subsubcategories'
-                ? '#8b5cf6'
-                : activeTab === 'divisions'
-                ? '#0284c7'
-                : '#f59e0b';
-
-            return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <div
-                key={item.code}
                 style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '1rem 1.25rem',
-                  borderRadius: 'var(--radius-md)',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border-subtle)',
-                  gap: '1rem',
-                  flexWrap: 'wrap',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '240px' }}>
-                  <span
-                    className="badge mono"
-                    style={{
-                      fontSize: '0.9rem',
-                      fontWeight: 800,
-                      padding: '0.35rem 0.75rem',
-                      background: `${badgeColor}22`,
-                      color: badgeColor,
-                      border: `1px solid ${badgeColor}55`,
-                      letterSpacing: '0.05em',
-                      minWidth: '55px',
-                      textAlign: 'center',
-                    }}
-                  >
-                    {item.code}
-                  </span>
+                6
+              </div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                Acuan Template Dokumen
+              </h3>
+            </div>
+            <span
+              className="badge mono"
+              style={{
+                background: 'rgba(99, 102, 241, 0.25)',
+                color: '#818cf8',
+                fontWeight: 700,
+              }}
+            >
+              TXT & PDF
+            </span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            Pedoman Dasar Utama (.txt) & Acuan Visual Tata Letak (.pdf)
+          </p>
+        </div>
+      </div>
 
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span>{item.label}</span>
-                      {item.isCustom && (
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            fontWeight: 700,
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: '4px',
-                            background: 'rgba(56, 189, 248, 0.15)',
-                            color: '#38bdf8',
-                          }}
-                        >
-                          Kustom
-                        </span>
-                      )}
-                    </div>
+      {/* TAB CONTENT: EITHER TEMPLATE PANEL OR MASTER CODES TABLE */}
+      {activeTab === 'template' ? (
+        <div className="glass-card animate-fade-in" style={{ padding: '1.75rem' }}>
+          {/* Hidden File Inputs */}
+          <input
+            ref={txtInputRef}
+            type="file"
+            accept=".txt,text/plain"
+            onChange={handleTxtUpload}
+            style={{ display: 'none' }}
+          />
+          <input
+            ref={pdfInputRef}
+            type="file"
+            accept=".pdf,application/pdf"
+            onChange={handlePdfUpload}
+            style={{ display: 'none' }}
+          />
+
+          {/* Context Banner */}
+          <div
+            style={{
+              padding: '1.25rem',
+              borderRadius: 'var(--radius-md)',
+              background: 'rgba(99, 102, 241, 0.08)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              marginBottom: '1.75rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '1rem',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#fff',
+                flexShrink: 0,
+              }}
+            >
+              <Sparkles size={22} />
+            </div>
+            <div style={{ flex: 1, minWidth: '260px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                  Acuan Template Dokumen & Panduan Standardisasi Bot
+                </h3>
+                <span
+                  style={{
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    padding: '0.15rem 0.5rem',
+                    borderRadius: '10px',
+                    background: 'rgba(16, 185, 129, 0.15)',
+                    color: '#34d399',
+                    border: '1px solid rgba(16, 185, 129, 0.35)',
+                  }}
+                >
+                  ● Terhubung dengan Bot AI & Konverter Dokumen
+                </span>
+              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.5 }}>
+                Sesuai alur baku sistem: <strong>File (.txt)</strong> bertindak sebagai <em>acuan dasar utama</em> untuk mengedit keseluruhan isi dan halaman dokumen Word yang telah diunggah. <strong>File (.pdf)</strong> bertindak sebagai <em>acuan dasar kedua</em> untuk tata letak visual, proporsi, margin, dan looks halaman.
+              </p>
+            </div>
+          </div>
+
+          {/* TWO MAIN UPLOAD COLUMNS */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+              gap: '1.5rem',
+              marginBottom: '1.75rem',
+            }}
+          >
+            {/* COLUMN 1: ACUAN DASAR UTAMA (.TXT) */}
+            <div
+              className="glass-card"
+              style={{
+                padding: '1.35rem',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div
                       style={{
-                        fontSize: '0.8rem',
-                        color: 'var(--text-secondary)',
-                        marginTop: '0.2rem',
+                        padding: '0.35rem',
+                        borderRadius: '6px',
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        color: '#38bdf8',
                       }}
                     >
-                      {item.description}
+                      <FileCode size={18} />
+                    </div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      1. Acuan Dasar Utama: File Panduan Teks (.txt)
+                    </h4>
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                    Pedoman teks utama bot untuk membedah, menyusun Cover, Kop Header, Tabel Revisi, serta Bab 1-7 Prosedur Word.
+                  </p>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '6px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: '#38bdf8',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Acuan Pokok
+                </span>
+              </div>
+
+              {/* Upload Box for .TXT */}
+              <div
+                onClick={() => txtInputRef.current?.click()}
+                style={{
+                  border: '2px dashed rgba(56, 189, 248, 0.4)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  textAlign: 'center',
+                  background: 'rgba(56, 189, 248, 0.03)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#38bdf8')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.4)')}
+              >
+                <Upload size={24} color="#38bdf8" style={{ margin: '0 auto 0.4rem auto' }} />
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  Klik untuk Unggah Berkas Acuan (.txt) Baru
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                  Berkas aktif: <strong style={{ color: '#38bdf8' }}>{templateSettings.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt'}</strong>
+                </div>
+              </div>
+
+              {/* Live Textarea of Guidelines */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                    ISI PANDUAN TEKS AKTIF (DAPAT DIEDIT LANGSUNG):
+                  </label>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button
+                      type="button"
+                      onClick={handleDownloadTxtGuidelines}
+                      className="btn btn-ghost btn-xs"
+                      style={{ fontSize: '0.72rem', color: '#38bdf8' }}
+                      title="Unduh berkas .txt"
+                    >
+                      <FileText size={12} />
+                      <span>Unduh .txt</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(templateSettings.txtGuidelinesContent);
+                        showSuccessBanner('Isi panduan .txt disalin ke clipboard!');
+                      }}
+                      className="btn btn-ghost btn-xs"
+                      style={{ fontSize: '0.72rem' }}
+                      title="Salin isi ke clipboard"
+                    >
+                      <Copy size={12} />
+                      <span>Salin</span>
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  rows={9}
+                  value={templateSettings.txtGuidelinesContent}
+                  onChange={(e) =>
+                    setTemplateSettings((prev) => ({
+                      ...prev,
+                      txtGuidelinesContent: e.target.value,
+                    }))
+                  }
+                  className="form-input mono"
+                  style={{
+                    fontSize: '0.76rem',
+                    lineHeight: 1.5,
+                    resize: 'vertical',
+                    background: 'rgba(0, 0, 0, 0.25)',
+                  }}
+                  placeholder="Ketik atau tempel pedoman standarisasi format teks di sini..."
+                />
+              </div>
+            </div>
+
+            {/* COLUMN 2: ACUAN DASAR KEDUA (.PDF) */}
+            <div
+              className="glass-card"
+              style={{
+                padding: '1.35rem',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                background: 'var(--bg-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1rem',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div
+                      style={{
+                        padding: '0.35rem',
+                        borderRadius: '6px',
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        color: '#f87171',
+                      }}
+                    >
+                      <BookOpen size={18} />
+                    </div>
+                    <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      2. Acuan Dasar Kedua: File Visual Layout (.pdf)
+                    </h4>
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                    Acuan tata letak, bentuk, proporsi garis tabel 1.5pt, margin, dan looks visual dokumen.
+                  </p>
+                </div>
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: '6px',
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#f87171',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  Acuan Visual
+                </span>
+              </div>
+
+              {/* Upload Box for .PDF */}
+              <div
+                onClick={() => pdfInputRef.current?.click()}
+                style={{
+                  border: '2px dashed rgba(239, 68, 68, 0.4)',
+                  borderRadius: 'var(--radius-md)',
+                  padding: '1.25rem',
+                  textAlign: 'center',
+                  background: 'rgba(239, 68, 68, 0.03)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#f87171')}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)')}
+              >
+                <Upload size={24} color="#f87171" style={{ margin: '0 auto 0.4rem auto' }} />
+                <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                  Klik untuk Unggah Berkas Acuan Visual (.pdf)
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                  Berkas aktif: <strong style={{ color: '#f87171' }}>{templateSettings.pdfLayoutName || 'Contoh_Visual_Layout_Standar_NBE.pdf'}</strong>
+                </div>
+              </div>
+
+              {/* Visual Layout Representation */}
+              <div
+                style={{
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-subtle)',
+                  padding: '1rem',
+                  background: 'rgba(0,0,0,0.2)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.65rem',
+                }}
+              >
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  Struktur Visual Tata Letak (Berdasarkan PDF Acuan):
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                  {/* Miniature Cover */}
+                  <div
+                    style={{
+                      border: '1px solid #94a3b8',
+                      borderRadius: '4px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      padding: '0.65rem',
+                      height: '130px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      fontSize: '0.55rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', borderBottom: '1px solid #cbd5e1', paddingBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: 800, color: '#0284c7' }}>NBE</span>
+                      <span style={{ fontSize: '0.5rem', color: '#64748b' }}>Nirwana Bhumi Energy</span>
+                    </div>
+                    <div style={{ textAlign: 'center', fontWeight: 800, fontSize: '0.6rem', color: '#000' }}>
+                      [JUDUL DOKUMEN PROSEDUR]
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '0.48rem', color: '#475569', borderTop: '0.5px solid #e2e8f0', paddingTop: '0.2rem' }}>
+                      <div>Approved by: Director</div>
+                      <div>Verified by: Internal Auditor</div>
+                      <div>Prepared by: Staff</div>
+                    </div>
+                  </div>
+
+                  {/* Miniature Header & Revision Table */}
+                  <div
+                    style={{
+                      border: '1px solid #94a3b8',
+                      borderRadius: '4px',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      padding: '0.65rem',
+                      height: '130px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.35rem',
+                      fontSize: '0.52rem',
+                    }}
+                  >
+                    <div style={{ border: '1px solid #000', padding: '0.2rem', textAlign: 'center' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.55rem' }}>SISTEM PENGENDALI INTERNAL</div>
+                      <div style={{ fontSize: '0.48rem' }}>Standar Operasional Prosedur (SOP)</div>
+                    </div>
+                    <div style={{ border: '1px solid #000', padding: '0.2rem', flex: 1 }}>
+                      <div style={{ fontWeight: 700, borderBottom: '0.5px solid #000', paddingBottom: '0.1rem' }}>
+                        Tabel Revision Index (4 Kolom)
+                      </div>
+                      <div style={{ fontSize: '0.48rem', color: '#475569', marginTop: '0.15rem' }}>
+                        Rev 0 | Tgl | Initial Edition | Nama
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '0.45rem', color: '#94a3b8' }}>
+                      Page 2 of X
                     </div>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {templateSettings.pdfLayoutDataUrl && (
                   <button
-                    onClick={() => handleOpenEdit(item)}
-                    className="btn btn-secondary btn-sm"
-                    title="Ubah Nama & Deskripsi"
-                    style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
+                    type="button"
+                    onClick={() => {
+                      const w = window.open('');
+                      w?.document.write(`<iframe src="${templateSettings.pdfLayoutDataUrl}" style="width:100%; height:100%; border:none;"></iframe>`);
+                    }}
+                    className="btn btn-secondary btn-xs"
+                    style={{ marginTop: '0.25rem', width: '100%', justifyContent: 'center' }}
                   >
-                    <Edit2 size={13} />
-                    <span>Ubah</span>
+                    <ExternalLink size={12} />
+                    <span>Buka File PDF Acuan di Tab Baru</span>
                   </button>
-
-                  <button
-                    onClick={() => handleDelete(item)}
-                    className="btn btn-ghost btn-sm"
-                    title="Hapus Kategori"
-                    style={{ padding: '0.35rem 0.65rem', color: '#ef4444', fontSize: '0.78rem' }}
-                  >
-                    <Trash2 size={13} />
-                    <span>Hapus</span>
-                  </button>
-                </div>
+                )}
               </div>
-            );
-          })}
+            </div>
+          </div>
 
-          {filteredList.length === 0 && (
-            <div
+          {/* SECTION 3: PENGATURAN UKURAN KERTAS & STANDAR FORMAT (KONDISI NYATA) */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '1.35rem 1.5rem',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              background: 'var(--bg-secondary)',
+              marginBottom: '1.5rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
+              <Sliders size={18} color="#818cf8" />
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                3. Pengaturan Ukuran Kertas & Standar Cetak (Kondisi Nyata Dokumen)
+              </h4>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              {/* Ukuran Kertas */}
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                  Ukuran Kertas Baku *
+                </label>
+                <select
+                  value={templateSettings.paperSize}
+                  onChange={(e) =>
+                    setTemplateSettings((prev) => ({
+                      ...prev,
+                      paperSize: e.target.value as any,
+                    }))
+                  }
+                  className="form-select"
+                  style={{ fontWeight: 700 }}
+                >
+                  <option value="A4">A4 (210 × 297 mm) — Standar Baku NBE</option>
+                  <option value="Letter">Letter (215.9 × 279.4 mm)</option>
+                  <option value="F4">F4 / Folio (215 × 330 mm)</option>
+                </select>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem', display: 'block' }}>
+                  Sesuai ketentuan ISO & CSMS perusahaan.
+                </span>
+              </div>
+
+              {/* Orientasi */}
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                  Orientasi Kertas
+                </label>
+                <select
+                  value={templateSettings.orientation}
+                  onChange={(e) =>
+                    setTemplateSettings((prev) => ({
+                      ...prev,
+                      orientation: e.target.value as any,
+                    }))
+                  }
+                  className="form-select"
+                >
+                  <option value="portrait">Portrait (Tegak - Default Standar Prosedur)</option>
+                  <option value="landscape">Landscape (Mendatar - Lampiran Bagan)</option>
+                </select>
+              </div>
+
+              {/* Margin Kertas */}
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                  Margin Atas & Bawah (cm)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  max="5"
+                  value={templateSettings.marginTopCm}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value) || 2.54;
+                    setTemplateSettings((prev) => ({
+                      ...prev,
+                      marginTopCm: v,
+                      marginBottomCm: v,
+                    }));
+                  }}
+                  className="form-input"
+                />
+              </div>
+
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                  Margin Kiri & Kanan (cm)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="1"
+                  max="5"
+                  value={templateSettings.marginLeftCm}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value) || 2.54;
+                    setTemplateSettings((prev) => ({
+                      ...prev,
+                      marginLeftCm: v,
+                      marginRightCm: v,
+                    }));
+                  }}
+                  className="form-input"
+                />
+              </div>
+
+              {/* Font Family */}
+              <div>
+                <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                  Tipografi / Font Baku
+                </label>
+                <select
+                  value={templateSettings.fontFamily}
+                  onChange={(e) =>
+                    setTemplateSettings((prev) => ({
+                      ...prev,
+                      fontFamily: e.target.value,
+                    }))
+                  }
+                  className="form-select"
+                >
+                  <option value="Arial, sans-serif">Arial (Standar NBE)</option>
+                  <option value="Calibri, sans-serif">Calibri</option>
+                  <option value="'Times New Roman', serif">Times New Roman</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ACTIONS BAR */}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              paddingTop: '0.5rem',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                Terakhir diperbarui: {new Date(templateSettings.lastUpdated || Date.now()).toLocaleString('id-ID')}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.65rem' }}>
+              <button
+                type="button"
+                onClick={handleResetTemplate}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.85rem' }}
+              >
+                <RotateCcw size={15} />
+                <span>Reset ke Standar Baku SOP NBE</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveTemplate}
+                disabled={isSavingTemplate}
+                className="btn btn-primary"
+                style={{
+                  background: 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)',
+                  padding: '0.65rem 1.75rem',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                }}
+              >
+                <Save size={16} />
+                <span>{isSavingTemplate ? 'Menyimpan...' : 'Simpan Acuan Template Dokumen'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* MASTER CODES FILTER & LIST CARD (FOR TABS 1 - 5) */
+        <div className="glass-card" style={{ padding: '1.5rem' }}>
+          {/* Action Bar */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              marginBottom: '1.5rem',
+            }}
+          >
+            <div style={{ position: 'relative', minWidth: '260px' }}>
+              <Search
+                size={16}
+                style={{
+                  position: 'absolute',
+                  left: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: 'var(--text-muted)',
+                }}
+              />
+              <input
+                type="text"
+                placeholder={`Cari kode, nama, atau deskripsi ${
+                  activeTab === 'types'
+                    ? 'kategori surat'
+                    : activeTab === 'subcategories'
+                    ? 'sub-kategori surat'
+                    : activeTab === 'subsubcategories'
+                    ? 'sub-sub kategori surat'
+                    : activeTab === 'divisions'
+                    ? 'divisi'
+                    : 'otoritas'
+                }...`}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="form-input"
+                style={{ paddingLeft: '2.4rem' }}
+              />
+            </div>
+
+            <button
+              onClick={handleOpenAdd}
+              className="btn btn-primary btn-sm"
               style={{
-                textAlign: 'center',
-                padding: '3rem 1rem',
-                color: 'var(--text-muted)',
+                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+                border: 'none',
+                fontWeight: 600,
               }}
             >
-              <Info size={32} style={{ margin: '0 auto 0.5rem auto' }} />
-              <p style={{ fontWeight: 600 }}>Tidak ada data yang cocok dengan pencarian.</p>
-              <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
-                Silakan gunakan tombol tambah untuk mendaftarkan kode baru.
-              </p>
-            </div>
-          )}
+              <Plus size={16} />
+              <span>
+                {activeTab === 'types'
+                  ? '+ Tambah Kategori Baru'
+                  : activeTab === 'subcategories'
+                  ? '+ Tambah Sub-Kategori Baru'
+                  : activeTab === 'subsubcategories'
+                  ? '+ Tambah Sub-sub Kategori Baru'
+                  : activeTab === 'divisions'
+                  ? '+ Tambah Divisi Baru'
+                  : '+ Tambah Otoritas Baru'}
+              </span>
+            </button>
+          </div>
+
+          {/* Items List */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {filteredList.map((item) => {
+              const badgeColor =
+                activeTab === 'types'
+                  ? '#10b981'
+                  : activeTab === 'subcategories'
+                  ? '#06b6d4'
+                  : activeTab === 'subsubcategories'
+                  ? '#8b5cf6'
+                  : activeTab === 'divisions'
+                  ? '#0284c7'
+                  : '#f59e0b';
+
+              return (
+                <div
+                  key={item.code}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '1rem 1.25rem',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-subtle)',
+                    gap: '1rem',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: '240px' }}>
+                    <span
+                      className="badge mono"
+                      style={{
+                        fontSize: '0.9rem',
+                        fontWeight: 800,
+                        padding: '0.35rem 0.75rem',
+                        background: `${badgeColor}22`,
+                        color: badgeColor,
+                        border: `1px solid ${badgeColor}55`,
+                        letterSpacing: '0.05em',
+                        minWidth: '55px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {item.code}
+                    </span>
+
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>{item.label}</span>
+                        {item.isCustom && (
+                          <span
+                            style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              padding: '0.1rem 0.4rem',
+                              borderRadius: '4px',
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              color: '#38bdf8',
+                            }}
+                          >
+                            Kustom
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '0.8rem',
+                          color: 'var(--text-secondary)',
+                          marginTop: '0.2rem',
+                        }}
+                      >
+                        {item.description}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => handleOpenEdit(item)}
+                      className="btn btn-secondary btn-sm"
+                      title="Ubah Nama & Deskripsi"
+                      style={{ padding: '0.35rem 0.65rem', fontSize: '0.78rem' }}
+                    >
+                      <Edit2 size={13} />
+                      <span>Ubah</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(item)}
+                      className="btn btn-ghost btn-sm"
+                      title="Hapus Kategori"
+                      style={{ padding: '0.35rem 0.65rem', color: '#ef4444', fontSize: '0.78rem' }}
+                    >
+                      <Trash2 size={13} />
+                      <span>Hapus</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredList.length === 0 && (
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '3rem 1rem',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <Info size={32} style={{ margin: '0 auto 0.5rem auto' }} />
+                <p style={{ fontWeight: 600 }}>Tidak ada data yang cocok dengan pencarian.</p>
+                <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>
+                  Silakan gunakan tombol tambah untuk mendaftarkan kode baru.
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Modal Add / Edit */}
       {isModalOpen && (
