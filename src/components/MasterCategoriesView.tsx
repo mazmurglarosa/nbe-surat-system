@@ -53,11 +53,13 @@ interface MasterCategoriesViewProps {
   onUpdateApprover: (code: string, item: Partial<CodeDefinition>) => void;
   onDeleteApprover: (code: string) => void;
   onResetDefaults: () => void;
+  initialTab?: ActiveCategoryTab;
 }
 
 type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers' | 'template';
 
 export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
+  initialTab = 'types',
   masterCodes,
   onAddDocumentType,
   onUpdateDocumentType,
@@ -76,8 +78,14 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   onDeleteApprover,
   onResetDefaults,
 }) => {
-  const [activeTab, setActiveTab] = useState<ActiveCategoryTab>('types');
+  const [activeTab, setActiveTab] = useState<ActiveCategoryTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   // Acuan Template Dokumen state
   const [templateSettings, setTemplateSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
@@ -431,12 +439,104 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         </div>
       )}
 
-      {/* 6 Main Tabs */}
+      {/* TOP HORIZONTAL PILL NAVIGATION: 6 TABS */}
+      <div
+        style={{
+          display: 'flex',
+          gap: '0.45rem',
+          background: 'var(--bg-secondary)',
+          padding: '0.5rem',
+          borderRadius: '14px',
+          border: '1px solid var(--border-subtle)',
+          marginBottom: '1.25rem',
+          overflowX: 'auto',
+          alignItems: 'center',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => { setActiveTab('types'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'types' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'types' ? 800 : 500 }}
+        >
+          1. Kategori Dokumen ({masterCodes.documentTypes.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('subcategories'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'subcategories' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'subcategories' ? 800 : 500 }}
+        >
+          2. Sub-Kategori ZZ ({masterCodes.subCategories.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('subsubcategories'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'subsubcategories' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'subsubcategories' ? 800 : 500 }}
+        >
+          3. Sub-sub Kategori AA ({(masterCodes.subSubCategories || SUB_SUB_CATEGORIES).length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('divisions'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'divisions' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'divisions' ? 800 : 500 }}
+        >
+          4. Divisi Penerbit ({masterCodes.divisions.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('approvers'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'approvers' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'approvers' ? 800 : 500 }}
+        >
+          5. Otoritas Pengesahan ({masterCodes.approvers.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('template'); setSearchQuery(''); }}
+          style={{
+            fontSize: '0.82rem',
+            whiteSpace: 'nowrap',
+            borderRadius: '8px',
+            background: activeTab === 'template' ? 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)' : 'rgba(99, 102, 241, 0.15)',
+            color: activeTab === 'template' ? '#ffffff' : '#a5b4fc',
+            border: activeTab === 'template' ? 'none' : '1.5px solid rgba(99, 102, 241, 0.5)',
+            padding: '0.45rem 1rem',
+            fontWeight: 800,
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.45rem',
+            boxShadow: activeTab === 'template' ? '0 4px 14px rgba(99, 102, 241, 0.45)' : 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <Sparkles size={15} color={activeTab === 'template' ? '#fff' : '#a5b4fc'} />
+          <span>6. Acuan Template Dokumen (TXT & PDF)</span>
+          <span
+            style={{
+              fontSize: '0.62rem',
+              background: '#ec4899',
+              color: '#fff',
+              padding: '0.1rem 0.4rem',
+              borderRadius: '4px',
+              fontWeight: 900,
+              letterSpacing: '0.04em',
+            }}
+          >
+            BARU
+          </span>
+        </button>
+      </div>
+
+      {/* 6 Main Tabs Grid */}
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))',
-          gap: '1rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(185px, 1fr))',
+          gap: '0.85rem',
           marginBottom: '1.75rem',
         }}
       >
@@ -769,19 +869,38 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             borderRadius: 'var(--radius-lg)',
             border:
               activeTab === 'template'
-                ? '2px solid #6366f1'
-                : '1px solid var(--border-subtle)',
+                ? '2.5px solid #6366f1'
+                : '1.5px solid rgba(99, 102, 241, 0.45)',
             background:
               activeTab === 'template'
-                ? 'rgba(99, 102, 241, 0.12)'
-                : 'var(--bg-secondary)',
+                ? 'rgba(99, 102, 241, 0.18)'
+                : 'rgba(99, 102, 241, 0.08)',
             transition: 'all 0.2s ease',
             boxShadow:
               activeTab === 'template'
-                ? '0 4px 16px rgba(99, 102, 241, 0.25)'
-                : 'none',
+                ? '0 6px 22px rgba(99, 102, 241, 0.35)'
+                : '0 2px 8px rgba(99, 102, 241, 0.1)',
+            position: 'relative',
           }}
         >
+          <div
+            style={{
+              position: 'absolute',
+              top: '-10px',
+              right: '12px',
+              background: 'linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%)',
+              color: '#ffffff',
+              fontSize: '0.62rem',
+              fontWeight: 900,
+              padding: '0.15rem 0.55rem',
+              borderRadius: '10px',
+              boxShadow: '0 2px 6px rgba(236, 72, 153, 0.4)',
+              letterSpacing: '0.04em',
+            }}
+          >
+            TAHAP 3 • BARU
+          </div>
+
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
               <div

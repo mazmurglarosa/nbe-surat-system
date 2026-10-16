@@ -10,6 +10,8 @@ import {
   ChevronRight,
   FolderKanban,
   Building2,
+  FileCode,
+  Sparkles,
 } from 'lucide-react';
 import { CodeDefinition, DocumentRecord, DIVISIONS } from '../types';
 
@@ -18,6 +20,7 @@ export type SidebarTab =
   | 'create'
   | 'create-folder'
   | 'master-categories'
+  | 'template-settings'
   | 'logs'
   | 'settings'
   | 'dir-ceo'
@@ -297,6 +300,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Kelola Kategori & Kode</span>
             </div>
             {activeTab === 'master-categories' && <ChevronRight size={16} />}
+          </button>
+
+          {/* 3b. Acuan Template Dokumen (Tahap 3) */}
+          <button
+            onClick={() => onSelectTab('template-settings')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.7rem 0.9rem',
+              borderRadius: '10px',
+              border: 'none',
+              background:
+                activeTab === 'template-settings'
+                  ? 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)'
+                  : 'transparent',
+              color: activeTab === 'template-settings' ? '#ffffff' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'template-settings' ? 700 : 500,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+              boxShadow:
+                activeTab === 'template-settings'
+                  ? '0 4px 12px rgba(99, 102, 241, 0.35)'
+                  : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <FileCode size={18} color={activeTab === 'template-settings' ? '#ffffff' : '#818cf8'} />
+              <span>Acuan Template Dokumen</span>
+            </div>
+            <span
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                padding: '0.1rem 0.4rem',
+                borderRadius: '6px',
+                background: activeTab === 'template-settings' ? 'rgba(255,255,255,0.2)' : 'rgba(99, 102, 241, 0.2)',
+                color: activeTab === 'template-settings' ? '#ffffff' : '#818cf8',
+              }}
+            >
+              BARU
+            </span>
           </button>
 
           {/* Section Divider: DIVISI PENERBIT SURAT */}
