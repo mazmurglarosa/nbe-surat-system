@@ -98,6 +98,17 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
   const [editingTargetCode, setEditingTargetCode] = useState<string>('');
 
+  // Close modal on Escape key (R-32 Accessibility)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isModalOpen) {
+        setIsModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
+
   // Form fields
   const [formCode, setFormCode] = useState('');
   const [formLabel, setFormLabel] = useState('');
@@ -378,13 +389,13 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               disabled={isSavingTemplate}
               className="btn btn-primary btn-sm"
               style={{
-                background: 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)',
+                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
                 border: 'none',
                 fontWeight: 600,
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.4rem',
-                boxShadow: '0 2px 10px rgba(99, 102, 241, 0.3)',
+                boxShadow: '0 2px 10px rgba(2, 132, 199, 0.25)',
               }}
             >
               <Save size={16} />
@@ -497,33 +508,29 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         <button
           type="button"
           onClick={() => { setActiveTab('template'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'template' ? 'btn-primary' : 'btn-ghost'}`}
           style={{
-            fontSize: '0.82rem',
+            fontSize: '0.8rem',
             whiteSpace: 'nowrap',
             borderRadius: '8px',
-            background: activeTab === 'template' ? 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)' : 'rgba(99, 102, 241, 0.15)',
-            color: activeTab === 'template' ? '#ffffff' : '#a5b4fc',
-            border: activeTab === 'template' ? 'none' : '1.5px solid rgba(99, 102, 241, 0.5)',
-            padding: '0.45rem 1rem',
-            fontWeight: 800,
+            fontWeight: activeTab === 'template' ? 800 : 500,
             display: 'inline-flex',
             alignItems: 'center',
             gap: '0.45rem',
-            boxShadow: activeTab === 'template' ? '0 4px 14px rgba(99, 102, 241, 0.45)' : 'none',
-            cursor: 'pointer',
+            border: activeTab === 'template' ? 'none' : '1px solid var(--border-subtle)',
           }}
         >
-          <Sparkles size={15} color={activeTab === 'template' ? '#fff' : '#a5b4fc'} />
+          <Sparkles size={15} color={activeTab === 'template' ? '#fff' : 'var(--accent)'} />
           <span>6. Acuan Template Dokumen & Panduan Standardisasi Bot</span>
           <span
+            className="badge"
             style={{
               fontSize: '0.62rem',
-              background: '#ec4899',
-              color: '#fff',
-              padding: '0.1rem 0.4rem',
+              background: activeTab === 'template' ? 'rgba(255,255,255,0.25)' : 'rgba(2, 132, 199, 0.15)',
+              color: activeTab === 'template' ? '#ffffff' : '#0284c7',
+              padding: '0.1rem 0.45rem',
               borderRadius: '4px',
-              fontWeight: 900,
-              letterSpacing: '0.04em',
+              fontWeight: 800,
             }}
           >
             BARU
@@ -869,17 +876,17 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             borderRadius: 'var(--radius-lg)',
             border:
               activeTab === 'template'
-                ? '2.5px solid #6366f1'
-                : '1.5px solid rgba(99, 102, 241, 0.45)',
+                ? '2px solid #0284c7'
+                : '1px solid var(--border-subtle)',
             background:
               activeTab === 'template'
-                ? 'rgba(99, 102, 241, 0.18)'
-                : 'rgba(99, 102, 241, 0.08)',
+                ? 'rgba(2, 132, 199, 0.12)'
+                : 'var(--bg-secondary)',
             transition: 'all 0.2s ease',
             boxShadow:
               activeTab === 'template'
-                ? '0 6px 22px rgba(99, 102, 241, 0.35)'
-                : '0 2px 8px rgba(99, 102, 241, 0.1)',
+                ? '0 4px 16px rgba(2, 132, 199, 0.18)'
+                : 'none',
             position: 'relative',
           }}
         >
@@ -888,13 +895,12 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               position: 'absolute',
               top: '-10px',
               right: '12px',
-              background: 'linear-gradient(90deg, #ec4899 0%, #8b5cf6 100%)',
+              background: '#0284c7',
               color: '#ffffff',
               fontSize: '0.62rem',
-              fontWeight: 900,
-              padding: '0.15rem 0.55rem',
-              borderRadius: '10px',
-              boxShadow: '0 2px 6px rgba(236, 72, 153, 0.4)',
+              fontWeight: 800,
+              padding: '0.15rem 0.5rem',
+              borderRadius: '6px',
               letterSpacing: '0.04em',
             }}
           >
@@ -908,7 +914,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  background: '#0284c7',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
@@ -926,8 +932,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             <span
               className="badge mono"
               style={{
-                background: 'rgba(99, 102, 241, 0.25)',
-                color: '#818cf8',
+                background: 'rgba(2, 132, 199, 0.2)',
+                color: '#0284c7',
                 fontWeight: 700,
               }}
             >
@@ -964,8 +970,8 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             style={{
               padding: '1.25rem',
               borderRadius: 'var(--radius-md)',
-              background: 'rgba(99, 102, 241, 0.08)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              background: 'rgba(2, 132, 199, 0.08)',
+              border: '1px solid rgba(2, 132, 199, 0.25)',
               marginBottom: '1.75rem',
               display: 'flex',
               alignItems: 'flex-start',
@@ -978,7 +984,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 width: '42px',
                 height: '42px',
                 borderRadius: '10px',
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1352,7 +1358,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   className="form-select"
                   style={{ fontWeight: 700 }}
                 >
-                  <option value="A4">A4 (210 × 297 mm) — Standar Baku NBE</option>
+                  <option value="A4">A4 (210 × 297 mm) (Standar Baku NBE)</option>
                   <option value="Letter">Letter (215.9 × 279.4 mm)</option>
                   <option value="F4">F4 / Folio (215 × 330 mm)</option>
                 </select>
@@ -1482,10 +1488,12 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 disabled={isSavingTemplate}
                 className="btn btn-primary"
                 style={{
-                  background: 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)',
+                  background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+                  border: 'none',
                   padding: '0.65rem 1.75rem',
                   fontWeight: 800,
                   fontSize: '0.9rem',
+                  boxShadow: '0 2px 10px rgba(2, 132, 199, 0.25)',
                 }}
               >
                 <Save size={16} />
