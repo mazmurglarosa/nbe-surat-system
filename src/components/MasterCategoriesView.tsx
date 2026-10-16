@@ -514,7 +514,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           }}
         >
           <Sparkles size={15} color={activeTab === 'template' ? '#fff' : '#a5b4fc'} />
-          <span>6. Acuan Template Dokumen (TXT & PDF)</span>
+          <span>6. Acuan Template Dokumen & Panduan Standardisasi Bot</span>
           <span
             style={{
               fontSize: '0.62rem',
@@ -920,7 +920,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 6
               </div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                Acuan Template Dokumen
+                Acuan Template Dokumen & Panduan Standardisasi Bot
               </h3>
             </div>
             <span
@@ -935,7 +935,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             </span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-            Pedoman Dasar Utama (.txt) & Acuan Visual Tata Letak (.pdf)
+            Pedoman Dasar Utama (.txt) & Acuan Visual Tata Letak (.pdf) untuk Bot AI & Konverter Dokumen
           </p>
         </div>
       </div>

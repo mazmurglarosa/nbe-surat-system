@@ -56,7 +56,6 @@ import {
   Bot,
   RefreshCw,
   Cloud,
-  FileCode,
 } from 'lucide-react';
 import {
   setupRealtimeSync,
@@ -690,20 +689,6 @@ export function App() {
               <span>Bot Google Drive</span>
             </button>
 
-            {/* Acuan Template Dokumen Shortcut */}
-            <button
-              onClick={() => setActiveTab('template-settings')}
-              className="btn btn-secondary btn-sm"
-              style={{
-                borderColor: activeTab === 'template-settings' ? '#6366f1' : undefined,
-                color: activeTab === 'template-settings' ? '#818cf8' : undefined,
-              }}
-              title="Buka Acuan Template Dokumen (TXT & PDF)"
-            >
-              <FileCode size={15} color="#818cf8" />
-              <span>Acuan Template</span>
-            </button>
-
             {/* Pedoman PDF */}
             <button
               onClick={() => setIsPdfGuideOpen(true)}
@@ -789,9 +774,8 @@ export function App() {
             />
           )}
 
-          {(activeTab === 'master-categories' || activeTab === 'template-settings') && (
+          {activeTab === 'master-categories' && (
             <MasterCategoriesView
-              initialTab={activeTab === 'template-settings' ? 'template' : undefined}
               masterCodes={masterCodes}
               onAddDocumentType={handleAddDocType}
               onUpdateDocumentType={handleUpdateDocType}
