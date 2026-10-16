@@ -29,6 +29,9 @@ import {
   Download,
   RefreshCw,
   FolderTree,
+  Edit3,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   DOCUMENT_TYPES,
@@ -180,8 +183,9 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   // TAHAP 3: STANDARDIZATION & METADATA
   const [selectedWordIndex, setSelectedWordIndex] = useState<number>(0);
   const [fileCustomizations, setFileCustomizations] = useState<Record<string, FileMetadataCustomization>>({});
-  const [previewTab, setPreviewTab] = useState<'cover' | 'header'>('cover');
+  const [previewTab, setPreviewTab] = useState<'both' | 'cover' | 'header'>('both');
   const [isGeneratingDocx, setIsGeneratingDocx] = useState<boolean>(false);
+  const [isExpandedPreview, setIsExpandedPreview] = useState<boolean>(false);
 
   // GLOBAL PARAMETERS (Shared defaults)
   const [selectedType, setSelectedType] = useState<string>(docTypes[0]?.code || 'CSMS');
@@ -501,6 +505,110 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         ...patch,
       },
     }));
+  };
+
+  const handleTitleChange = (newTitle: string) => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    const updatedRevs = [...(current.revisions || [])];
+    if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
+      updatedRevs[0] = {
+        ...updatedRevs[0],
+        description: `Initial Edition – ${newTitle} (${current.code})`,
+      };
+    }
+    handleUpdateActiveCustomization({
+      title: newTitle,
+      revisions: updatedRevs,
+    });
+  };
+
+  const handleClassificationChange = (
+    field: 'typeCode' | 'subCategoryCode' | 'subSubCategoryCode' | 'divisionCode' | 'approverCode',
+    val: string
+  ) => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    const nextValues = {
+      typeCode: field === 'typeCode' ? val : current.typeCode,
+      subCategoryCode: field === 'subCategoryCode' ? val : current.subCategoryCode,
+      subSubCategoryCode: field === 'subSubCategoryCode' ? val : current.subSubCategoryCode,
+      divisionCode: field === 'divisionCode' ? val : current.divisionCode,
+      approverCode: field === 'approverCode' ? val : current.approverCode,
+    };
+
+    if (field === 'typeCode') setSelectedType(val);
+    if (field === 'subCategoryCode') setSelectedSubCategory(val);
+    if (field === 'subSubCategoryCode') setSelectedSubSubCategory(val);
+    if (field === 'divisionCode') setSelectedDivision(val);
+    if (field === 'approverCode') setSelectedApprover(val);
+
+    const seq = effectiveSequence + selectedWordIndex;
+    const newCode = isManualOverride && manualCode.trim()
+      ? manualCode.trim().toUpperCase()
+      : generateDocumentCode(
+          seq,
+          nextValues.typeCode,
+          nextValues.subCategoryCode,
+          nextValues.subSubCategoryCode,
+          nextValues.divisionCode,
+          nextValues.approverCode,
+          monthNumber,
+          year
+        );
+
+    const updatedRevs = [...(current.revisions || [])];
+    if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
+      updatedRevs[0] = {
+        ...updatedRevs[0],
+        description: `Initial Edition – ${current.title} (${newCode})`,
+      };
+    }
+
+    handleUpdateActiveCustomization({
+      ...nextValues,
+      code: newCode,
+      revisions: updatedRevs,
+    });
+  };
+
+  const handleAddRevisionRow = () => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    const revs = current.revisions ? [...current.revisions] : [];
+    const maxRev = revs.length > 0 ? Math.max(...revs.map((r) => r.revision)) : 0;
+    const nextRev = maxRev + 1;
+    const newRow: RevisionRecord = {
+      revision: nextRev,
+      date: formatIssueDate(current.issueDate),
+      description: `Revisi ${nextRev} – Pembaruan Prosedur ${current.title}`,
+      revisedBy: current.preparedBy || 'Mazmur L',
+    };
+    const nextRevs = [...revs, newRow];
+    handleUpdateActiveCustomization({
+      revision: nextRev,
+      revisions: nextRevs,
+    });
+  };
+
+  const handleUpdateRevisionRow = (idx: number, patch: Partial<RevisionRecord>) => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    const revs = current.revisions ? [...current.revisions] : [];
+    if (!revs[idx]) return;
+    revs[idx] = { ...revs[idx], ...patch };
+    handleUpdateActiveCustomization({ revisions: revs });
+  };
+
+  const handleDeleteRevisionRow = (idx: number) => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    const revs = (current.revisions || []).filter((_, i) => i !== idx);
+    const newMax = revs.length > 0 ? Math.max(...revs.map((r) => r.revision)) : 0;
+    handleUpdateActiveCustomization({
+      revision: newMax,
+      revisions: revs,
+    });
   };
 
   // Apply current active file parameters to ALL word files
@@ -1411,596 +1519,1017 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       {/* TAHAP 3: STANDARDIZATION & LIVE PREVIEW (Cover, Kop, Revisi)  */}
       {/* ============================================================= */}
       {currentStage === 3 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '1.5rem' }}>
-          {/* LEFT: FORM EDIT PARAMETERS & FILE SELECTOR */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            {/* Word File Selector */}
-            <div className="glass-card" style={{ padding: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <FileText size={17} color="#38bdf8" />
-                  <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>
-                    Daftar File Word yang Diterima ({wordFiles.length})
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleApplyToAllWordFiles}
-                  className="btn btn-secondary btn-sm"
-                  style={{ fontSize: '0.75rem' }}
-                  title="Salin parameter divisi, kategori, dan approver saat ini ke semua berkas"
-                >
-                  <Sparkles size={13} color="var(--primary)" />
-                  <span>Seragamkan ke Semua File</span>
-                </button>
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.35rem' }}>
-                {wordFiles.map((wf, idx) => {
-                  const isSelected = selectedWordIndex === idx;
-                  return (
-                    <button
-                      key={wf.id}
-                      type="button"
-                      onClick={() => setSelectedWordIndex(idx)}
-                      style={{
-                        padding: '0.45rem 0.75rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: isSelected ? '1.5px solid #0284c7' : '1px solid var(--border-subtle)',
-                        background: isSelected ? 'rgba(2, 132, 199, 0.2)' : 'var(--bg-secondary)',
-                        color: isSelected ? '#38bdf8' : 'var(--text-secondary)',
-                        fontSize: '0.78rem',
-                        fontWeight: isSelected ? 700 : 500,
-                        whiteSpace: 'nowrap',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {idx + 1}. {wf.name}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Form Parameter Dokumen (image2.png layout) */}
-            <div className="glass-card" style={{ padding: '1.5rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                <FileText size={18} color="var(--primary)" />
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Detail & Data Dokumen</h3>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>
-                    JUDUL DOKUMEN / NAMA PROSEDUR *
-                  </label>
-                  <input
-                    type="text"
-                    value={activeCustomization.title}
-                    onChange={(e) => handleUpdateActiveCustomization({ title: e.target.value })}
-                    placeholder="Contoh: INTERNAL AUDIT PROCEDURES"
-                    className="form-input"
-                    style={{ fontWeight: 600 }}
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>TANGGAL PENERBITAN</label>
-                  <input
-                    type="date"
-                    value={activeCustomization.issueDate}
-                    onChange={(e) => handleUpdateActiveCustomization({ issueDate: e.target.value })}
-                    className="form-input"
-                  />
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    Bulan: {getRomanMonth(monthNumber)} | Tahun: {year}
-                  </div>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>DIBUAT OLEH (CREATED BY) *</label>
-                  <input
-                    type="text"
-                    value={activeCustomization.preparedBy}
-                    onChange={(e) => handleUpdateActiveCustomization({ preparedBy: e.target.value })}
-                    placeholder="Contoh: Mazmur L"
-                    className="form-input"
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>DIVERIFIKASI OLEH (VERIFIED BY)</label>
-                  <input
-                    type="text"
-                    value={activeCustomization.verifiedBy}
-                    onChange={(e) => handleUpdateActiveCustomization({ verifiedBy: e.target.value })}
-                    placeholder="Auditor Internal Utama"
-                    className="form-input"
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>DISETUJUI OLEH (APPROVED BY)</label>
-                  <input
-                    type="text"
-                    value={activeCustomization.approvedBy}
-                    onChange={(e) => handleUpdateActiveCustomization({ approvedBy: e.target.value })}
-                    placeholder="Direktur Keuangan (CFO)"
-                    className="form-input"
-                  />
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>STATUS DOKUMEN</label>
-                  <select
-                    value={activeCustomization.status}
-                    onChange={(e) => handleUpdateActiveCustomization({ status: e.target.value as DocumentStatus })}
-                    className="form-select"
-                  >
-                    <option value="Published">Published (Diterbitkan & Berlaku)</option>
-                    <option value="Approved">Approved (Disetujui)</option>
-                    <option value="In Review">In Review</option>
-                    <option value="Draft">Draft</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>NOMOR REVISI</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={activeCustomization.revision}
-                    onChange={(e) => handleUpdateActiveCustomization({ revision: parseInt(e.target.value) || 0 })}
-                    className="form-input"
-                  />
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
-                    Revisi 0 adalah penerbitan perdana (Initial Issue)
-                  </div>
-                </div>
-
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label className="form-label" style={{ fontSize: '0.8rem' }}>DESKRIPSI / RUANG LINGKUP DOKUMEN</label>
-                  <textarea
-                    value={activeCustomization.description}
-                    onChange={(e) => handleUpdateActiveCustomization({ description: e.target.value })}
-                    placeholder="Keterangan singkat maksud dan tujuan dokumen..."
-                    className="form-input"
-                    rows={2}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Klasifikasi Kode Surat NBE (Document Type, ZZ, AA, Division, Approver) */}
-            <div className="glass-card" style={{ padding: '1.5rem' }}>
-              <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.85rem' }}>
-                Penomoran Kode Dokumen & Klasifikasi NBE
-              </h4>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Pilih Kategori Surat</label>
-                  <select
-                    value={activeCustomization.typeCode}
-                    onChange={(e) => {
-                      const t = e.target.value;
-                      handleUpdateActiveCustomization({ typeCode: t });
-                      setSelectedType(t);
-                    }}
-                    className="form-select"
-                  >
-                    {docTypes.map((dt) => (
-                      <option key={dt.code} value={dt.code}>
-                        {dt.code} - {dt.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', color: '#22d3ee' }}>
-                    Sub-Kategori Surat (Kode ZZ)
-                  </label>
-                  <select
-                    value={activeCustomization.subCategoryCode}
-                    onChange={(e) => {
-                      const sc = e.target.value;
-                      handleUpdateActiveCustomization({ subCategoryCode: sc });
-                      setSelectedSubCategory(sc);
-                    }}
-                    className="form-select"
-                  >
-                    {subCats.map((sc) => (
-                      <option key={sc.code} value={sc.code}>
-                        {sc.code} - {sc.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem', color: '#c084fc' }}>
-                    Sub-sub Kategori Surat (Kode AA)
-                  </label>
-                  <select
-                    value={activeCustomization.subSubCategoryCode}
-                    onChange={(e) => {
-                      const ssc = e.target.value;
-                      handleUpdateActiveCustomization({ subSubCategoryCode: ssc });
-                      setSelectedSubSubCategory(ssc);
-                    }}
-                    className="form-select"
-                  >
-                    {subSubCats.map((ssc) => (
-                      <option key={ssc.code} value={ssc.code}>
-                        {ssc.code} - {ssc.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Penerbit Surat (Division)</label>
-                  <select
-                    value={activeCustomization.divisionCode}
-                    onChange={(e) => {
-                      const div = e.target.value;
-                      handleUpdateActiveCustomization({ divisionCode: div });
-                      setSelectedDivision(div);
-                    }}
-                    className="form-select"
-                  >
-                    {divs.map((d) => (
-                      <option key={d.code} value={d.code}>
-                        {d.code} - {d.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Orang Yang Menyetujui (Approver)</label>
-                  <select
-                    value={activeCustomization.approverCode}
-                    onChange={(e) => {
-                      const a = e.target.value;
-                      handleUpdateActiveCustomization({ approverCode: a });
-                      setSelectedApprover(a);
-                    }}
-                    className="form-select"
-                  >
-                    {apprvs.map((a) => (
-                      <option key={a.code} value={a.code}>
-                        {a.code} - {a.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="form-label" style={{ fontSize: '0.75rem' }}>Kode Resmi Dihasilkan</label>
-                  <div
-                    className="mono"
-                    style={{
-                      padding: '0.45rem 0.65rem',
-                      borderRadius: 'var(--radius-sm)',
-                      background: 'rgba(0,0,0,0.3)',
-                      color: 'var(--primary)',
-                      fontWeight: 800,
-                      fontSize: '0.85rem',
-                    }}
-                  >
-                    {activeCustomization.code}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* RIGHT: REALTIME LIVE PREVIEW (Cover & Kop Header & Revision Table as in image1.png) */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* TOP: DAFTAR BERKAS WORD YANG DITERIMA & TOMBOL EDIT */}
+          <div className="glass-card animate-fade-in" style={{ padding: '1.35rem 1.5rem' }}>
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                padding: '0.5rem 0',
+                marginBottom: '1rem',
+                flexWrap: 'wrap',
+                gap: '0.75rem',
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <Eye size={17} color="var(--primary)" />
-                <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>Live Realtime Document Preview</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <FileText size={20} color="#38bdf8" />
+                  <h3 style={{ fontWeight: 800, fontSize: '1.1rem', margin: 0 }}>
+                    Daftar Berkas Word yang Diterima ({wordFiles.length})
+                  </h3>
+                  {autoConvertedCount > 0 && (
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        background: 'rgba(16, 185, 129, 0.15)',
+                        border: '1px solid rgba(16, 185, 129, 0.4)',
+                        color: '#34d399',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '12px',
+                      }}
+                    >
+                      ✨ {autoConvertedCount} Berkas Dikonversi Otomatis dari PDF
+                    </span>
+                  )}
+                </div>
+                <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
+                  Web menampilkan daftar seluruh berkas Word. Klik tombol <strong style={{ color: '#38bdf8' }}>"Edit & Preview"</strong> pada masing-masing dokumen untuk menyesuaikan Judul (Cover & Kop) serta Tabel Index Revisi.
+                </p>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.35rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => setPreviewTab('cover')}
-                  className={`btn btn-sm ${previewTab === 'cover' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ fontSize: '0.75rem' }}
+                  onClick={handleApplyToAllWordFiles}
+                  className="btn btn-secondary btn-sm"
+                  style={{
+                    fontSize: '0.78rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.4rem',
+                    fontWeight: 700,
+                  }}
+                  title="Salin parameter divisi, kategori, dan tabel revisi aktif ke semua berkas Word"
                 >
-                  Halaman 1 (Cover)
+                  <Sparkles size={14} color="var(--primary)" />
+                  <span>Seragamkan ke Semua File</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setPreviewTab('header')}
-                  className={`btn btn-sm ${previewTab === 'header' ? 'btn-primary' : 'btn-secondary'}`}
-                  style={{ fontSize: '0.75rem' }}
-                >
-                  Halaman 2 (Kop & Index Revisi)
-                </button>
-                {activeWordFile && (
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadDocxPreview(activeWordFile)}
-                    disabled={isGeneratingDocx}
-                    className="btn btn-secondary btn-sm"
-                    style={{ fontSize: '0.75rem' }}
-                    title="Unduh file Word hasil kompilasi Cover & Kop"
-                  >
-                    <Download size={13} />
-                    <span>Unduh .docx</span>
-                  </button>
-                )}
               </div>
             </div>
 
-            {/* WHITE A4 DOCUMENT PAPER PREVIEW (as seen in image1.png) */}
+            {/* Structured Table of Word Files with Edit & Preview Actions */}
             <div
               style={{
-                background: '#ffffff',
-                color: '#0f172a',
-                borderRadius: '8px',
-                padding: '2.5rem',
-                minHeight: '600px',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                fontFamily: 'serif',
-                position: 'relative',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                border: '1px solid var(--border-subtle)',
+                borderRadius: 'var(--radius-md)',
+                background: 'var(--bg-secondary)',
               }}
             >
-              {/* PAGE 1: COVER VIEW */}
-              {previewTab === 'cover' && (
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '520px' }}>
-                  <div style={{ textAlign: 'center', paddingTop: '2rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                      <img
-                        src="/+BG.png"
-                        alt="Logo NBE"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/logo.png';
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <th style={{ padding: '0.65rem 0.75rem', width: '45px' }}>#</th>
+                    <th style={{ padding: '0.65rem 0.75rem' }}>Nama Berkas Word</th>
+                    <th style={{ padding: '0.65rem 0.75rem' }}>Kode Resmi NBE</th>
+                    <th style={{ padding: '0.65rem 0.75rem' }}>Judul Prosedur (Cover & Kop)</th>
+                    <th style={{ padding: '0.65rem 0.75rem', width: '125px' }}>Status Edit</th>
+                    <th style={{ padding: '0.65rem 0.75rem', textAlign: 'center', width: '180px' }}>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {wordFiles.map((wf, idx) => {
+                    const isSelected = selectedWordIndex === idx;
+                    const c = fileCustomizations[wf.id] || activeCustomization;
+                    return (
+                      <tr
+                        key={wf.id}
+                        onClick={() => setSelectedWordIndex(idx)}
+                        style={{
+                          borderBottom: '1px solid var(--border-subtle)',
+                          background: isSelected ? 'rgba(2, 132, 199, 0.12)' : 'transparent',
+                          cursor: 'pointer',
+                          transition: 'background 0.15s ease',
                         }}
-                        style={{ height: '52px', objectFit: 'contain' }}
+                      >
+                        <td style={{ padding: '0.6rem 0.75rem', color: isSelected ? '#38bdf8' : 'var(--text-muted)', fontWeight: 700 }}>
+                          {idx + 1}
+                        </td>
+                        <td style={{ padding: '0.6rem 0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                            <File size={15} color="#38bdf8" />
+                            <span style={{ fontWeight: 600, color: isSelected ? '#38bdf8' : 'var(--text-main)' }}>
+                              {wf.name}
+                            </span>
+                            {wf.isAutoConverted && (
+                              <span
+                                style={{
+                                  fontSize: '0.65rem',
+                                  fontWeight: 700,
+                                  background: 'rgba(16, 185, 129, 0.2)',
+                                  color: '#34d399',
+                                  padding: '0.1rem 0.4rem',
+                                  borderRadius: '6px',
+                                }}
+                              >
+                                Auto-Word
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: '1.4rem' }}>
+                            {formatBytes(wf.size)}
+                            {wf.pairedWith ? ` • Terkait dengan ${wf.pairedWith}` : ''}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.6rem 0.75rem' }}>
+                          <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--primary)', fontWeight: 700 }}>
+                            {c.code}
+                          </span>
+                        </td>
+                        <td
+                          style={{
+                            padding: '0.6rem 0.75rem',
+                            maxWidth: '220px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>
+                            {c.title}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.6rem 0.75rem' }}>
+                          {isSelected ? (
+                            <span
+                              style={{
+                                background: 'rgba(2, 132, 199, 0.25)',
+                                border: '1px solid #0284c7',
+                                color: '#38bdf8',
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '12px',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                              }}
+                            >
+                              ● Sedang Diedit
+                            </span>
+                          ) : (
+                            <span
+                              style={{
+                                background: 'rgba(255,255,255,0.05)',
+                                color: 'var(--text-muted)',
+                                padding: '0.2rem 0.55rem',
+                                borderRadius: '12px',
+                                fontSize: '0.72rem',
+                              }}
+                            >
+                              Siap
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center' }}>
+                          <div style={{ display: 'inline-flex', gap: '0.4rem' }}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedWordIndex(idx);
+                              }}
+                              className={`btn btn-xs ${isSelected ? 'btn-primary' : 'btn-secondary'}`}
+                              style={{
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
+                              }}
+                            >
+                              <Edit3 size={12} />
+                              <span>{isSelected ? 'Aktif' : 'Edit & Preview'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadDocxPreview(wf);
+                              }}
+                              disabled={isGeneratingDocx}
+                              className="btn btn-secondary btn-xs"
+                              style={{ fontSize: '0.72rem' }}
+                              title="Unduh file Word hasil standarisasi berkas ini"
+                            >
+                              <Download size={12} />
+                              <span>.docx</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* SPLIT SECTION: FORM EDITOR (LEFT) AND LIVE PREVIEW (RIGHT) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isExpandedPreview ? '1fr' : '1.1fr 1fr',
+              gap: '1.5rem',
+            }}
+          >
+            {/* LEFT COLUMN: EDIT FORM + REVISION TABLE + CLASSIFICATION */}
+            {!isExpandedPreview && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                {/* 1. Detail & Data Dokumen (image2.png layout) */}
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <FileText size={18} color="var(--primary)" />
+                      <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Detail & Data Dokumen</h3>
+                    </div>
+                    {activeWordFile && (
+                      <span
+                        style={{
+                          fontSize: '0.75rem',
+                          color: '#38bdf8',
+                          background: 'rgba(2, 132, 199, 0.15)',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '6px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        File: {activeWordFile.name}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>
+                        JUDUL DOKUMEN / NAMA PROSEDUR *
+                      </label>
+                      <input
+                        type="text"
+                        value={activeCustomization.title}
+                        onChange={(e) => handleTitleChange(e.target.value)}
+                        placeholder="Contoh: INTERNAL AUDIT PROCEDURES"
+                        className="form-input"
+                        style={{ fontWeight: 700 }}
                       />
-                      <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#0284c7', lineHeight: 1.1, fontFamily: 'sans-serif' }}>
-                          Nirwana Bhumi Energy
-                        </div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', fontFamily: 'sans-serif' }}>
-                          PT Nirwana Bhumi Energi
-                        </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                        Judul ini otomatis ditampilkan di halaman Cover, Kop Header dokumen Word, dan deskripsi revisi.
                       </div>
                     </div>
-                  </div>
 
-                  {/* Centered Document Title */}
-                  <div style={{ textAlign: 'center', margin: 'auto 0' }}>
-                    <h1
-                      style={{
-                        fontSize: '1.45rem',
-                        fontWeight: 900,
-                        color: '#0f172a',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.04em',
-                        lineHeight: 1.4,
-                        maxWidth: '90%',
-                        margin: '0 auto',
-                        fontFamily: 'sans-serif',
-                      }}
-                    >
-                      {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
-                    </h1>
-                  </div>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>TANGGAL PENERBITAN</label>
+                      <input
+                        type="date"
+                        value={activeCustomization.issueDate}
+                        onChange={(e) => {
+                          const newD = e.target.value;
+                          handleUpdateActiveCustomization({ issueDate: newD });
+                          if (newD) {
+                            const d = new Date(newD);
+                            if (!isNaN(d.getTime())) {
+                              setMonthNumber(d.getMonth() + 1);
+                              setYear(d.getFullYear());
+                            }
+                          }
+                        }}
+                        className="form-input"
+                      />
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Bulan: {getRomanMonth(monthNumber)} | Tahun: {year}
+                      </div>
+                    </div>
 
-                  {/* Bottom Approval Box */}
-                  <div style={{ alignSelf: 'flex-end', width: '280px', fontSize: '0.82rem', fontFamily: 'sans-serif', color: '#1e293b' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.35rem', marginBottom: '0.3rem' }}>
-                      <span style={{ fontWeight: 700 }}>Approved by</span>
-                      <span>: {activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'}</span>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>DIBUAT OLEH (CREATED BY) *</label>
+                      <input
+                        type="text"
+                        value={activeCustomization.preparedBy}
+                        onChange={(e) => handleUpdateActiveCustomization({ preparedBy: e.target.value })}
+                        placeholder="Contoh: Mazmur L"
+                        className="form-input"
+                      />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.35rem', marginBottom: '0.3rem' }}>
-                      <span style={{ fontWeight: 700 }}>Verified by</span>
-                      <span>: {activeCustomization.verifiedBy || 'Auditor Internal Utama'}</span>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>DIVERIFIKASI OLEH (VERIFIED BY)</label>
+                      <input
+                        type="text"
+                        value={activeCustomization.verifiedBy}
+                        onChange={(e) => handleUpdateActiveCustomization({ verifiedBy: e.target.value })}
+                        placeholder="Auditor Internal Utama"
+                        className="form-input"
+                      />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', gap: '0.35rem' }}>
-                      <span style={{ fontWeight: 700 }}>Prepared by</span>
-                      <span>: {activeCustomization.preparedBy || 'Mazmur L'}</span>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>DISETUJUI OLEH (APPROVED BY)</label>
+                      <input
+                        type="text"
+                        value={activeCustomization.approvedBy}
+                        onChange={(e) => handleUpdateActiveCustomization({ approvedBy: e.target.value })}
+                        placeholder="Direktur Keuangan (CFO)"
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>STATUS DOKUMEN</label>
+                      <select
+                        value={activeCustomization.status}
+                        onChange={(e) => handleUpdateActiveCustomization({ status: e.target.value as DocumentStatus })}
+                        className="form-select"
+                      >
+                        <option value="Published">Published (Diterbitkan & Berlaku)</option>
+                        <option value="Approved">Approved (Disetujui)</option>
+                        <option value="In Review">In Review</option>
+                        <option value="Draft">Draft</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>NOMOR REVISI</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={activeCustomization.revision}
+                        onChange={(e) => handleUpdateActiveCustomization({ revision: parseInt(e.target.value) || 0 })}
+                        className="form-input"
+                      />
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+                        Revisi 0 adalah edisi awal / perdana (Initial Issue)
+                      </div>
+                    </div>
+
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>DESKRIPSI / RUANG LINGKUP DOKUMEN</label>
+                      <textarea
+                        value={activeCustomization.description}
+                        onChange={(e) => handleUpdateActiveCustomization({ description: e.target.value })}
+                        placeholder="Keterangan singkat maksud dan tujuan dokumen..."
+                        className="form-input"
+                        rows={2}
+                      />
                     </div>
                   </div>
                 </div>
-              )}
 
-              {/* PAGE 2: KOP HEADER & REVISION INDEX TABLE */}
-              {previewTab === 'header' && (
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: '520px', fontFamily: 'sans-serif' }}>
-                  <div>
-                    {/* KOP HEADER BOX */}
-                    <div
-                      style={{
-                        border: '1.5px solid #000000',
-                        display: 'grid',
-                        gridTemplateColumns: '140px 1fr',
-                        marginBottom: '1.75rem',
-                      }}
+                {/* 2. TABEL INDEX REVISI CARD (Matching prom surat.docx) */}
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '0.85rem',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <FileSpreadsheet size={18} color="var(--primary)" />
+                      <div>
+                        <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0 }}>Tabel Index Revisi Dokumen</h4>
+                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: 0 }}>
+                          Otomatis disinkronkan ke Kop Halaman 2 dan berkas Word yang dihasilkan.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddRevisionRow}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
                     >
-                      {/* Left: Logo */}
+                      <Plus size={13} />
+                      <span>Tambah Baris Revisi</span>
+                    </button>
+                  </div>
+
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+                      <thead>
+                        <tr style={{ background: 'rgba(0,0,0,0.3)', borderBottom: '1px solid var(--border-subtle)', textAlign: 'left' }}>
+                          <th style={{ padding: '0.5rem 0.6rem', width: '55px', textAlign: 'center' }}>Revisi</th>
+                          <th style={{ padding: '0.5rem 0.6rem', width: '120px' }}>Tanggal</th>
+                          <th style={{ padding: '0.5rem 0.6rem' }}>Deskripsi Perubahan</th>
+                          <th style={{ padding: '0.5rem 0.6rem', width: '130px' }}>Direvisi Oleh</th>
+                          <th style={{ padding: '0.5rem 0.6rem', width: '35px', textAlign: 'center' }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(activeCustomization.revisions || []).map((rev, rIdx) => (
+                          <tr key={rIdx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                            <td style={{ padding: '0.35rem 0.5rem' }}>
+                              <input
+                                type="number"
+                                min="0"
+                                value={rev.revision}
+                                onChange={(e) => handleUpdateRevisionRow(rIdx, { revision: parseInt(e.target.value) || 0 })}
+                                className="form-input"
+                                style={{ padding: '0.25rem 0.35rem', fontSize: '0.78rem', textAlign: 'center' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.5rem' }}>
+                              <input
+                                type="text"
+                                value={rev.date}
+                                onChange={(e) => handleUpdateRevisionRow(rIdx, { date: e.target.value })}
+                                placeholder="16 Okt 2026"
+                                className="form-input"
+                                style={{ padding: '0.25rem 0.45rem', fontSize: '0.78rem' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.5rem' }}>
+                              <input
+                                type="text"
+                                value={rev.description}
+                                onChange={(e) => handleUpdateRevisionRow(rIdx, { description: e.target.value })}
+                                placeholder="Initial Edition – Judul Dokumen"
+                                className="form-input"
+                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.78rem' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.5rem' }}>
+                              <input
+                                type="text"
+                                value={rev.revisedBy}
+                                onChange={(e) => handleUpdateRevisionRow(rIdx, { revisedBy: e.target.value })}
+                                placeholder="Nama Staf"
+                                className="form-input"
+                                style={{ padding: '0.25rem 0.45rem', fontSize: '0.78rem' }}
+                              />
+                            </td>
+                            <td style={{ padding: '0.35rem 0.4rem', textAlign: 'center' }}>
+                              {rIdx > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRevisionRow(rIdx)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: '#f87171', padding: '0.2rem' }}
+                                  title="Hapus baris revisi ini"
+                                >
+                                  <Trash2 size={13} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* 3. Klasifikasi Kode Surat NBE (Document Type, ZZ, AA, Division, Approver) */}
+                <div className="glass-card" style={{ padding: '1.5rem' }}>
+                  <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.85rem' }}>
+                    Penomoran Kode Dokumen & Klasifikasi NBE
+                  </h4>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.85rem' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Pilih Kategori Surat</label>
+                      <select
+                        value={activeCustomization.typeCode}
+                        onChange={(e) => handleClassificationChange('typeCode', e.target.value)}
+                        className="form-select"
+                      >
+                        {docTypes.map((dt) => (
+                          <option key={dt.code} value={dt.code}>
+                            {dt.code} - {dt.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem', color: '#22d3ee' }}>
+                        Sub-Kategori Surat (Kode ZZ)
+                      </label>
+                      <select
+                        value={activeCustomization.subCategoryCode}
+                        onChange={(e) => handleClassificationChange('subCategoryCode', e.target.value)}
+                        className="form-select"
+                      >
+                        {subCats.map((sc) => (
+                          <option key={sc.code} value={sc.code}>
+                            {sc.code} - {sc.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem', color: '#c084fc' }}>
+                        Sub-sub Kategori Surat (Kode AA)
+                      </label>
+                      <select
+                        value={activeCustomization.subSubCategoryCode}
+                        onChange={(e) => handleClassificationChange('subSubCategoryCode', e.target.value)}
+                        className="form-select"
+                      >
+                        {subSubCats.map((ssc) => (
+                          <option key={ssc.code} value={ssc.code}>
+                            {ssc.code} - {ssc.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Penerbit Surat (Division)</label>
+                      <select
+                        value={activeCustomization.divisionCode}
+                        onChange={(e) => handleClassificationChange('divisionCode', e.target.value)}
+                        className="form-select"
+                      >
+                        {divs.map((d) => (
+                          <option key={d.code} value={d.code}>
+                            {d.code} - {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Orang Yang Menyetujui (Approver)</label>
+                      <select
+                        value={activeCustomization.approverCode}
+                        onChange={(e) => handleClassificationChange('approverCode', e.target.value)}
+                        className="form-select"
+                      >
+                        {apprvs.map((a) => (
+                          <option key={a.code} value={a.code}>
+                            {a.code} - {a.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem' }}>Kode Resmi Dihasilkan</label>
+                      <div
+                        className="mono"
+                        style={{
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: 'var(--radius-sm)',
+                          background: 'rgba(0,0,0,0.3)',
+                          color: 'var(--primary)',
+                          fontWeight: 800,
+                          fontSize: '0.85rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                        }}
+                      >
+                        <span>{activeCustomization.code}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            navigator.clipboard.writeText(activeCustomization.code);
+                            alert(`Kode ${activeCustomization.code} berhasil disalin!`);
+                          }}
+                          className="btn btn-ghost btn-xs"
+                          style={{ padding: '0.15rem 0.4rem', color: 'var(--primary)' }}
+                          title="Salin kode dokumen"
+                        >
+                          <Copy size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* RIGHT COLUMN: REALTIME LIVE PREVIEW (Cover, Kop Header & Revision Table as in image1.png) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0.4rem 0',
+                  flexWrap: 'wrap',
+                  gap: '0.5rem',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                  <Eye size={17} color="var(--primary)" />
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem' }}>Live Realtime Document Preview</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('both')}
+                    className={`btn btn-sm ${previewTab === 'both' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.75rem' }}
+                    title="Tampilkan Halaman Cover dan Kop & Index Revisi bersandingan"
+                  >
+                    Dua Halaman (Side-by-Side)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('cover')}
+                    className={`btn btn-sm ${previewTab === 'cover' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    Halaman 1 (Cover)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewTab('header')}
+                    className={`btn btn-sm ${previewTab === 'header' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{ fontSize: '0.75rem' }}
+                  >
+                    Halaman 2 (Kop & Index Revisi)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsExpandedPreview(!isExpandedPreview)}
+                    className="btn btn-secondary btn-sm"
+                    style={{ fontSize: '0.75rem' }}
+                    title={isExpandedPreview ? 'Kembalikan ke tampilan form' : 'Perluas preview ke layar penuh'}
+                  >
+                    {isExpandedPreview ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+                  </button>
+                  {activeWordFile && (
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadDocxPreview(activeWordFile)}
+                      disabled={isGeneratingDocx}
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                      title="Unduh file Word hasil kompilasi Cover & Kop"
+                    >
+                      <Download size={13} />
+                      <span>Unduh .docx</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* DOCUMENT PAGES CONTAINER */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    previewTab === 'both'
+                      ? 'repeat(auto-fit, minmax(290px, 1fr))'
+                      : '1fr',
+                  gap: '1.25rem',
+                }}
+              >
+                {/* PAGE 1: COVER VIEW (Shows if 'both' or 'cover') */}
+                {(previewTab === 'both' || previewTab === 'cover') && (
+                  <div
+                    style={{
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      borderRadius: '8px',
+                      padding: '2.25rem 1.75rem',
+                      minHeight: '560px',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      fontFamily: 'serif',
+                      position: 'relative',
+                    }}
+                  >
+                    {/* Header: Logo */}
+                    <div style={{ textAlign: 'center', paddingTop: '1.5rem' }}>
                       <div
                         style={{
-                          borderRight: '1.5px solid #000000',
-                          padding: '0.75rem',
                           display: 'flex',
-                          flexDirection: 'column',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          textAlign: 'center',
+                          gap: '0.65rem',
+                          marginBottom: '0.5rem',
                         }}
                       >
                         <img
                           src="/+BG.png"
-                          alt="NBE"
+                          alt="Logo NBE"
                           onError={(e) => {
                             (e.currentTarget as HTMLImageElement).src = '/logo.png';
                           }}
-                          style={{ maxHeight: '42px', objectFit: 'contain' }}
+                          style={{ height: '48px', objectFit: 'contain' }}
                         />
-                        <span style={{ fontSize: '0.7rem', fontWeight: 800, marginTop: '0.2rem', color: '#0284c7' }}>
-                          NBE
-                        </span>
-                      </div>
-
-                      {/* Right: Table Info */}
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <div
-                          style={{
-                            borderBottom: '1px solid #000',
-                            padding: '0.35rem 0.5rem',
-                            textAlign: 'center',
-                            fontSize: '0.8rem',
-                            fontWeight: 800,
-                            letterSpacing: '0.02em',
-                          }}
-                        >
-                          SISTEM PENGENDALI INTERNAL
-                        </div>
-                        <div
-                          style={{
-                            borderBottom: '1px solid #000',
-                            padding: '0.35rem 0.5rem',
-                            textAlign: 'center',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                          }}
-                        >
-                          Standar Operasional Prosedur (SOP)
-                        </div>
-                        <div
-                          style={{
-                            borderBottom: '1px solid #000',
-                            padding: '0.45rem 0.5rem',
-                            textAlign: 'center',
-                            fontSize: '0.88rem',
-                            fontWeight: 900,
-                            color: '#0f172a',
-                            textTransform: 'uppercase',
-                          }}
-                        >
-                          {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
-                        </div>
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: '70px 1fr 120px',
-                            padding: '0.3rem 0.5rem',
-                            fontSize: '0.68rem',
-                            alignItems: 'center',
-                          }}
-                        >
-                          <span>Revisi: {activeCustomization.revision || 0}</span>
-                          <span className="mono" style={{ textAlign: 'center', fontWeight: 800 }}>
-                            {activeCustomization.code}
-                          </span>
-                          <span style={{ textAlign: 'right' }}>
-                            Tanggal: {formatIssueDate(activeCustomization.issueDate)}
-                          </span>
+                        <div style={{ textAlign: 'left' }}>
+                          <div
+                            style={{
+                              fontSize: '1.25rem',
+                              fontWeight: 900,
+                              color: '#0284c7',
+                              lineHeight: 1.1,
+                              fontFamily: 'sans-serif',
+                            }}
+                          >
+                            Nirwana Bhumi Energy
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: '#334155',
+                              fontFamily: 'sans-serif',
+                            }}
+                          >
+                            PT Nirwana Bhumi Energi
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* REVISION INDEX SECTION */}
-                    <div style={{ textAlign: 'center', marginBottom: '0.6rem' }}>
-                      <h4 style={{ fontSize: '0.88rem', fontWeight: 800, textTransform: 'none' }}>
-                        Revision Index
-                      </h4>
+                    {/* Centered Document Title */}
+                    <div style={{ textAlign: 'center', margin: 'auto 0', padding: '1rem 0' }}>
+                      <h1
+                        style={{
+                          fontSize: previewTab === 'both' ? '1.2rem' : '1.45rem',
+                          fontWeight: 900,
+                          color: '#0f172a',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.04em',
+                          lineHeight: 1.4,
+                          maxWidth: '92%',
+                          margin: '0 auto',
+                          fontFamily: 'sans-serif',
+                        }}
+                      >
+                        {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
+                      </h1>
                     </div>
 
-                    {/* REVISION TABLE (4 Columns as in image1.png) */}
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.72rem', border: '1.5px solid #000' }}>
-                      <thead>
-                        <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 800 }}>
-                          <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.45rem', textAlign: 'center', width: '55px' }}>
-                            Revisi
-                          </th>
-                          <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.45rem', textAlign: 'center', width: '110px' }}>
-                            Tanggal
-                          </th>
-                          <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.6rem', textAlign: 'center' }}>
-                            Deskripsi Perubahan
-                          </th>
-                          <th style={{ padding: '0.35rem 0.45rem', textAlign: 'center', width: '90px' }}>
-                            Direvisi Oleh
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr style={{ borderBottom: '1px solid #000' }}>
-                          <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.35rem', textAlign: 'center' }}>
-                            {activeCustomization.revision || 0}
-                          </td>
-                          <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.35rem', textAlign: 'center' }}>
-                            {formatIssueDate(activeCustomization.issueDate)}
-                          </td>
-                          <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.5rem' }}>
-                            {activeCustomization.revisions[0]?.description ||
-                              `Edisi Awal – Penerbitan Dokumen Standar CSMS PT NBE (${activeCustomization.code})`}
-                          </td>
-                          <td style={{ padding: '0.45rem 0.35rem', textAlign: 'center' }}>
-                            {activeCustomization.preparedBy || 'Mazmur L'}
-                          </td>
-                        </tr>
-                        {/* Empty placeholder rows */}
-                        <tr style={{ borderBottom: '1px solid #000' }}>
-                          <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
-                          <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
-                          <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
-                          <td style={{ padding: '0.45rem' }}>&nbsp;</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                    {/* Bottom Approval Box */}
+                    <div
+                      style={{
+                        alignSelf: 'flex-end',
+                        width: '260px',
+                        fontSize: '0.78rem',
+                        fontFamily: 'sans-serif',
+                        color: '#1e293b',
+                      }}
+                    >
+                      <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: 700 }}>Approved by</span>
+                        <span>: {activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                        <span style={{ fontWeight: 700 }}>Verified by</span>
+                        <span>: {activeCustomization.verifiedBy || 'Auditor Internal Utama'}</span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '95px 1fr', gap: '0.25rem' }}>
+                        <span style={{ fontWeight: 700 }}>Prepared by</span>
+                        <span>: {activeCustomization.preparedBy || 'Mazmur L'}</span>
+                      </div>
+                    </div>
                   </div>
+                )}
 
-                  {/* Footer Line */}
+                {/* PAGE 2: KOP HEADER & REVISION INDEX TABLE (Shows if 'both' or 'header') */}
+                {(previewTab === 'both' || previewTab === 'header') && (
                   <div
                     style={{
-                      borderTop: '1px solid #94a3b8',
-                      paddingTop: '0.4rem',
+                      background: '#ffffff',
+                      color: '#0f172a',
+                      borderRadius: '8px',
+                      padding: '2rem 1.65rem',
+                      minHeight: '560px',
+                      boxShadow: '0 10px 25px rgba(0,0,0,0.35)',
                       display: 'flex',
-                      justifyContent: 'flex-end',
-                      fontSize: '0.72rem',
-                      color: '#64748b',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between',
+                      fontFamily: 'sans-serif',
+                      position: 'relative',
                     }}
                   >
-                    <span>Page 2 of 6</span>
-                  </div>
-                </div>
-              )}
-            </div>
+                    <div>
+                      {/* KOP HEADER BOX (Matching image1.png) */}
+                      <div
+                        style={{
+                          border: '1.5px solid #000000',
+                          display: 'grid',
+                          gridTemplateColumns: '110px 1fr',
+                          marginBottom: '1.5rem',
+                        }}
+                      >
+                        {/* Left: Logo */}
+                        <div
+                          style={{
+                            borderRight: '1.5px solid #000000',
+                            padding: '0.5rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            textAlign: 'center',
+                          }}
+                        >
+                          <img
+                            src="/+BG.png"
+                            alt="NBE"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                            }}
+                            style={{ maxHeight: '38px', objectFit: 'contain' }}
+                          />
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, marginTop: '0.15rem', color: '#0284c7' }}>
+                            NBE
+                          </span>
+                        </div>
 
-            {/* STAGE 3 NAVIGATION BUTTONS */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-              <button onClick={() => setCurrentStage(2)} className="btn btn-secondary">
-                <ChevronLeft size={16} />
-                <span>Kembali ke Analisis</span>
-              </button>
-              <button
-                onClick={() => setCurrentStage(4)}
-                className="btn btn-primary"
-                style={{ padding: '0.75rem 2rem', fontWeight: 800 }}
+                        {/* Right: Table Info */}
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <div
+                            style={{
+                              borderBottom: '1px solid #000',
+                              padding: '0.3rem 0.45rem',
+                              textAlign: 'center',
+                              fontSize: '0.78rem',
+                              fontWeight: 800,
+                              letterSpacing: '0.02em',
+                            }}
+                          >
+                            SISTEM PENGENDALI INTERNAL
+                          </div>
+                          <div
+                            style={{
+                              borderBottom: '1px solid #000',
+                              padding: '0.3rem 0.45rem',
+                              textAlign: 'center',
+                              fontSize: '0.74rem',
+                              fontWeight: 700,
+                            }}
+                          >
+                            Standar Operasional Prosedur (SOP)
+                          </div>
+                          <div
+                            style={{
+                              borderBottom: '1px solid #000',
+                              padding: '0.35rem 0.45rem',
+                              textAlign: 'center',
+                              fontSize: '0.84rem',
+                              fontWeight: 900,
+                              color: '#0f172a',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
+                          </div>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: '65px 1fr 115px',
+                              padding: '0.25rem 0.45rem',
+                              fontSize: '0.66rem',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <span>Revisi: {activeCustomization.revision || 0}</span>
+                            <span className="mono" style={{ textAlign: 'center', fontWeight: 800 }}>
+                              {activeCustomization.code}
+                            </span>
+                            <span style={{ textAlign: 'right' }}>
+                              Tanggal: {formatIssueDate(activeCustomization.issueDate)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* REVISION INDEX SECTION */}
+                      <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+                        <h4 style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'none', margin: 0 }}>
+                          Revision Index
+                        </h4>
+                      </div>
+
+                      {/* REVISION TABLE (4 Columns matching image1.png) */}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem', border: '1.5px solid #000' }}>
+                        <thead>
+                          <tr style={{ background: '#f1f5f9', borderBottom: '1px solid #000', fontWeight: 800 }}>
+                            <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.4rem', textAlign: 'center', width: '50px' }}>
+                              Revisi
+                            </th>
+                            <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.4rem', textAlign: 'center', width: '95px' }}>
+                              Tanggal
+                            </th>
+                            <th style={{ borderRight: '1px solid #000', padding: '0.35rem 0.5rem', textAlign: 'center' }}>
+                              Deskripsi Perubahan
+                            </th>
+                            <th style={{ padding: '0.35rem 0.4rem', textAlign: 'center', width: '85px' }}>
+                              Direvisi Oleh
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activeCustomization.revisions && activeCustomization.revisions.length > 0 ? (
+                            activeCustomization.revisions.map((rev, rIdx) => (
+                              <tr key={rIdx} style={{ borderBottom: '1px solid #000' }}>
+                                <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center', fontWeight: 700 }}>
+                                  {rev.revision}
+                                </td>
+                                <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center' }}>
+                                  {rev.date}
+                                </td>
+                                <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.5rem' }}>
+                                  {rev.description}
+                                </td>
+                                <td style={{ padding: '0.4rem 0.35rem', textAlign: 'center' }}>
+                                  {rev.revisedBy}
+                                </td>
+                              </tr>
+                            ))
+                          ) : (
+                            <tr style={{ borderBottom: '1px solid #000' }}>
+                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center' }}>0</td>
+                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.35rem', textAlign: 'center' }}>
+                                {formatIssueDate(activeCustomization.issueDate)}
+                              </td>
+                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem 0.5rem' }}>
+                                Initial Edition – {activeCustomization.title} ({activeCustomization.code})
+                              </td>
+                              <td style={{ padding: '0.4rem 0.35rem', textAlign: 'center' }}>
+                                {activeCustomization.preparedBy || 'Mazmur L'}
+                              </td>
+                            </tr>
+                          )}
+                          {/* Clean placeholder rows matching image1.png */}
+                          {Array.from({ length: Math.max(0, 3 - (activeCustomization.revisions?.length || 1)) }).map((_, emptyIdx) => (
+                            <tr key={`empty-${emptyIdx}`} style={{ borderBottom: '1px solid #000' }}>
+                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem' }}>&nbsp;</td>
+                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem' }}>&nbsp;</td>
+                              <td style={{ borderRight: '1px solid #000', padding: '0.4rem' }}>&nbsp;</td>
+                              <td style={{ padding: '0.4rem' }}>&nbsp;</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Footer Line */}
+                    <div
+                      style={{
+                        borderTop: '1px solid #94a3b8',
+                        paddingTop: '0.35rem',
+                        marginTop: '1rem',
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        fontSize: '0.7rem',
+                        color: '#64748b',
+                      }}
+                    >
+                      <span>Page 2 of 6</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* STAGE 3 NAVIGATION BUTTONS */}
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginTop: '0.75rem',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem',
+                }}
               >
-                <span>Lanjut ke Tahap 4: Upload ke Google Drive</span>
-                <ArrowRight size={16} />
-              </button>
+                <button onClick={() => setCurrentStage(2)} className="btn btn-secondary">
+                  <ChevronLeft size={16} />
+                  <span>Kembali ke Analisis</span>
+                </button>
+                <button
+                  onClick={() => setCurrentStage(4)}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '0.75rem 2rem',
+                    fontWeight: 800,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    boxShadow: '0 4px 14px rgba(0, 212, 178, 0.3)',
+                  }}
+                >
+                  <span>Semua File Selesai Diedit • Lanjut Upload ke Google Drive (Tahap 4)</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
