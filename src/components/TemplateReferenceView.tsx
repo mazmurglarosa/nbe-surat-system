@@ -7,7 +7,6 @@ import {
   RotateCcw,
   Save,
   CheckCircle2,
-  Sparkles,
   BookOpen,
   Eye,
   Sliders,

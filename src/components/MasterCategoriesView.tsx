@@ -19,7 +19,6 @@ import {
   Upload,
   FileCode,
   Sliders,
-  Sparkles,
   BookOpen,
   Layers,
   Check,
@@ -1163,7 +1162,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 flexShrink: 0,
               }}
             >
-              <Sparkles size={22} />
+              <BookOpen size={22} />
             </div>
             <div style={{ flex: 1, minWidth: '260px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>

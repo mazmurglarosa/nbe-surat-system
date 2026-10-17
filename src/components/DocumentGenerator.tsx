@@ -10,7 +10,6 @@ import {
   ShieldCheck,
   HardDrive,
   ExternalLink,
-  Sparkles,
   FileText,
   X,
   CheckCircle2,
@@ -867,7 +866,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             gap: '0.65rem',
           }}
         >
-          <Sparkles color="var(--primary)" size={26} />
+          <FileCheck color="var(--primary)" size={26} />
           Generator & Penomoran Dokumen Otomatis
         </h1>
         <p style={{ color: 'var(--text-secondary)', marginTop: '0.25rem', fontSize: '0.95rem' }}>
@@ -1131,7 +1130,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 {fixNotification.type === 'error' && fixNotification.isOldScriptError && (
                   <div style={{ marginTop: '0.4rem', color: '#fed7aa', fontSize: '0.8rem', background: 'rgba(245, 158, 11, 0.1)', padding: '0.5rem 0.75rem', borderRadius: '4px', border: '1px solid rgba(245, 158, 11, 0.25)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
-                      <Sparkles size={14} color="#f59e0b" />
+                      <CheckCircle2 size={14} color="#f59e0b" />
                       <strong>Solusi:</strong>
                     </div>
                     Klik tombol <em>"Salin Script Bot Terbaru"</em> di bawah, buka proyek Apps Script Anda, timpa/paste kodenya, lalu klik <strong>Deploy &gt; Kelola deployment &gt; Edit &gt; Versi Baru &gt; Terapkan</strong>.

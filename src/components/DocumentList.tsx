@@ -11,7 +11,7 @@ import {
   FileText,
   Layers,
   FileCheck,
-  Sparkles,
+  Plus,
   FileSpreadsheet,
   History,
 } from 'lucide-react';
@@ -207,7 +207,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             <span>Backup JSON</span>
           </button>
           <button onClick={onNavigateToGenerator} className="btn btn-primary btn-sm">
-            <Sparkles size={15} />
+            <Plus size={15} />
             <span>+ Buat Nomor Dokumen</span>
           </button>
         </div>

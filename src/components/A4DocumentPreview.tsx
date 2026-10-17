@@ -9,7 +9,6 @@ import {
   Minimize2,
   Eye,
   Layers,
-  Sparkles,
   Edit3,
   Save,
   X,
@@ -976,7 +975,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 color: '#94a3b8',
               }}
             >
-              <span>PT Nirwana Bhumi Energy — Corporate Document Management System</span>
+              <span>PT Nirwana Bhumi Energy | Corporate Document Management System</span>
               <span>Page 1 of 4</span>
             </div>
           </div>
@@ -1253,7 +1252,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 color: '#94a3b8',
               }}
             >
-              <span>{effectiveCode} — PT Nirwana Bhumi Energy</span>
+              <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
               <span>Page 2 of 4</span>
             </div>
           </div>
@@ -1647,7 +1646,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 color: '#94a3b8',
               }}
             >
-              <span>{effectiveCode} — PT Nirwana Bhumi Energy</span>
+              <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
               <span>Page 3 of 4</span>
             </div>
           </div>
@@ -2084,7 +2083,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 color: '#94a3b8',
               }}
             >
-              <span>{effectiveCode} — PT Nirwana Bhumi Energy</span>
+              <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
               <span>Page 4 of 4</span>
             </div>
           </div>

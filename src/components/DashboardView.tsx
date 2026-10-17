@@ -23,7 +23,6 @@ import {
   TrendingUp,
   ArrowUpRight,
   Activity,
-  Sparkles,
 } from 'lucide-react';
 import { DocumentRecord, CodeDefinition, DocumentStatus } from '../types';
 import { exportToCSV } from '../services/storage';

@@ -5,7 +5,6 @@ import {
   Upload,
   HardDrive,
   ExternalLink,
-  Sparkles,
   FileText,
   X,
   CheckCircle2,
@@ -353,8 +352,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         revision: revision,
         date: formatIssueDate(issueDate),
         description: parsedActiveFile?.hasCode
-          ? `Initial Edition – ${parsedActiveFile.title} (${parsedActiveFile.code})`
-          : `Initial Edition – Penetapan Surat Keputusan Direksi (${activeCode})`,
+          ? `Initial Edition: ${parsedActiveFile.title} (${parsedActiveFile.code})`
+          : `Initial Edition: Penetapan Surat Keputusan Direksi (${activeCode})`,
         revisedBy: preparedBy,
       },
     ],
@@ -643,7 +642,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             {
               revision: 0,
               date: formatIssueDate(issueDate),
-              description: `Initial Edition – ${cleanTitle} PT Nirwana Bhumi Energy (${codeForThis})`,
+              description: `Initial Edition: ${cleanTitle} PT Nirwana Bhumi Energy (${codeForThis})`,
               revisedBy: preparedBy,
             },
           ],
@@ -716,7 +715,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
       updatedRevs[0] = {
         ...updatedRevs[0],
-        description: `Initial Edition – ${newTitle} (${current.code})`,
+        description: `Initial Edition: ${newTitle} (${current.code})`,
       };
     }
     handleUpdateActiveCustomization({
@@ -763,7 +762,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
       updatedRevs[0] = {
         ...updatedRevs[0],
-        description: `Initial Edition – ${current.title} (${newCode})`,
+        description: `Initial Edition: ${current.title} (${newCode})`,
       };
     }
 
@@ -783,7 +782,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     const newRow: RevisionRecord = {
       revision: nextRev,
       date: formatIssueDate(current.issueDate),
-      description: `Revisi ${nextRev} – Pembaruan Prosedur ${current.title}`,
+      description: `Revisi ${nextRev}: Pembaruan Prosedur ${current.title}`,
       revisedBy: current.preparedBy || 'Mazmur L',
     };
     const nextRevs = [...revs, newRow];
@@ -841,7 +840,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             {
               revision: current.revision,
               date: formatIssueDate(current.issueDate),
-              description: `Initial Edition – Penerbitan Dokumen Standar (${code})`,
+              description: `Initial Edition: Penerbitan Dokumen Standar (${code})`,
               revisedBy: current.preparedBy,
             },
           ],
@@ -1826,10 +1825,14 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         border: '1px solid rgba(16, 185, 129, 0.4)',
                         color: '#34d399',
                         padding: '0.2rem 0.55rem',
-                        borderRadius: '12px',
+                        borderRadius: '6px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.35rem',
                       }}
                     >
-                      ✨ {autoConvertedCount} Berkas Dikonversi Otomatis dari PDF
+                      <CheckCircle2 size={12} />
+                      <span>{autoConvertedCount} Berkas Dikonversi Otomatis dari PDF</span>
                     </span>
                   )}
                 </div>
@@ -1848,16 +1851,13 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     fontSize: '0.78rem',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '0.4rem',
+                    gap: '0.45rem',
                     fontWeight: 700,
-                    background: 'linear-gradient(90deg, #6366f1 0%, #4f46e5 100%)',
-                    border: 'none',
-                    boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
                   }}
                   title="Jadikan seluruh file Word menjadi Google Docs yang dapat diedit oleh Bot melalui Google Docs MCP"
                 >
-                  <Sparkles size={14} />
-                  <span>{isConvertingToDocs ? 'Mengonversi ke Docs...' : '⚡ Konversi Seluruh Berkas ke Google Docs (MCP Bot)'}</span>
+                  <RefreshCw size={14} className={isConvertingToDocs ? 'spin' : ''} />
+                  <span>{isConvertingToDocs ? 'Mengonversi ke Docs...' : 'Konversi Seluruh Berkas ke Google Docs (MCP Bot)'}</span>
                 </button>
                 <button
                   type="button"
@@ -2271,7 +2271,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                                 type="text"
                                 value={rev.description}
                                 onChange={(e) => handleUpdateRevisionRow(rIdx, { description: e.target.value })}
-                                placeholder="Initial Edition – Judul Dokumen"
+                                placeholder="Initial Edition: Judul Dokumen"
                                 className="form-input"
                                 style={{ padding: '0.25rem 0.5rem', fontSize: '0.78rem' }}
                               />
@@ -2618,7 +2618,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   justifyContent: 'center',
                 }}
               >
-                <Sparkles size={22} color="#38bdf8" />
+                <Bot size={22} color="#38bdf8" />
               </div>
               <div>
                 <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
