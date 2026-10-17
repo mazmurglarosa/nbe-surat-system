@@ -1,0 +1,473 @@
+================================================================================
+PT NIRWANA BHUMI ENERGY (NBE)
+DOCUMENT CONTROL CENTER (DCC) & SYSTEM ENGINEERING
+================================================================================
+DOKUMEN     : PANDUAN LENGKAP FORMATTING & MASTER PROMPT SISTEM WEB SURAT NBE
+PLATFORM    : ANTIGRAVITY IDE (PROYEK "SURAT"), GOOGLE DOCS MCP & PYTHON-DOCX
+STATUS      : FINAL & TERINTEGRASI (VERSI 1.0)
+TANGGAL     : 18 OKTOBER 2026
+PENYUSUN    : MAZMUR GUSTI AGUNG LAROSA (DIRECTOR OF FINANCE & ENGINEERING / DCC LEAD)
+================================================================================
+
+DAFTAR ISI:
+1. RINGKASAN EKSEKUTIF & ARSITEKTUR SISTEM
+2. MASTER SYSTEM PROMPT UNTUK ANTIGRAVITY IDE (SIAP PAKAI / COPY-PASTE)
+3. PANDUAN FORMATTING & STANDAR BAKU DOKUMEN 4 HALAMAN (PERSIS CONTOH ACUAN)
+4. SPESIFIKASI & LOGIKA TOMBOL PILIHAN BAHASA (LANGUAGE SELECTOR)
+5. FORMAT ACUAN TEKS DOKUMEN (BAHASA INDONESIA, BRITISH ENGLISH, BILINGUAL)
+6. KODE REFERENSI BACKEND GENERATOR ENGINE (PYTHON-DOCX)
+
+
+================================================================================
+1. RINGKASAN EKSEKUTIF & ARSITEKTUR SISTEM
+================================================================================
+Sistem web pencatatan dan pengelolaan dokumen "Surat" pada Antigravity IDE
+bertujuan untuk mengotomatisasi end-to-end penanganan dokumen korporat PT NBE:
+- Menerima batch folder berisi file campuran (.docx dan .pdf).
+- Melakukan segregasi berkas dan auto-convert PDF ke DOCX jika terdapat perbedaan.
+- Menggunakan file acuan (.txt untuk isi logika dan .pdf untuk tampilan visual).
+- Mengintegrasikan editor Google Docs via MCP dan backend engine python-docx.
+- Menampilkan Real-Size Preview (skala A4 nyata) tepat di bawah tab penomoran.
+- Menyediakan tombol pemilih bahasa (Bahasa Indonesia, British English, Bilingual).
+- Menghasilkan kode unik 6-segmen dan menguncinya via tombol "Fix Kode".
+- Membuat struktur folder klasifikasi otomatis di Google Drive korporat 
+  (Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF).
+
+
+================================================================================
+2. MASTER SYSTEM PROMPT UNTUK ANTIGRAVITY IDE (SIAP PAKAI / COPY-PASTE)
+================================================================================
+Salin seluruh teks di bawah ini ke dalam instruksi prompt AI Agent pada proyek 
+web "Surat" di Antigravity IDE Anda:
+
+--------------------------------------------------------------------------------
+[MULAI PROMPT ANTIGRAVITY IDE]
+--------------------------------------------------------------------------------
+Anda adalah AI Agent Document Engineering & Web System Architect untuk proyek
+aplikasi web "Surat" PT Nirwana Bhumi Energy (NBE) di Antigravity IDE.
+
+Tugas Anda adalah memproses unggahan dokumen korporat, melakukan verifikasi dan
+standarisasi isi, menyediakan interface editor berbasis Google Docs MCP /
+python-docx, mengarahkan tata letak halaman sesuai standar IMS NBE, serta
+mengarsipkan dokumen ke Google Drive secara otomatis.
+
+JALANKAN SISTEM MELALUI 4 TAHAPAN KERJA BERIKUT SECARA DISIPLIN:
+
+--- TAHAP 1: INGESTI FOLDER, PEMISAHAN BERKAS, & AUTO-CONVERT PDF ---
+1. Sistem menyediakan UI untuk menerima input unggahan berupa satu folder yang
+   berisi kumpulan berkas (contoh: 10 berkas campuran Word dan PDF).
+2. Ketika pengguna menekan tombol "Next":
+   a. Sistem memindai seluruh berkas dan otomatis membuat 2 subfolder kerja:
+      "/word" dan "/pdf".
+   b. Jika sebuah dokumen memiliki versi Word dan PDF dengan isi yang identik,
+      pisahkan masing-masing berkas ke folder yang sesuai.
+   c. Jika ditemukan berkas PDF yang isinya berbeda atau belum memiliki pasangan
+      file Word, sistem secara otomatis mengeksekusi konversi PDF ke DOCX
+      (menggunakan PyMuPDF / pdf2docx / OCR parser), lalu memasukkan file Word
+      baru tersebut ke dalam folder "/word".
+   d. Prioritas proses selanjutnya 100% diarahkan pada berkas-berkas di folder
+      "/word", sementara berkas PDF diarsipkan sebagai referensi audit.
+
+--- TAHAP 2: STATISTICAL REPORTING & DASHBOARD ANALISIS ---
+1. Tampilkan kartu ringkasan analitik dokumen secara real-time pada dashboard:
+   - Jumlah Total Dokumen yang Diterima Sistem
+   - Jumlah Dokumen Asli Format PDF
+   - Jumlah Dokumen Asli Format WORD
+   - Jumlah Dokumen Word Baru Hasil Konversi (Tampilkan angka riil; jika tidak ada,
+     tulis "0")
+2. Sediakan tombol "Next" untuk mengarahkan pengguna ke tahap standarisasi template.
+
+--- TAHAP 3: ACUAN TEMPLATE DOKUMEN, PREVIEW REAL-SIZE, & ENGINE EDITOR ---
+1. Buat Tab Baru bernama "Acuan Template Dokumen" di bawah tab "Kelola Master
+   Kategori & Kode Surat". Tab ini memuat:
+   a. Kolom Unggah Berkas Acuan (.txt): Berfungsi sebagai dasar aturan teks,
+      diktum, dan hierarki logika utama dokumen.
+   b. Kolom Unggah Berkas Acuan (.pdf): Berfungsi sebagai dasar geometri visual,
+      posisi logo, margin, kop, dan estetika layout.
+2. Integrasi Engine Editor Dokumen (Google Docs MCP & Python Engine):
+   - Sistem mengonversi file Word menjadi dokumen terkontrol yang dapat diedit
+     secara programmatic via Google Docs MCP / python-docx.
+   - Tampilkan daftar berkas Word yang diterima lengkap dengan tombol "Edit" di
+     setiap baris dokumen.
+3. Komponen Real-Time Document Preview (Real Paper Size):
+   - LETAKKAN PREVIEW TEPAT DI BAWAH tab "Penomoran Kode Dokumen & Klasifikasi NBE"
+     (DILARANG menempatkannya di samping karena mengganggu ergonomi pandangan).
+   - Preview wajib menampilkan render nyata skala kertas A4 (Halaman 1 Cover,
+     Halaman 2 Revision Index, Halaman 3-4 Isi Surat).
+4. Form Kontrol & Parameterisasi Surat:
+   - Field Ubah Judul Dokumen (Otomatis menyinkronkan Judul pada Cover dan Judul
+     pada Kop Halaman 2 ke atas).
+   - Form Tabel Revision Index:
+     * Kolom Rev (dimulai dari 0 untuk edisi awal).
+     * Kolom Date (tanggal penetapan dokumen).
+     * Kolom Description (Otomatis: "Initial Edition – [Judul Dokumen]" untuk
+       revisi 0, atau deskripsi rincian perubahan untuk revisi lanjutan).
+     * Kolom Prepared By (Nama penyusun dokumen).
+     * PENTING: Bagian "Catatan Kendali Dokumen" DITIADAKAN agar Halaman 2 bersih.
+   - Dropdown Klasifikasi Kode Surat 6-Segmen:
+     * Dropdown 1: Pilih Kategori Surat (Document Type: KB, SOP, IK, FORM, CSMS, dll.)
+     * Dropdown 2: Pilih Sub-Kategori Surat (Kode ZZ, misal GP = General Procedure)
+     * Dropdown 3: Pilih Sub-sub Kategori Surat (Kode AA, misal AI = Audit Internal)
+     * Dropdown 4: Pilih Penerbit Surat (Division, misal GNR, CEO, ENG, OPR)
+     * Dropdown 5: Pilih Pejabat Penyetuju (Approver: CEO / Bima Satryo Hartanto)
+5. TOMBOL PILIHAN BAHASA DOKUMEN (LANGUAGE SELECTOR):
+   - Sediakan tombol pemilihan bahasa dokumen dengan 3 opsi:
+     [ Bahasa Indonesia ]  |  [ British English ]  |  [ Bilingual (ID - EN-GB) ]
+   - Ketika opsi dipilih, engine otomatis menyusun cover, kop, tabel revisi,
+     dan isi surat sesuai standar bahasa tersebut secara konsisten 4 halaman.
+6. Tombol "Simpan & Upload": Memfinalisasi pengeditan seluruh berkas Word.
+
+--- TAHAP 4: ROUTING FOLDER OTOMATIS & INTEGRASI GOOGLE DRIVE ---
+1. Sistem memverifikasi ketersediaan folder induk berdasarkan Kategori Surat
+   (misal: folder "CSMS"). Jika belum ada, sistem menampilkan peringatan panduan
+   bagi pengguna untuk mengonfirmasi atau membuat folder kategori tersebut.
+2. Di dalam folder Kategori, bot otomatis membuat folder baru sesuai nama kepanjangan
+   Sub-Kategori (Kode ZZ, contoh: "General Procedure"). Jika sudah ada, gunakan yang ada.
+3. Di dalam folder Sub-Kategori, bot membuat folder baru sesuai kepanjangan
+   Sub-sub Kategori (Kode AA, contoh: "Audit Internal").
+4. Di dalam folder Sub-sub Kategori, bot membuat folder khusus dengan nama Judul
+   Dokumen Lengkap (contoh: "Kebijakan Audit Internal").
+5. Tombol "Fix Kode":
+   - Mengunci nomor unik 6 segmen:
+     [NomorUrut4Digit] - [Kategori] - [Divisi] - [Pengesah] - [BulanRomawi] - [Tahun]
+   - Menegakkan Asas Unik Mutlak: 1 KODE DOKUMEN = 1 DOKUMEN SAH (dilarang duplikasi).
+   - Mencatatkan metadata dokumen ke Master Register.
+   - Mengunggah berkas final DOCX dan PDF ke Google Drive korporat pada folder
+     tujuan (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF).
+--------------------------------------------------------------------------------
+[SELESAI PROMPT ANTIGRAVITY IDE]
+--------------------------------------------------------------------------------
+
+
+================================================================================
+3. PANDUAN FORMATTING & STANDAR BAKU DOKUMEN 4 HALAMAN (PERSIS CONTOH ACUAN)
+================================================================================
+Setiap dokumen keputusan/surat kebijakan resmi NBE wajib memenuhi standar OpenXML
+dan visual layout berikut:
+
+3.1 Geometri Halaman:
+- Ukuran Kertas: A4 Standard (210 mm x 297 mm / 8.27" x 11.69").
+- Margin: Kiri = 2.2 cm (0.866"), Kanan = 2.0 cm (0.787"), Atas = 2.0 cm (0.787"), 
+  Bawah = 2.0 cm (0.787").
+- Tipografi: Keluarga font tunggal Arial untuk seluruh dokumen.
+- Palet Warna:
+  * Heading & Title   : #000000 (Hitam pekat)
+  * Body Text         : #3B3838 (Charcoal elegan)
+  * Document Number   : #003366 (Navy korporat)
+  * Header Tabel      : #D9E1F2 (Soft Periwinkle Blue)
+  * Alternating Row   : #FFFFFF (Ganjil) & #F9FBFD (Genap)
+  * Border Lines      : #BFBFBF (Light Gray, 0.5 pt / w:sz="4")
+
+3.2 Halaman 1 (Cover Page - Zero Overflow):
+- Logo Perusahaan: Terpusat di tengah dengan lebar 1.85 inci (4.7 cm).
+- Nama Perusahaan: PT NIRWANA BHUMI ENERGY (Arial 20.0 pt Bold, Centered, #000000).
+- Judul Surat: SURAT KEPUTUSAN DIREKSI (Arial 15-16 pt Bold), Nama Ketetapan 
+  (Arial 11-11.5 pt Bold), Nomor Dokumen (Arial 10.5-11 pt Bold, #003366).
+- Spasi Vertikal Pendorong: 5 paragraf kosong line spacing 11-13 pt, lalu 5 paragraf 
+  kosong line spacing 2 pt untuk mendorong blok otorisasi ke kuadran kanan bawah.
+- BLOK OTORISASI DI UJUNG KANAN BAWAH:
+  * Menggunakan left_indent = Inches(3.4) s.d. Inches(3.65).
+  * Line spacing 1.05, spasi antar pejabat 2-3 pt.
+  * Teks:
+    Approved by   : Bima Satryo Hartanto (President Director / CEO)
+    Verified by    : Dennis Raditya (Director of Operations & Technology / CTO)
+    Prepared by   : Mazmur Gusti Agung Larosa (Director of Finance & Eng / DCC Lead)
+- Penutup Halaman 1: Wajib diakhiri dengan Explicit Page Break (w:br type="page").
+
+3.3 Halaman 2 (Revision Index):
+- Header Kop Resmi NBE: Terdiri atas 4 baris sel (Division, Category, Title, 
+  Rev/Code/Date) dengan logo NBE di sel kiri.
+- Judul Ditebalkan: REVISION INDEX (Arial 12.0 pt Bold, Centered, space before 18 pt, 
+  space after 12 pt).
+- Tabel Revision Index: 4 Kolom (Rev, Date, Description, Prepared By). Baris header 
+  #D9E1F2, vertical align center, cantSplit aktif.
+- Catatan Kendali Dokumen: Wajib DIHAPUS SEPENUHNYA agar Halaman 2 bersih.
+- Penutup Halaman 2: Explicit Page Break ke Halaman 3.
+
+3.4 Halaman 3 (Permulaan Isi Surat):
+- Isi surat resmi dimulai tepat di HALAMAN BARU (Halaman 3).
+- Kop Header aktif di bagian atas halaman.
+- Judul Surat Keputusan, Nomor, dan Tentang.
+- Opening: DIREKSI PT NIRWANA BHUMI ENERGY,
+- Konsiderans Menimbang (butir a, b, c) dan Mengingat (butir 1 s.d. 5).
+- Diktum Pembuka: MEMUTUSKAN, Menetapkan.
+- Diktum KESATU: Standar Format Penomoran 6 Segmen & Asas Unik Mutlak.
+- Penutup Halaman 3: Explicit Page Break ke Halaman 4.
+
+3.5 Halaman 4 (Lanjutan Diktum, Tim DCC, & Tanda Tangan):
+- Diktum KEDUA: Penunjukan Tim Document Control Center (DCC).
+- Tabel Tim DCC (4 Kolom): No., Nama Personel, Jabatan Struktural, Peran & Tanggung Jawab.
+  Lebar penuh (6.44 inci), header #D9E1F2, alternating fill #FFFFFF / #F9FBFD, 
+  cantSplit aktif.
+- Diktum KETIGA: Tata kelola tombol "Fix Kode" dan Google Drive.
+- Diktum KEEMPAT: Alur revisi dokumen terkontrol (-rev1) dan pemusnahan dokumen usang.
+- Diktum KELIMA: Masa berlaku efektif dan klausul evaluasi regulasi.
+- Tempat & Tanggal Penetapan: Ditetapkan di Semarang / Tuban, 17 Oktober 2026.
+- Tabel Tanda Tangan 3 Kolom:
+  * Kolom 1: Approved by (President Director / CEO)
+  * Kolom 2: Verified by (Director of Operations & Tech / CTO)
+  * Kolom 3: Prepared & Proposed by (Director of Finance & Eng / CFO / DCC Lead)
+  * Baris 2: Ruang tanda tangan & cap ([ Meterai Rp 10.000 ] [ Tanda Tangan & Cap ])
+  * Baris 3: Nama Direksi huruf kapital tebal.
+
+
+================================================================================
+4. SPESIFIKASI & LOGIKA TOMBOL PILIHAN BAHASA (LANGUAGE SELECTOR)
+================================================================================
+Tombol ini diletakkan pada form sebelum menekan tombol Generate / Preview:
+
+Opsi 1: [ Bahasa Indonesia ]
+- Menghasilkan format standar hukum Indonesia.
+- Judul: SURAT KEPUTUSAN DIREKSI
+- Konsiderans: Menimbang & Mengingat
+- Diktum: KESATU, KEDUA, KETIGA, KEEMPAT, KELIMA
+- Tanggal: Ditetapkan di: Semarang / Tuban, Pada tanggal: 17 Oktober 2026
+- Layout: 4 Halaman Rapi.
+
+Opsi 2: [ British English ]
+- Menghasilkan format resmi hukum korporasi UK (UK Companies Act Standard).
+- Ejaan British: "standardisation", "Document Control Centre", "authoriser", 
+  "synchronises", "organisational".
+- Judul: BOARD OF DIRECTORS' RESOLUTION
+- Konsiderans: Having Considered & In View Of
+- Diktum: FIRST, SECOND, THIRD, FOURTH, FIFTH
+- Tanggal: Enacted in: Semarang / Tuban, On date: 17 October 2026
+- Layout: 4 Halaman Rapi.
+
+Opsi 3: [ Bilingual (ID - EN-GB) ]
+- Format Dwibahasa Bersanding (Dual-Column Parallel) standar SKK Migas / CSMS.
+- Kolom Kiri: Bahasa Indonesia
+- Kolom Kanan: British English
+- Typografi teks rata kiri (Left-aligned) di dalam sel tabel borderless untuk 
+  mencegah kata-kata terenggang canggung.
+- Tabel Tim DCC dan Tabel Tanda Tangan dibuat bilingual selebar halaman.
+- Layout: Tepat 4 Halaman Rapi.
+
+
+================================================================================
+5. FORMAT ACUAN TEKS DOKUMEN (BAHASA INDONESIA, BRITISH ENGLISH, BILINGUAL)
+================================================================================
+
+--- 5.1 VERSI BAHASA INDONESIA ---
+Judul:
+SURAT KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY
+NOMOR: 0002-KB-GNR-CEO-X-2026
+TENTANG
+PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)
+
+DIREKSI PT NIRWANA BHUMI ENERGY,
+Menimbang:
+a. bahwa dalam rangka mewujudkan standarisasi, akuntabilitas, serta keterlacakan
+   seluruh dokumen kebijakan, SOP, IK, dan formulir teknis di lingkungan PT Nirwana
+   Bhumi Energy, diperlukan sistem tata kelola dan kontrol dokumen yang baku dan terintegrasi;
+b. bahwa guna menjamin kepatuhan menyeluruh terhadap standar Sistem Manajemen
+   Terintegrasi (IMS: ISO 9001, ISO 14001, ISO 45001) serta kualifikasi CSMS SKK Migas
+   dan PLN, diperlukan penunjukan personel penanggung jawab pengelolaan dokumen;
+c. bahwa berdasarkan pertimbangan sebagaimana dimaksud dalam huruf a dan b di atas,
+   dipandang perlu untuk menetapkan Surat Keputusan Direksi tentang Penetapan Sistem
+   Manajemen Pengendalian Dokumen dan Penunjukan Tim Document Control Center (DCC).
+
+Mengingat:
+1. Akta Pendirian PT Nirwana Bhumi Energy serta peraturan perseroan berlaku;
+2. Standar ISO 9001:2015 Klausul 7.5 (Documented Information);
+3. Pedoman CSMS SKK Migas dan PT PLN (Persero);
+4. Prosedur No. 0001-SOP-GNR-CEO-IX-2026 (Documents & Records Control);
+5. Kebijakan Terintegrasi No. 0001-KB-GNR-CEO-X-2026.
+
+MEMUTUSKAN:
+Menetapkan:
+SURAT KEPUTUSAN DIREKSI TENTANG PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN
+DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC).
+
+KESATU:
+Memberlakukan secara resmi Standar Format dan Sistem Penomoran Dokumen 6 Segmen di seluruh
+lingkungan operasional dan kantor pusat PT Nirwana Bhumi Energy:
+[NomorUrut4Digit] - [Kategori] - [Divisi] - [Pengesah] - [BulanRomawi] - [Tahun]
+Ketentuan penomoran ini bersifat unik mutlak: SATU KODE UNTUK SATU DOKUMEN (1 Kode Dokumen =
+1 Dokumen Sah). Duplikasi nomor dilarang keras.
+
+KEDUA:
+Menunjuk dan menetapkan personel berikut sebagai Tim Document Control Center (DCC) PT Nirwana Bhumi Energy:
+1. Mazmur Gusti Agung Larosa (Direktur Keuangan & Teknik) sebagai Lead Document Controller & System Administrator.
+2. Dennis Raditya (Direktur Operasional & Teknologi) sebagai Technical Verifier & QA Approver.
+3. Abdul Qodir Al Jailani (Komisaris / IMS Lead) sebagai Independent Compliance Overseer.
+
+KETIGA:
+Mengatur tata kelola penyimpanan dan registrasi dokumen digital melalui Tombol "Fix Kode",
+di mana dokumen otomatis terintegrasi ke Google Drive korporat (Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF)
+pada subfolder divisi terkait.
+
+KEEMPAT:
+Menetapkan alur revisi dokumen terkontrol: penambahan sufiks (-rev1, dst.), pencatatan rincian
+alasan pada Revision Index, serta penarikan/pemusnahan salinan dokumen usang (obsolete).
+
+KELIMA:
+Surat Keputusan ini mulai berlaku efektif sejak tanggal ditetapkan, dan akan ditinjau kembali
+apabila terdapat penyesuaian regulasi industri migas/ketenagalistrikan.
+
+Ditetapkan di : Semarang / Tuban
+Pada tanggal  : 17 Oktober 2026
+DIREKSI PT NIRWANA BHUMI ENERGY
+
+
+--- 5.2 VERSI BRITISH ENGLISH ---
+Title:
+BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY
+NUMBER: 0002-KB-GNR-CEO-X-2026
+CONCERNING
+THE ESTABLISHMENT OF THE DOCUMENT CONTROL MANAGEMENT SYSTEM AND THE APPOINTMENT OF THE DOCUMENT CONTROL CENTRE (DCC) TEAM
+
+THE BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY,
+Having Considered:
+a. that in order to achieve standardisation, accountability, and traceability of all corporate
+   policy documents, standard operating procedures, work instructions, and technical forms
+   within PT Nirwana Bhumi Energy, a standardised and integrated document governance and control
+   system is required;
+b. that to ensure comprehensive compliance with Integrated Management System (IMS) standards
+   based on ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, and Contractor Safety Management
+   System (CSMS) qualifications of SKK Migas and PT PLN (Persero), the appointment of personnel
+   responsible for document management is requisite;
+c. that based on the considerations referred to in paragraphs a and b above, it is deemed necessary
+   to enact a Board of Directors' Resolution concerning the Establishment of the Document Control
+   Management System and the Appointment of the Document Control Centre (DCC) Team of PT Nirwana Bhumi Energy.
+
+In View Of:
+1. The Deed of Establishment of PT Nirwana Bhumi Energy and prevailing statutory regulations
+   governing limited liability companies;
+2. International Standard ISO 9001:2015 Clause 7.5 regarding Documented Information;
+3. Standard Guidelines for the Contractor Safety Management System (CSMS) of SKK Migas and PT PLN (Persero);
+4. Standard Operating Procedure No. 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure);
+5. Integrated Management Policy No. 0001-KB-GNR-CEO-X-2026.
+
+HEREBY RESOLVES:
+To Enact:
+BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY CONCERNING THE ESTABLISHMENT
+OF THE DOCUMENT CONTROL MANAGEMENT SYSTEM AND THE APPOINTMENT OF THE DOCUMENT CONTROL CENTRE (DCC) TEAM.
+
+FIRST:
+To officially enact the Standard Format and 6-Segment Document Numbering System across all operational
+areas and the head office of PT Nirwana Bhumi Energy, with the following mandatory structure:
+[4DigitSequentialNo] - [DocCategory] - [Division] - [Authoriser] - [RomanMonth] - [Year]
+This numbering provision is strictly unique under the rigorous principle: ONE CODE FOR ONE DOCUMENT
+(1 Document Code = 1 Valid Document). Any duplication of document numbers or reuse of the same number
+for different documents is strictly prohibited by the system.
+
+SECOND:
+To appoint and designate the following personnel as the Document Control Centre (DCC) Team of PT Nirwana Bhumi Energy:
+1. Mazmur Gusti Agung Larosa (Director of Finance & Engineering) as Lead Document Controller & System Administrator.
+2. Dennis Raditya (Director of Operations & Technology) as Technical Verifier & QA Approver.
+3. Abdul Qodir Al Jailani (Commissioner / IMS Lead) as Independent Compliance Overseer.
+
+THIRD:
+To govern the digital storage and registration of corporate documents via the 'Fix Code' button on the web
+system, whereby upon code verification and locking, the system automatically synchronises and archives the
+document into corporate Google Drive (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) within its
+respective divisional classification subfolder.
+
+FOURTH:
+To establish the revision workflow for controlled documents, whereby any subsequent amendment to an issued
+document must append a suffix (-rev1, -rev2, etc.) to the digital file, record the specific rationale in detail
+within the Revision Index table, and promptly withdraw and destroy obsolete hard copies and digital versions
+from active circulation.
+
+FIFTH:
+This Resolution shall enter into force effectively from the date of its enactment. Should any discrepancies
+or regulatory adjustments within the oil & gas or power industry arise in the future, due evaluation and
+rectification shall be executed accordingly.
+
+Enacted in : Semarang / Tuban
+On date    : 17 October 2026
+BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY
+
+
+--- 5.3 VERSI BILINGUAL (DWIBAHASA DUAL-COLUMN PARALLEL) ---
+Judul:
+SURAT KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY
+BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY
+NOMOR / NUMBER: 0002-KB-GNR-CEO-X-2026
+TENTANG PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DCC
+CONCERNING THE ESTABLISHMENT OF DOCUMENT CONTROL SYSTEM AND DCC TEAM
+
+(Struktur Tabel Paralel 2 Kolom: Kolom Kiri Bahasa Indonesia, Kolom Kanan British English)
+- Opening: DIREKSI PT NIRWANA BHUMI ENERGY | THE BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY
+- Menimbang: Butir a, b, c (ID)            | Having Considered: Paragraphs a, b, c (EN)
+- Mengingat: Butir 1 s.d. 5 (ID)           | In View Of: Points 1 to 5 (EN)
+- MEMUTUSKAN / HEREBY RESOLVES             | Menetapkan / To Enact
+- KESATU (Format 6-Segmen)                 | FIRST (6-Segment Numbering System)
+- KEDUA (Tim DCC)                          | SECOND (DCC Team Appointment)
+- Tabel Tim DCC (Bilingual Selebar Halaman)| Full-Width Bilingual DCC Team Table
+- KETIGA (Fix Kode & Google Drive)         | THIRD (Fix Code & Google Drive Sync)
+- KEEMPAT (Alur Revisi Dokumen)            | FOURTH (Revision Workflow & Obsolescence)
+- KELIMA (Masa Berlaku)                    | FIFTH (Effective Date & Rectification)
+- Klausul Penetapan (Semarang / Tuban)     | Enactment Clause (Semarang / Tuban)
+- Tabel Tanda Tangan 3 Kolom Dwibahasa     | 3-Column Bilingual Signatures Table
+
+
+================================================================================
+6. KODE REFERENSI BACKEND GENERATOR ENGINE (PYTHON-DOCX)
+================================================================================
+Gunakan pustaka helper berikut di server aplikasi web Anda:
+
+```python
+import os
+import docx
+from docx.shared import Inches, Pt, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml import OxmlElement, parse_xml
+from docx.oxml.ns import nsdecls, qn
+
+def set_cell_margins(cell, top=50, bottom=50, left=70, right=70):
+    tcPr = cell._tc.get_or_add_tcPr()
+    tcMar = OxmlElement('w:tcMar')
+    for m, val in [('w:top', top), ('w:bottom', bottom), ('w:left', left), ('w:right', right)]:
+        node = OxmlElement(m)
+        node.set(qn('w:w'), str(val))
+        node.set(qn('w:type'), 'dxa')
+        tcMar.append(node)
+    tcPr.append(tcMar)
+
+def set_cell_shading(cell, color_hex):
+    tcPr = cell._tc.get_or_add_tcPr()
+    for s in tcPr.xpath('w:shd'):
+        tcPr.remove(s)
+    shd = parse_xml(f'<w:shd {nsdecls("w")} w:fill="{color_hex}"/>')
+    tcPr.append(shd)
+
+def set_cell_vcenter(cell):
+    tcPr = cell._tc.get_or_add_tcPr()
+    for v in tcPr.xpath('w:vAlign'):
+        tcPr.remove(v)
+    vAlign = OxmlElement('w:vAlign')
+    vAlign.set(qn('w:val'), 'center')
+    tcPr.append(vAlign)
+
+def set_row_cant_split(row):
+    trPr = row._tr.get_or_add_trPr()
+    cantSplit = OxmlElement('w:cantSplit')
+    trPr.append(cantSplit)
+
+def style_run(run, font_name='Arial', size_pt=10.0, bold=False, italic=False, color_rgb=(0x3B, 0x38, 0x38)):
+    run.font.name = font_name
+    run.font.size = Pt(size_pt)
+    run.bold = bold
+    run.italic = italic
+    if color_rgb:
+        run.font.color.rgb = RGBColor(*color_rgb)
+
+def generate_document_by_language(template_path, language_mode, output_path):
+    # language_mode: "id", "en", atau "bi"
+    doc = docx.Document(template_path)
+    if language_mode == "id":
+        build_indonesian_content(doc)
+    elif language_mode == "en":
+        build_british_english_content(doc)
+    elif language_mode == "bi":
+        build_bilingual_content(doc)
+    doc.save(output_path)
+    return output_path
+```
+
+================================================================================
+AKHIR DOKUMEN MASTER SISTEM SURAT NBE (.TXT FORMAT)
+================================================================================

@@ -12,6 +12,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { DocumentLanguage, RevisionRecord } from '../types';
+import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 
 export interface A4DocumentPreviewProps {
   language: DocumentLanguage;
@@ -51,6 +52,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [activePageTab, setActivePageTab] = useState<'all' | 1 | 2 | 3 | 4>('all');
   const [isCopied, setIsCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isDownloadingWord, setIsDownloadingWord] = useState(false);
 
   const displayTitle = (title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN').trim().toUpperCase();
   const effectiveCode = (code || '0001-KB-GNR-CEO-X-2026').trim().toUpperCase();
@@ -109,8 +111,63 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     if (onCopyCode) onCopyCode();
   };
 
+  const handleDownloadWord = async () => {
+    if (onDownloadDocx) {
+      onDownloadDocx();
+      return;
+    }
+    setIsDownloadingWord(true);
+    try {
+      await generateAndDownloadNbeDocx({
+        docCode: effectiveCode,
+        titleId: displayTitle,
+        titleEn: displayTitle,
+        categoryNameId: typeLabel,
+        divisionName: divisionLabel,
+        revisionNo: String(revision),
+        issueDateId: formattedDate,
+        issueDateEn: formattedDateEn,
+        preparedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
+        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+        verifiedBy: verifiedBy || 'Dennis Raditya',
+        verifiedRole: 'Director of Operations & Technology / CTO',
+        approvedBy: approvedBy || 'Bima Satryo Hartanto',
+        approvedRole: 'President Director / CEO',
+        language: language,
+      });
+    } catch (err: any) {
+      alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
+    } finally {
+      setIsDownloadingWord(false);
+    }
+  };
+
   const handlePrint = () => {
+    const originalTitle = document.title;
+    const cleanDocTitle =
+      language === 'en'
+        ? `${effectiveCode} - Board of Directors Resolution (British English)`
+        : language === 'bi'
+        ? `${effectiveCode} - Surat Keputusan Direksi (Bilingual ID-EN)`
+        : `${effectiveCode} - Surat Keputusan Direksi (Revisi Final)`;
+    document.title = cleanDocTitle;
+
+    const restoreTitle = () => {
+      document.title = originalTitle;
+      window.removeEventListener('afterprint', restoreTitle);
+    };
+    window.addEventListener('afterprint', restoreTitle);
+
     window.print();
+
+    // Fallback timer if afterprint doesn't trigger
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 2000);
+  };
+
+  const isPageVisibleOnScreen = (pageNum: number) => {
+    return activePageTab === 'all' || activePageTab === pageNum;
   };
 
   // Reusable page frame styling (Exact A4 ratio: 210mm x 297mm)
@@ -161,8 +218,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         boxShadow: '0 4px 20px rgba(0,0,0,0.05)',
       }}
     >
-      {/* Top Preview Action Header */}
+      {/* Top Preview Action Header (Hidden during print) */}
       <div
+        className="no-print"
         style={{
           padding: '1rem 1.25rem',
           borderBottom: '1px solid var(--border-subtle)',
@@ -258,23 +316,22 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </button>
 
           {/* Download DOCX */}
-          {onDownloadDocx && (
-            <button
-              type="button"
-              onClick={onDownloadDocx}
-              className="btn btn-primary btn-sm"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
-              }}
-              title="Unduh Dokumen Word 4 Halaman Resmi"
-            >
-              <Download size={14} />
-              <span>Unduh Word (.docx)</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={handleDownloadWord}
+            disabled={isDownloadingWord}
+            className="btn btn-primary btn-sm"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
+            }}
+            title="Unduh Dokumen Word 4 Halaman Resmi"
+          >
+            <Download size={14} />
+            <span>{isDownloadingWord ? 'Menyusun .docx...' : 'Unduh Word (.docx)'}</span>
+          </button>
 
           {/* Print / Save PDF */}
           <button
@@ -290,8 +347,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         </div>
       </div>
 
-      {/* Page Selector Tabs */}
+      {/* Page Selector Tabs (Hidden during print) */}
       <div
+        className="no-print"
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -342,8 +400,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         ))}
       </div>
 
-      {/* Preview Pages Container */}
+      {/* Preview Pages Container (Isolated during print) */}
       <div
+        id="nbe-isolated-document-canvas"
+        className="a4-print-container"
         style={{
           padding: '2.5rem 1rem',
           background: 'var(--bg-tertiary, #e2e8f0)',
@@ -354,8 +414,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         {/* ============================================================== */}
         {/* HALAMAN 1: COVER PAGE                                         */}
         {/* ============================================================== */}
-        {(activePageTab === 'all' || activePageTab === 1) && (
-          <div style={a4PageStyle} id="nbe-page-1">
+        <div
+          style={a4PageStyle}
+          id="nbe-page-1"
+          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(1) ? 'screen-hidden' : ''}`}
+        >
             {/* Header / Logo Center (width: 1.85 inci / 4.7 cm) */}
             <div
               style={{
@@ -507,13 +570,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               <span>Page 1 of 4</span>
             </div>
           </div>
-        )}
 
         {/* ============================================================== */}
         {/* HALAMAN 2: REVISION INDEX (BERSIH TANPA KENDALI DOKUMEN)        */}
         {/* ============================================================== */}
-        {(activePageTab === 'all' || activePageTab === 2) && (
-          <div style={a4PageStyle} id="nbe-page-2">
+        <div
+          style={a4PageStyle}
+          id="nbe-page-2"
+          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(2) ? 'screen-hidden' : ''}`}
+        >
             {/* Header Kop Resmi NBE: 4 Baris Sel */}
             <table
               style={{
@@ -695,37 +760,6 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               </tbody>
             </table>
 
-            {/* Ringkasan Ringkas & Bersih */}
-            <div
-              style={{
-                padding: '1.25rem',
-                borderRadius: '6px',
-                border: '1px solid #BFBFBF',
-                background: '#F9FBFD',
-                fontSize: '9.5pt',
-                lineHeight: '1.6',
-                color: '#3B3838',
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 'bold',
-                  color: '#003366',
-                  marginBottom: '0.4rem',
-                  fontSize: '10pt',
-                }}
-              >
-                {language === 'en'
-                  ? 'Summary & Standard Purpose:'
-                  : 'Ringkasan & Maksud Standardisasi Dokumen:'}
-              </div>
-              <p style={{ margin: 0 }}>
-                {language === 'en'
-                  ? `Official document of PT Nirwana Bhumi Energy under registration number ${effectiveCode}. Prepared in compliance with the Documents and Records Control Procedure (0001-SOP-GNR-CEO-IX-2026), ISO 9001, ISO 45001, and CSMS standards. One registered code applies strictly and exclusively to one document.`
-                  : `Dokumen resmi PT Nirwana Bhumi Energy dengan nomor penetapan ${effectiveCode}. Diterbitkan mengacu pada Pedoman Pengendalian Dokumen dan Rekaman Baku (0001-SOP-GNR-CEO-IX-2026), standar ISO 9001, ISO 45001, dan CSMS. Satu kode terdaftar berlaku unik mutlak hanya untuk 1 (satu) dokumen sah.`}
-              </p>
-            </div>
-
             <div style={{ flex: 1 }} />
 
             {/* Note: Catatan Kendali Dokumen DITIADAKAN SEPENUHNYA agar Halaman 2 Bersih */}
@@ -743,13 +777,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               <span>Page 2 of 4</span>
             </div>
           </div>
-        )}
 
         {/* ============================================================== */}
         {/* HALAMAN 3: PERMULAAN ISI SURAT (LETTER BODY & KESATU)          */}
         {/* ============================================================== */}
-        {(activePageTab === 'all' || activePageTab === 3) && (
-          <div style={a4PageStyle} id="nbe-page-3">
+        <div
+          style={a4PageStyle}
+          id="nbe-page-3"
+          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
+        >
             {/* Kop Mini Running Header */}
             <div
               style={{
@@ -798,151 +834,141 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
                   gap: '1.25rem',
-                  fontSize: '8.5pt',
-                  lineHeight: '1.5',
+                  fontSize: '8pt',
+                  lineHeight: '1.45',
                 }}
               >
                 {/* Kolom Kiri: Bahasa Indonesia */}
                 <div style={{ borderRight: '1px solid #e2e8f0', paddingRight: '1rem' }}>
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
                     Menimbang:
                   </div>
-                  <ol style={{ paddingLeft: '1.2rem', margin: '0 0 0.8rem 0' }} type="a">
+                  <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0' }} type="a">
                     <li>
-                      bahwa dalam rangka tertib administrasi, standardisasi persuratan, dan penjaminan mutu tata
-                      kelola dokumen di lingkungan PT Nirwana Bhumi Energy;
+                      bahwa dalam rangka mewujudkan standarisasi, akuntabilitas, serta keterlacakan seluruh dokumen di lingkungan PT Nirwana Bhumi Energy, diperlukan sistem tata kelola dan kontrol dokumen yang baku dan terintegrasi;
                     </li>
                     <li>
-                      bahwa untuk menjamin kepatuhan sistem kontrol dokumen terhadap standar Integrated Management
-                      System (IMS), ISO 9001, ISO 45001, dan CSMS;
+                      bahwa guna menjamin kepatuhan terhadap standar IMS (ISO 9001, ISO 14001, ISO 45001) dan CSMS SKK Migas serta PLN, diperlukan penunjukan personel Tim DCC;
                     </li>
                     <li>
-                      bahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan b, perlu menetapkan
-                      Keputusan Direksi tentang {displayTitle};
+                      bahwa berdasarkan pertimbangan a dan b, perlu menetapkan Surat Keputusan Direksi tentang {displayTitle}.
                     </li>
                   </ol>
 
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
                     Mengingat:
                   </div>
-                  <ol style={{ paddingLeft: '1.2rem', margin: '0 0 0.8rem 0' }}>
-                    <li>Undang-Undang Nomor 40 Tahun 2007 tentang Perseroan Terbatas;</li>
-                    <li>Prosedur Baku Pengendalian Dokumen PT NBE (0001-SOP-GNR-CEO-IX-2026);</li>
-                    <li>Manual Sistem Manajemen Terintegrasi (IMS) PT Nirwana Bhumi Energy;</li>
-                    <li>Kebijakan Mutu, Keselamatan Kerja, dan Lindung Lingkungan (K3LL);</li>
-                    <li>Anggaran Dasar dan Ketetapan RUPS PT Nirwana Bhumi Energy;</li>
+                  <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0' }}>
+                    <li>Akta Pendirian PT Nirwana Bhumi Energy;</li>
+                    <li>Standar ISO 9001:2015 Klausul 7.5 (Documented Information);</li>
+                    <li>Pedoman CSMS SKK Migas & PT PLN (Persero);</li>
+                    <li>Prosedur Baku No. 0001-SOP-GNR-CEO-IX-2026;</li>
+                    <li>Kebijakan Manajemen Terintegrasi No. 0001-KB-GNR-CEO-X-2026.</li>
                   </ol>
 
-                  <div style={{ fontWeight: 'bold', textAlign: 'center', margin: '0.6rem 0' }}>
+                  <div style={{ fontWeight: 'bold', textAlign: 'center', margin: '0.5rem 0' }}>
                     MEMUTUSKAN:
                   </div>
-                  <div style={{ fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                    Menetapkan: KEPUTUSAN DIREKSI TENTANG {displayTitle}.
+                  <div style={{ fontWeight: 'bold', marginBottom: '0.35rem' }}>
+                    Menetapkan: SURAT KEPUTUSAN DIREKSI TENTANG {displayTitle.toUpperCase()}.
                   </div>
                   <div style={{ fontWeight: 'bold', color: '#003366' }}>KESATU:</div>
-                  <p style={{ margin: '0 0 0.5rem 0' }}>
-                    Menetapkan Standar Penomoran Dokumen Terintegrasi 6-Segmen{' '}
-                    <strong>[NomorUrut4Digit]-[Kategori]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]</strong> sebagai
-                    identitas resmi dokumen korporat. Satu kode surat hanya berlaku unik mutlak untuk 1 dokumen saja.
+                  <p style={{ margin: '0 0 0.4rem 0' }}>
+                    Memberlakukan Standar Penomoran Dokumen 6 Segmen: <strong>[NomorUrut4Digit]-[Kategori]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]</strong>. Asas mutlak: <strong>SATU KODE UNTUK SATU DOKUMEN (1 Kode = 1 Dokumen Sah)</strong>. Duplikasi nomor dokumen dilarang keras.
                   </p>
                 </div>
 
                 {/* Kolom Kanan: British English */}
                 <div>
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
                     Having Considered:
                   </div>
-                  <ol style={{ paddingLeft: '1.2rem', margin: '0 0 0.8rem 0' }} type="a">
+                  <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0', fontStyle: 'italic' }} type="a">
                     <li>
-                      that in order to ensure administrative governance, documentation standardization, and quality
-                      assurance within PT Nirwana Bhumi Energy;
+                      that in order to achieve standardisation, accountability, and traceability of all documents within PT Nirwana Bhumi Energy, a standardised and integrated document control system is required;
                     </li>
                     <li>
-                      that to guarantee full compliance with the Integrated Management System (IMS), ISO 9001, ISO
-                      45001, and CSMS frameworks;
+                      that to ensure compliance with IMS standards (ISO 9001, ISO 14001, ISO 45001) and CSMS qualifications of SKK Migas and PLN, the appointment of a DCC Team is requisite;
                     </li>
                     <li>
-                      that in view of the considerations set forth in points a and b, it is necessary to issue a
-                      Resolution regarding {displayTitle};
+                      that based on considerations a and b, it is necessary to enact this Board of Directors' Resolution regarding {displayTitle}.
                     </li>
                   </ol>
 
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
                     In View Of:
                   </div>
-                  <ol style={{ paddingLeft: '1.2rem', margin: '0 0 0.8rem 0' }}>
-                    <li>Law Number 40 of 2007 on Limited Liability Companies;</li>
-                    <li>Documents and Records Control Procedure (0001-SOP-GNR-CEO-IX-2026);</li>
-                    <li>Integrated Management System (IMS) Manual of PT Nirwana Bhumi Energy;</li>
-                    <li>Corporate Quality, Health, Safety, and Environment (QHSE) Policy;</li>
-                    <li>Articles of Association and General Meeting of Shareholders Resolutions;</li>
+                  <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0', fontStyle: 'italic' }}>
+                    <li>The Deed of Establishment of PT Nirwana Bhumi Energy;</li>
+                    <li>International Standard ISO 9001:2015 Clause 7.5;</li>
+                    <li>CSMS Guidelines of SKK Migas & PT PLN (Persero);</li>
+                    <li>Standard Operating Procedure No. 0001-SOP-GNR-CEO-IX-2026;</li>
+                    <li>Integrated Management Policy No. 0001-KB-GNR-CEO-X-2026.</li>
                   </ol>
 
-                  <div style={{ fontWeight: 'bold', textAlign: 'center', margin: '0.6rem 0' }}>
+                  <div style={{ fontWeight: 'bold', textAlign: 'center', margin: '0.5rem 0' }}>
                     HEREBY RESOLVES:
                   </div>
-                  <div style={{ fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                    To Enact: DIRECTORS' RESOLUTION REGARDING {displayTitle}.
+                  <div style={{ fontWeight: 'bold', marginBottom: '0.35rem', fontStyle: 'italic' }}>
+                    To Enact: BOARD OF DIRECTORS' RESOLUTION CONCERNING {displayTitle.toUpperCase()}.
                   </div>
                   <div style={{ fontWeight: 'bold', color: '#003366' }}>FIRST:</div>
-                  <p style={{ margin: '0 0 0.5rem 0' }}>
-                    To institute the 6-Segment Integrated Document Numbering Standard{' '}
-                    <strong>[4DigitSeq]-[Category]-[Division]-[Approver]-[RomanMonth]-[Year]</strong> as the sole corporate
-                    identifier. Exactly one code strictly governs one document.
+                  <p style={{ margin: '0 0 0.4rem 0', fontStyle: 'italic' }}>
+                    To officially enact the 6-Segment Document Numbering System: <strong>[4DigitSequentialNo]-[DocCategory]-[Division]-[Authoriser]-[RomanMonth]-[Year]</strong>. Strict principle: <strong>ONE CODE FOR ONE DOCUMENT (1 Code = 1 Valid Document)</strong>.
                   </p>
                 </div>
               </div>
             ) : (
-              <div style={{ fontSize: '9.5pt', lineHeight: '1.6', color: '#3B3838' }}>
-                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.3rem' }}>
+              <div style={{ fontSize: '9pt', lineHeight: '1.5', color: '#3B3838' }}>
+                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
                   {language === 'en' ? 'Having Considered:' : 'Menimbang:'}
                 </div>
-                <ol style={{ paddingLeft: '1.5rem', margin: '0 0 1rem 0' }} type="a">
+                <ol style={{ paddingLeft: '1.4rem', margin: '0 0 0.8rem 0' }} type="a">
                   <li>
                     {language === 'en'
-                      ? 'that in order to establish administrative order, corporate documentation standards, and rigorous quality assurance within PT Nirwana Bhumi Energy;'
-                      : 'bahwa dalam rangka tertib administrasi, standardisasi persuratan, dan penjaminan mutu tata kelola dokumen di lingkungan PT Nirwana Bhumi Energy;'}
+                      ? 'that in order to achieve standardisation, accountability, and traceability of all corporate policy documents, standard operating procedures, work instructions, and technical forms within PT Nirwana Bhumi Energy, a standardised and integrated document governance and control system is required;'
+                      : 'bahwa dalam rangka mewujudkan standarisasi, akuntabilitas, serta keterlacakan seluruh dokumen kebijakan, prosedur operasional, instruksi kerja, dan formulir teknis di lingkungan PT Nirwana Bhumi Energy, diperlukan suatu sistem tata kelola dan kontrol dokumen yang baku dan terintegrasi;'}
                   </li>
                   <li>
                     {language === 'en'
-                      ? 'that to guarantee strict compliance with the Integrated Management System (IMS), ISO 9001, ISO 45001, and CSMS document control requirements;'
-                      : 'bahwa untuk menjamin kepatuhan sistem kontrol dokumen terhadap standar Integrated Management System (IMS), ISO 9001, ISO 45001, dan CSMS;'}
+                      ? 'that to ensure comprehensive compliance with Integrated Management System (IMS) standards based on ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, and Contractor Safety Management System (CSMS) qualifications of SKK Migas and PT PLN (Persero), the appointment of personnel responsible for document management is requisite;'
+                      : 'bahwa guna menjamin kepatuhan menyeluruh terhadap standar Sistem Manajemen Terintegrasi (IMS) berbasis ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, dan kualifikasi Contractor Safety Management System (CSMS) SKK Migas serta PLN, diperlukan penunjukan personel penanggung jawab pengelolaan dokumen;'}
                   </li>
                   <li>
                     {language === 'en'
-                      ? `that in view of the considerations set forth in paragraphs a and b above, it is necessary to issue a Board of Directors' Resolution regarding ${displayTitle};`
-                      : `bahwa berdasarkan pertimbangan sebagaimana dimaksud dalam huruf a dan b di atas, perlu menetapkan Keputusan Direksi tentang ${displayTitle};`}
+                      ? `that based on the considerations referred to in paragraphs a and b above, it is deemed necessary to enact a Board of Directors' Resolution concerning ${displayTitle}.`
+                      : `bahwa berdasarkan pertimbangan sebagaimana dimaksud dalam huruf a dan b di atas, dipandang perlu untuk menetapkan Surat Keputusan Direksi tentang ${displayTitle}.`}
                   </li>
                 </ol>
 
-                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.3rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
                   {language === 'en' ? 'In View Of:' : 'Mengingat:'}
                 </div>
-                <ol style={{ paddingLeft: '1.5rem', margin: '0 0 1rem 0' }}>
+                <ol style={{ paddingLeft: '1.4rem', margin: '0 0 0.8rem 0' }}>
                   <li>
                     {language === 'en'
-                      ? 'Law Number 40 of 2007 concerning Limited Liability Companies;'
-                      : 'Undang-Undang Nomor 40 Tahun 2007 tentang Perseroan Terbatas;'}
+                      ? 'The Deed of Establishment of PT Nirwana Bhumi Energy and prevailing statutory regulations governing limited liability companies;'
+                      : 'Akta Pendirian PT Nirwana Bhumi Energy serta peraturan perundang-undangan perseroan terbatas yang berlaku;'}
                   </li>
                   <li>
                     {language === 'en'
-                      ? 'Documents and Records Control Procedure (0001-SOP-GNR-CEO-IX-2026);'
-                      : 'Prosedur Baku Pengendalian Dokumen PT NBE (0001-SOP-GNR-CEO-IX-2026);'}
+                      ? 'International Standard ISO 9001:2015 Clause 7.5 regarding Documented Information;'
+                      : 'Standar Internasional ISO 9001:2015 Klausul 7.5 tentang Informasi Terdokumentasi (Documented Information);'}
                   </li>
                   <li>
                     {language === 'en'
-                      ? 'Integrated Management System (IMS) Manual of PT Nirwana Bhumi Energy;'
-                      : 'Manual Sistem Manajemen Terintegrasi (IMS) PT Nirwana Bhumi Energy;'}
+                      ? 'Standard Guidelines for the Contractor Safety Management System (CSMS) of SKK Migas and PT PLN (Persero);'
+                      : 'Pedoman Baku Contractor Safety Management System (CSMS) SKK Migas dan PT PLN (Persero);'}
                   </li>
                   <li>
                     {language === 'en'
-                      ? 'Corporate Quality, Health, Safety, and Environment (QHSE) Policy;'
-                      : 'Kebijakan Mutu, Keselamatan Kerja, dan Lindung Lingkungan (K3LL);'}
+                      ? 'Standard Operating Procedure No. 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure);'
+                      : 'Prosedur Baku No. 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure);'}
                   </li>
                   <li>
                     {language === 'en'
-                      ? 'Articles of Association and Resolutions of General Meeting of Shareholders;'
-                      : 'Anggaran Dasar dan Ketetapan Rapat Umum Pemegang Saham (RUPS) PT Nirwana Bhumi Energy;'}
+                      ? 'Integrated Management Policy No. 0001-KB-GNR-CEO-X-2026.'
+                      : 'Kebijakan Manajemen Terintegrasi No. 0001-KB-GNR-CEO-X-2026.'}
                   </li>
                 </ol>
 
@@ -950,27 +976,27 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   style={{
                     textAlign: 'center',
                     fontWeight: 'bold',
-                    fontSize: '11pt',
-                    margin: '1.25rem 0 0.85rem 0',
+                    fontSize: '10.5pt',
+                    margin: '0.85rem 0 0.5rem 0',
                     color: '#000000',
                   }}
                 >
                   {language === 'en' ? 'HEREBY RESOLVES:' : 'MEMUTUSKAN:'}
                 </div>
 
-                <div style={{ fontWeight: 'bold', marginBottom: '0.75rem' }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
                   {language === 'en'
-                    ? `To Enact: RESOLUTION OF THE BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY REGARDING ${displayTitle}.`
-                    : `Menetapkan: KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY TENTANG ${displayTitle}.`}
+                    ? `To Enact: BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY CONCERNING ${displayTitle.toUpperCase()}.`
+                    : `Menetapkan: SURAT KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY TENTANG ${displayTitle.toUpperCase()}.`}
                 </div>
 
-                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
                   {language === 'en' ? 'FIRST:' : 'KESATU:'}
                 </div>
-                <p style={{ margin: '0 0 0.85rem 0' }}>
+                <p style={{ margin: '0 0 0.65rem 0' }}>
                   {language === 'en'
-                    ? `To establish the 6-Segment Integrated Corporate Document Numbering Standard with format [4DigitSeq]-[Category]-[Division]-[Approver]-[RomanMonth]-[Year] as the sole legal identifier for all corporate documents. Each code applies strictly and uniquely to exactly 1 (one) document.`
-                    : `Menetapkan Standar Penomoran Dokumen Resmi Terintegrasi 6-Segmen dengan format baku [NomorUrut4Digit]-[Kategori]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun] sebagai satu-satunya identitas resmi dokumen korporat PT Nirwana Bhumi Energy. Setiap satu kode surat berlaku unik mutlak hanya untuk 1 (satu) dokumen saja dan dilarang digunakan ganda.`}
+                    ? `To officially enact the Standard Format and 6-Segment Document Numbering System across all operational areas and the head office of PT Nirwana Bhumi Energy: [4DigitSequentialNo]-[DocCategory]-[Division]-[Authoriser]-[RomanMonth]-[Year]. This numbering provision is strictly unique under the rigorous principle: ONE CODE FOR ONE DOCUMENT (1 Document Code = 1 Valid Document). Any duplication of document numbers or reuse of the same number for different documents is strictly prohibited by the system.`
+                    : `Memberlakukan secara resmi Standar Format dan Sistem Penomoran Dokumen 6 Segmen di seluruh lingkungan operasional dan kantor pusat PT Nirwana Bhumi Energy: [NomorUrut4Digit]-[KategoriSurat]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]. Ketentuan penomoran ini bersifat unik mutlak dengan asas ketat: SATU KODE UNTUK SATU DOKUMEN (1 Kode Dokumen = 1 Dokumen Sah). Duplikasi nomor dokumen atau penggunaan nomor yang sama untuk dokumen berbeda dilarang keras oleh sistem.`}
                 </p>
               </div>
             )}
@@ -991,13 +1017,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               <span>Page 3 of 4</span>
             </div>
           </div>
-        )}
 
         {/* ============================================================== */}
         {/* HALAMAN 4: LANJUTAN DIKTUM, TIM DCC, & TANDA TANGAN 3 KOLOM    */}
         {/* ============================================================== */}
-        {(activePageTab === 'all' || activePageTab === 4) && (
-          <div style={a4PageStyle} id="nbe-page-4">
+        <div
+          style={a4PageStyle}
+          id="nbe-page-4"
+          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(4) ? 'screen-hidden' : ''}`}
+        >
             {/* Kop Mini Running Header */}
             <div
               style={{
@@ -1006,7 +1034,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 alignItems: 'center',
                 borderBottom: '2px solid #003366',
                 paddingBottom: '0.5rem',
-                marginBottom: '1.25rem',
+                marginBottom: '1rem',
               }}
             >
               <span style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000000' }}>
@@ -1018,15 +1046,34 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             </div>
 
             {/* Diktum KEDUA: Penunjukan Tim DCC */}
-            <div style={{ fontSize: '9.5pt', lineHeight: '1.5', color: '#3B3838' }}>
-              <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
-                {language === 'en' ? 'SECOND:' : 'KEDUA:'}
-              </div>
-              <p style={{ margin: '0 0 0.65rem 0' }}>
-                {language === 'en'
-                  ? 'To appoint the Document Control Center (DCC) Team with the following personnel and organizational responsibilities:'
-                  : 'Menunjuk Tim Document Control Center (DCC) PT Nirwana Bhumi Energy dengan susunan personel serta peran tanggung jawab sebagai berikut:'}
-              </p>
+            <div style={{ fontSize: '9pt', lineHeight: '1.45', color: '#3B3838' }}>
+              {language === 'bi' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.5rem' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>KEDUA:</div>
+                    <p style={{ margin: 0 }}>
+                      Menunjuk dan menetapkan personel berikut sebagai Tim Document Control Center (DCC) PT Nirwana Bhumi Energy:
+                    </p>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>SECOND:</div>
+                    <p style={{ margin: 0, fontStyle: 'italic' }}>
+                      To appoint and designate the following personnel as the Document Control Centre (DCC) Team of PT Nirwana Bhumi Energy:
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
+                    {language === 'en' ? 'SECOND:' : 'KEDUA:'}
+                  </div>
+                  <p style={{ margin: '0 0 0.5rem 0' }}>
+                    {language === 'en'
+                      ? 'To appoint and designate the following personnel as the Document Control Centre (DCC) Team of PT Nirwana Bhumi Energy:'
+                      : 'Menunjuk dan menetapkan personel berikut sebagai Tim Document Control Center (DCC) PT Nirwana Bhumi Energy:'}
+                  </p>
+                </>
+              )}
 
               {/* Tabel Tim DCC (4 Kolom, Full Width, Header #D9E1F2, Zebra Fill) */}
               <table
@@ -1034,107 +1081,173 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   width: '100%',
                   borderCollapse: 'collapse',
                   border: '1px solid #BFBFBF',
-                  marginBottom: '1rem',
+                  marginBottom: '0.75rem',
+                  fontSize: '8pt',
                 }}
               >
                 <thead>
                   <tr>
-                    <th style={{ ...tableHeaderStyle, width: '6%' }}>No</th>
-                    <th style={{ ...tableHeaderStyle, width: '26%' }}>
-                      {language === 'en' ? 'Personnel Name' : 'Nama Personel'}
+                    <th style={{ ...tableHeaderStyle, width: '6%', padding: '5px' }}>No</th>
+                    <th style={{ ...tableHeaderStyle, width: '25%', padding: '5px' }}>
+                      {language === 'en' ? 'Personnel Name' : language === 'bi' ? 'Nama Personel / Name' : 'Nama Personel'}
                     </th>
-                    <th style={{ ...tableHeaderStyle, width: '28%' }}>
-                      {language === 'en' ? 'Structural Position' : 'Jabatan Struktural'}
+                    <th style={{ ...tableHeaderStyle, width: '27%', padding: '5px' }}>
+                      {language === 'en' ? 'Structural Position' : language === 'bi' ? 'Jabatan / Position' : 'Jabatan Struktural'}
                     </th>
-                    <th style={{ ...tableHeaderStyle, width: '40%' }}>
-                      {language === 'en' ? 'DCC Role & Responsibilities' : 'Peran & Tanggung Jawab DCC'}
+                    <th style={{ ...tableHeaderStyle, width: '42%', padding: '5px' }}>
+                      {language === 'en'
+                        ? 'DCC Role & Responsibilities'
+                        : language === 'bi'
+                        ? 'Peran & Tanggung Jawab / Role & Responsibilities'
+                        : 'Peran & Tanggung Jawab DCC'}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr style={{ background: '#FFFFFF' }}>
-                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>1</td>
-                    <td style={{ ...tableCellStyle, fontWeight: 'bold' }}>Bima Satryo Hartanto</td>
-                    <td style={tableCellStyle}>
-                      {language === 'en' ? 'President Director (CEO)' : 'Direktur Utama (CEO)'}
+                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>1</td>
+                    <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>
+                      {preparedBy || 'Mazmur Gusti Agung Larosa'}
                     </td>
-                    <td style={tableCellStyle}>
+                    <td style={{ ...tableCellStyle, padding: '5px' }}>
                       {language === 'en'
-                        ? 'Highest Corporate Document Approval & Authorization'
-                        : 'Penanggung Jawab Otorisasi & Pengesah Dokumen Puncak Korporat'}
+                        ? 'Director of Finance & Engineering'
+                        : language === 'bi'
+                        ? 'Direktur Keuangan & Teknik / Director of Finance & Engineering'
+                        : 'Direktur Keuangan & Teknik'}
+                    </td>
+                    <td style={{ ...tableCellStyle, padding: '5px' }}>
+                      {language === 'en'
+                        ? 'Lead Document Controller & System Administrator: Validates manuscripts, registers unique codes, executes Fix Code, and synchronises Google Drive archives.'
+                        : language === 'bi'
+                        ? 'Lead Document Controller & System Administrator: Validasi naskah, registrasi kode unik, eksekusi Fix Kode & sinkronisasi Google Drive / Validates manuscripts, registers unique codes, executes Fix Code & synchronises archives.'
+                        : 'Lead Document Controller & System Administrator: Memvalidasi naskah, registrasi kode unik, eksekusi Tombol Fix Kode, dan sinkronisasi arsip Google Drive.'}
                     </td>
                   </tr>
                   <tr style={{ background: '#F9FBFD' }}>
-                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>2</td>
-                    <td style={{ ...tableCellStyle, fontWeight: 'bold' }}>Dennis Raditya</td>
-                    <td style={tableCellStyle}>
-                      {language === 'en' ? 'Technical Director (CTO)' : 'Direktur Teknik (CTO)'}
+                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>2</td>
+                    <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>
+                      {verifiedBy || 'Dennis Raditya'}
                     </td>
-                    <td style={tableCellStyle}>
+                    <td style={{ ...tableCellStyle, padding: '5px' }}>
                       {language === 'en'
-                        ? 'Technical Standard & Engineering Quality Verification'
-                        : 'Verifikator Standar Teknis & Engineering Quality Assurance'}
+                        ? 'Director of Operations & Technology'
+                        : language === 'bi'
+                        ? 'Direktur Operasional & Teknologi / Director of Operations & Technology'
+                        : 'Direktur Operasional & Teknologi'}
+                    </td>
+                    <td style={{ ...tableCellStyle, padding: '5px' }}>
+                      {language === 'en'
+                        ? 'Technical Verifier & QA Approver: Verifies technical formatting, sub-pixel layout, and compliance with IMS & CSMS quality standards.'
+                        : language === 'bi'
+                        ? 'Technical Verifier & QA Approver: Memeriksa format teknis, layout sub-pixel & standar mutu IMS & CSMS / Verifies technical formatting, sub-pixel layout, and compliance with IMS & CSMS.'
+                        : 'Technical Verifier & QA Approver: Memeriksa kesesuaian format teknis, layout sub-pixel, serta kepatuhan standar mutu IMS & CSMS.'}
                     </td>
                   </tr>
                   <tr style={{ background: '#FFFFFF' }}>
-                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>3</td>
-                    <td style={{ ...tableCellStyle, fontWeight: 'bold' }}>Mazmur Gusti Agung Larosa</td>
-                    <td style={tableCellStyle}>
+                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>3</td>
+                    <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>Abdul Qodir Al Jailani</td>
+                    <td style={{ ...tableCellStyle, padding: '5px' }}>
                       {language === 'en'
-                        ? 'Finance Director (CFO) / Lead DCC'
-                        : 'Direktur Keuangan (CFO) / Lead DCC'}
+                        ? 'Commissioner / IMS Lead'
+                        : language === 'bi'
+                        ? 'Komisaris / IMS Lead'
+                        : 'Komisaris / IMS Lead'}
                     </td>
-                    <td style={tableCellStyle}>
+                    <td style={{ ...tableCellStyle, padding: '5px' }}>
                       {language === 'en'
-                        ? 'Lead Document Controller, Numbering & Cloud Register Admin'
-                        : 'Lead Document Controller, Administrator Sistem Penomoran & Cloud Register'}
+                        ? 'Independent Compliance Overseer: Oversees periodic audits of controlled documents, backdating control, and archive retention integrity.'
+                        : language === 'bi'
+                        ? 'Independent Compliance Overseer: Mengawasi audit berkala, kontrol backdating & retensi arsip / Oversees periodic audits, backdating control & archive retention.'
+                        : 'Independent Compliance Overseer: Mengawasi audit berkala dokumen terkontrol, penomoran masa lalu (backdating), dan integritas retensi arsip.'}
                     </td>
                   </tr>
                 </tbody>
               </table>
 
               {/* Diktum KETIGA, KEEMPAT, KELIMA */}
-              <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                {language === 'en' ? 'THIRD:' : 'KETIGA:'}
-              </div>
-              <p style={{ margin: '0 0 0.5rem 0' }}>
-                {language === 'en'
-                  ? 'All finalized documents shall be locked via the "Fix Code" protocol and automatically archived into the Corporate Google Drive Document Control Center (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF).'
-                  : 'Seluruh dokumen yang telah final wajib dikunci melalui fungsi "Fix Kode" dan diarsipkan secara otomatis ke direktori Google Drive Document Control Center (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF).'}
-              </p>
+              {language === 'bi' ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '8pt', lineHeight: '1.4' }}>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>KETIGA:</div>
+                    <p style={{ margin: '0 0 0.35rem 0' }}>
+                      Mengatur tata kelola penyimpanan dan registrasi dokumen digital perusahaan melalui fitur Tombol "Fix Kode" pada sistem web, di mana setelah kode diverifikasi dan dikunci, sistem secara otomatis mengintegrasikan dokumen ke Google Drive korporat (Folder Induk ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) pada subfolder klasifikasi divisi masing-masing.
+                    </p>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>KEEMPAT:</div>
+                    <p style={{ margin: '0 0 0.35rem 0' }}>
+                      Menetapkan alur revisi dokumen terkontrol, di mana setiap pembaruan terhadap dokumen yang telah terbit wajib mencantumkan sufiks (-rev1, -rev2, dst.) pada berkas digital, mencatatkan alasan perubahan secara rinci pada tabel Revision Index, serta memusnahkan salinan dokumen usang (obsolete) dari peredaran kerja.
+                    </p>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>KELIMA:</div>
+                    <p style={{ margin: '0 0 0.35rem 0' }}>
+                      Surat Keputusan ini mulai berlaku efektif sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan atau penyesuaian regulasi industri migas/ketenagalistrikan dalam penetapannya, akan diadakan evaluasi dan perbaikan sebagaimana mestinya.
+                    </p>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>THIRD:</div>
+                    <p style={{ margin: '0 0 0.35rem 0', fontStyle: 'italic' }}>
+                      To govern the digital storage and registration of corporate documents via the 'Fix Code' button on the web system, whereby upon code verification and locking, the system automatically synchronises and archives the document into corporate Google Drive (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) within its respective divisional classification subfolder.
+                    </p>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>FOURTH:</div>
+                    <p style={{ margin: '0 0 0.35rem 0', fontStyle: 'italic' }}>
+                      To establish the revision workflow for controlled documents, whereby any subsequent amendment to an issued document must append a suffix (-rev1, -rev2, etc.) to the digital file, record the specific rationale in detail within the Revision Index table, and promptly withdraw and destroy obsolete hard copies and digital versions from active circulation.
+                    </p>
+                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>FIFTH:</div>
+                    <p style={{ margin: '0 0 0.35rem 0', fontStyle: 'italic' }}>
+                      This Resolution shall enter into force effectively from the date of its enactment. Should any discrepancies or regulatory adjustments within the oil & gas or power industry arise in the future, due evaluation and rectification shall be executed accordingly.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ fontSize: '8.5pt', lineHeight: '1.45' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>
+                    {language === 'en' ? 'THIRD:' : 'KETIGA:'}
+                  </div>
+                  <p style={{ margin: '0 0 0.4rem 0' }}>
+                    {language === 'en'
+                      ? "To govern the digital storage and registration of corporate documents via the 'Fix Code' button on the web system, whereby upon code verification and locking, the system automatically synchronises and archives the document into corporate Google Drive (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) within its respective divisional classification subfolder."
+                      : 'Mengatur tata kelola penyimpanan dan registrasi dokumen digital perusahaan melalui fitur Tombol "Fix Kode" pada sistem web, di mana setelah kode diverifikasi dan dikunci, sistem secara otomatis mengintegrasikan dokumen ke Google Drive korporat (Folder Induk ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) pada subfolder klasifikasi divisi masing-masing.'}
+                  </p>
 
-              <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                {language === 'en' ? 'FOURTH:' : 'KEEMPAT:'}
-              </div>
-              <p style={{ margin: '0 0 0.5rem 0' }}>
-                {language === 'en'
-                  ? 'Any subsequent amendments shall follow the formal Revision Index workflow (-rev1, obsolete mark) and remain audited within the central register.'
-                  : 'Setiap pembaruan dokumen wajib melalui alur penerbitan revisi resmi (-rev1, tanda kedaluwarsa/obsolete) dan tercatat dalam Master Register.'}
-              </p>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>
+                    {language === 'en' ? 'FOURTH:' : 'KEEMPAT:'}
+                  </div>
+                  <p style={{ margin: '0 0 0.4rem 0' }}>
+                    {language === 'en'
+                      ? 'To establish the revision workflow for controlled documents, whereby any subsequent amendment to an issued document must append a suffix (-rev1, -rev2, etc.) to the digital file, record the specific rationale in detail within the Revision Index table, and promptly withdraw and destroy obsolete hard copies and digital versions from active circulation.'
+                      : 'Menetapkan alur revisi dokumen terkontrol, di mana setiap pembaruan terhadap dokumen yang telah terbit wajib mencantumkan sufiks (-rev1, -rev2, dst.) pada berkas digital, mencatatkan alasan perubahan secara rinci pada tabel Revision Index, serta memusnahkan salinan dokumen usang (obsolete) dari peredaran kerja.'}
+                  </p>
 
-              <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                {language === 'en' ? 'FIFTH:' : 'KELIMA:'}
-              </div>
-              <p style={{ margin: '0 0 0.75rem 0' }}>
-                {language === 'en'
-                  ? 'This Resolution takes effect from the date of issuance with the stipulation that any inadvertent errors shall be rectified accordingly.'
-                  : 'Keputusan ini mulai berlaku sejak tanggal ditetapkan, dengan ketentuan apabila di kemudian hari terdapat kekeliruan akan diperbaiki sebagaimana mestinya.'}
-              </p>
+                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>
+                    {language === 'en' ? 'FIFTH:' : 'KELIMA:'}
+                  </div>
+                  <p style={{ margin: '0 0 0.5rem 0' }}>
+                    {language === 'en'
+                      ? 'This Resolution shall enter into force effectively from the date of its enactment. Should any discrepancies or regulatory adjustments within the oil & gas or power industry arise in the future, due evaluation and rectification shall be executed accordingly.'
+                      : 'Surat Keputusan ini mulai berlaku efektif sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan atau penyesuaian regulasi industri migas/ketenagalistrikan dalam penetapannya, akan diadakan evaluasi dan perbaikan sebagaimana mestinya.'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Tempat & Tanggal Penetapan */}
-            <div style={{ textAlign: 'right', fontSize: '9pt', margin: '0.85rem 0 0.5rem 0' }}>
+            <div style={{ textAlign: 'right', fontSize: '8.5pt', margin: '0.5rem 0 0.35rem 0' }}>
               <div>
                 {language === 'en'
                   ? 'Enacted in Semarang / Tuban'
+                  : language === 'bi'
+                  ? 'Ditetapkan di Semarang / Tuban | Enacted in Semarang / Tuban'
                   : 'Ditetapkan di Semarang / Tuban'}
               </div>
               <div style={{ fontWeight: 'bold', color: '#000000' }}>
-                {language === 'en' ? 'On:' : 'Pada tanggal:'}{' '}
+                {language === 'en' ? 'On:' : language === 'bi' ? 'Pada tanggal / On:' : 'Pada tanggal:'}{' '}
                 {language === 'en' ? formattedDateEn : formattedDate}
               </div>
               <div style={{ fontWeight: 'bold', color: '#003366', marginTop: '2px' }}>
-                PT NIRWANA BHUMI ENERGY
+                {language === 'en'
+                  ? 'BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY'
+                  : language === 'bi'
+                  ? 'DIREKSI PT NIRWANA BHUMI ENERGY / BOARD OF DIRECTORS'
+                  : 'DIREKSI PT NIRWANA BHUMI ENERGY'}
               </div>
             </div>
 
@@ -1144,71 +1257,92 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 width: '100%',
                 borderCollapse: 'collapse',
                 border: '1px solid #BFBFBF',
-                marginTop: '0.5rem',
-                marginBottom: '1rem',
+                marginTop: '0.35rem',
+                marginBottom: '0.5rem',
               }}
             >
               <thead>
-                <tr style={{ background: '#F1F5F9' }}>
-                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold' }}>
-                    {language === 'en' ? 'Approved By' : 'Disetujui Oleh'}
-                    <div style={{ fontSize: '8pt', color: '#64748b' }}>
-                      {language === 'en' ? 'President Director (CEO)' : 'Direktur Utama (CEO)'}
+                <tr style={{ background: '#D9E1F2' }}>
+                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold', padding: '6px' }}>
+                    {language === 'en'
+                      ? 'Approved By:'
+                      : language === 'bi'
+                      ? 'Disetujui Oleh / Approved By:'
+                      : 'Disetujui Oleh:'}
+                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'normal' }}>
+                      President Director / CEO
                     </div>
                   </th>
-                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold' }}>
-                    {language === 'en' ? 'Verified By' : 'Diverifikasi Oleh'}
-                    <div style={{ fontSize: '8pt', color: '#64748b' }}>
-                      {language === 'en' ? 'Technical Director (CTO)' : 'Direktur Teknik (CTO)'}
+                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold', padding: '6px' }}>
+                    {language === 'en'
+                      ? 'Verified By:'
+                      : language === 'bi'
+                      ? 'Diverifikasi Oleh / Verified By:'
+                      : 'Diverifikasi Oleh:'}
+                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'normal' }}>
+                      Director of Operations & Tech (CTO)
                     </div>
                   </th>
-                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold' }}>
-                    {language === 'en' ? 'Prepared By' : 'Disiapkan Oleh'}
-                    <div style={{ fontSize: '8pt', color: '#64748b' }}>
-                      {language === 'en' ? 'Finance Director (CFO) / DCC Lead' : 'Direktur Keuangan / Lead DCC'}
+                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold', padding: '6px' }}>
+                    {language === 'en'
+                      ? 'Prepared & Proposed By:'
+                      : language === 'bi'
+                      ? 'Disiapkan Oleh / Prepared By:'
+                      : 'Disiapkan & Diajukan Oleh:'}
+                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'normal' }}>
+                      Director of Finance & Eng (CFO / DCC)
                     </div>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                <tr style={{ height: '70px', verticalAlign: 'middle', background: '#FFFFFF' }}>
-                  <td style={{ ...tableCellStyle, textAlign: 'center' }}>
+                <tr style={{ height: '65px', verticalAlign: 'middle', background: '#FFFFFF' }}>
+                  <td style={{ ...tableCellStyle, textAlign: 'center', padding: '4px' }}>
                     <div
                       style={{
                         display: 'inline-block',
-                        padding: '3px 8px',
+                        padding: '2px 6px',
                         border: '1px dashed #94a3b8',
-                        fontSize: '7.5pt',
+                        fontSize: '7pt',
                         color: '#64748b',
-                        marginBottom: '4px',
+                        marginBottom: '3px',
                       }}
                     >
-                      [ Meterai Rp 10.000 ]
+                      [ Duty Stamp IDR 10,000 / Meterai ]
                     </div>
-                    <div style={{ fontSize: '8pt', color: '#003366', fontWeight: 'bold' }}>
-                      [ Tanda Tangan & Cap ]
-                    </div>
-                  </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center' }}>
-                    <div style={{ fontSize: '8pt', color: '#003366', fontWeight: 'bold' }}>
-                      [ Tanda Tangan & Cap ]
+                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'bold' }}>
+                      [ Signature & Corporate Seal ]
                     </div>
                   </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center' }}>
-                    <div style={{ fontSize: '8pt', color: '#003366', fontWeight: 'bold' }}>
-                      [ Tanda Tangan & Cap ]
+                  <td style={{ ...tableCellStyle, textAlign: 'center', padding: '4px' }}>
+                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'bold' }}>
+                      [ Signature & Stamp ]
+                    </div>
+                  </td>
+                  <td style={{ ...tableCellStyle, textAlign: 'center', padding: '4px' }}>
+                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'bold' }}>
+                      [ Signature & Stamp ]
                     </div>
                   </td>
                 </tr>
                 <tr style={{ background: '#F8FAFC' }}>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000' }}>
-                    BIMA SATRYO HARTANTO
+                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
+                    {(approvedBy || 'Bima Satryo Hartanto').toUpperCase()}
+                    <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
+                      {language === 'en' ? 'President Director' : 'Direktur Utama'}
+                    </div>
                   </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000' }}>
-                    DENNIS RADITYA
+                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
+                    {(verifiedBy || 'Dennis Raditya').toUpperCase()}
+                    <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
+                      {language === 'en' ? 'Director of Operations' : 'Direktur Operasional'}
+                    </div>
                   </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000' }}>
-                    MAZMUR GUSTI AGUNG LAROSA
+                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
+                    {(preparedBy || 'Mazmur Gusti Agung Larosa').toUpperCase()}
+                    <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
+                      {language === 'en' ? 'Director of Finance & Eng' : 'Direktur Keuangan & Teknik'}
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -1230,7 +1364,6 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               <span>Page 4 of 4</span>
             </div>
           </div>
-        )}
       </div>
     </div>
   );

@@ -1,0 +1,93 @@
+=== ACUAN TEMPLATE DOKUMEN (STANDAR TEKS & LOGIKA SURAT KEPUTUSAN DIREKSI NBE) ===
+KODE KLASIFIKASI DOKUMEN : [NomorUrut4Digit]-[Kategori]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]
+KATEGORI SURAT          : KEBIJAKAN PERUSAHAAN (KB) / COMPANY POLICY
+DIVISI PENERBIT         : GENERAL & MANAGEMENT (GNR)
+PEJABAT PENGESAH        : CEO / PRESIDENT DIRECTOR (BIMA SATRYO HARTANTO)
+STATUS DISTRIBUSI       : TERKONTROL (CONTROLLED COPY)
+
+--------------------------------------------------------------------------------
+1. ACUAN STRUKTUR HEADER KOP (HALAMAN 2 KE ATAS)
+--------------------------------------------------------------------------------
+- Baris 1 Kolom Tengah : GENERAL & MANAGEMENT (GNR)
+- Baris 2 Kolom Tengah : KEBIJAKAN PERUSAHAAN (COMPANY POLICY / KB)
+- Baris 3 Kolom Tengah : SURAT KEPUTUSAN DIREKSI: SISTEM PENGENDALIAN DOKUMEN & TIM DCC
+- Baris 4 Kiri         : Revision: [NomorRevisi] (Contoh: Revision: 0)
+- Baris 4 Tengah       : [NomorDokumen6Segmen] (Contoh: 0002-KB-GNR-CEO-X-2026)
+- Baris 4 Kanan        : Date : [TanggalBulanTahun] (Contoh: Date : 17 Oktober 2026)
+
+--------------------------------------------------------------------------------
+2. ACUAN STRUKTUR HALAMAN MUKA (COVER PAGE - HALAMAN 1)
+--------------------------------------------------------------------------------
+- Posisi Logo          : Tengah (Centered), Gambar logo NBE
+- Nama Entitas         : PT NIRWANA BHUMI ENERGY (Arial 20 pt Bold, Centered)
+- Jenis Surat          : SURAT KEPUTUSAN DIREKSI (Arial 15-16 pt Bold, Centered)
+- Judul Surat          : TENTANG PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)
+- Nomor Dokumen        : Nomor Dokumen: 0002-KB-GNR-CEO-X-2026 (Arial 11 pt Bold, Biru Navy)
+- Jeda Vertikal        : 5 baris kosong spasi sedang, 5 baris kosong spasi rapat
+- Blok Otorisasi Bawah : Ujung Kanan Bawah (Right Indent / Left Indent 3.4 - 3.65 inci):
+  Approved by   : Bima Satryo Hartanto (President Director / CEO)
+  Verified by    : Dennis Raditya (Director of Operations & Technology / CTO)
+  Prepared by   : Mazmur Gusti Agung Larosa (Director of Finance & Engineering / DCC Lead)
+- Penutup Halaman      : Explicit Page Break ke Halaman 2
+
+--------------------------------------------------------------------------------
+3. ACUAN STRUKTUR TABEL REVISI (REVISION INDEX - HALAMAN 2)
+--------------------------------------------------------------------------------
+- Judul Halaman        : REVISION INDEX (Arial 12 pt Bold, Centered, Tanpa Catatan Kendali)
+- Struktur Kolom Tabel : [Rev.] | [Date] | [Description] | [Prepared By]
+- Baris Revisi 0       : 0 | 17 Oktober 2026 | Initial Edition – Penetapan Sistem Manajemen Pengendalian Dokumen dan Penunjukan Tim Document Control Center (DCC) PT Nirwana Bhumi Energy | Mazmur Gusti Agung Larosa
+- Aturan Mutlak        : Bagian "Catatan Kendali Dokumen" DITIADAKAN/DIHAPUS. Halaman 2 hanya berisi Tabel Revision Index.
+- Penutup Halaman      : Explicit Page Break ke Halaman 3
+
+--------------------------------------------------------------------------------
+4. ACUAN STRUKTUR ISI SURAT (HALAMAN 3: KONSIDERANS & DIKTUM KESATU)
+--------------------------------------------------------------------------------
+- Judul Dokumen        : SURAT KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY
+- Nomor Surat          : NOMOR: 0002-KB-GNR-CEO-X-2026
+- Perihal / Tentang    : TENTANG PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)
+- Diktum Pembuka       : DIREKSI PT NIRWANA BHUMI ENERGY,
+- Konsiderans Menimbang:
+  a. bahwa dalam rangka mewujudkan standarisasi, akuntabilitas, serta keterlacakan seluruh dokumen kebijakan, prosedur operasional, instruksi kerja, dan formulir teknis di lingkungan PT Nirwana Bhumi Energy, diperlukan suatu sistem tata kelola dan kontrol dokumen yang baku dan terintegrasi;
+  b. bahwa guna menjamin kepatuhan menyeluruh terhadap standar Sistem Manajemen Terintegrasi (IMS) berbasis ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, dan kualifikasi Contractor Safety Management System (CSMS) SKK Migas serta PLN, diperlukan penunjukan personel penanggung jawab pengelolaan dokumen;
+  c. bahwa berdasarkan pertimbangan sebagaimana dimaksud dalam huruf a dan b di atas, dipandang perlu untuk menetapkan Surat Keputusan Direksi tentang Penetapan Sistem Manajemen Pengendalian Dokumen dan Penunjukan Tim Document Control Center (DCC) PT Nirwana Bhumi Energy.
+- Konsiderans Mengingat:
+  1. Akta Pendirian PT Nirwana Bhumi Energy serta peraturan perundang-undangan perseroan terbatas yang berlaku;
+  2. Standar Internasional ISO 9001:2015 Klausul 7.5 tentang Informasi Terdokumentasi (Documented Information);
+  3. Pedoman Baku Contractor Safety Management System (CSMS) SKK Migas dan PT PLN (Persero);
+  4. Prosedur Baku No. 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure);
+  5. Kebijakan Manajemen Terintegrasi No. 0001-KB-GNR-CEO-X-2026.
+- Pernyataan Memutuskan: MEMUTUSKAN:
+- Pernyataan Menetapkan: Menetapkan: SURAT KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY TENTANG PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC).
+- Diktum KESATU        :
+  Memberlakukan secara resmi Standar Format dan Sistem Penomoran Dokumen 6 Segmen di seluruh lingkungan operasional dan kantor pusat PT Nirwana Bhumi Energy, dengan struktur baku sebagai berikut:
+  [NomorUrut4Digit] - [KategoriSurat] - [Divisi] - [Pengesah] - [BulanRomawi] - [Tahun]
+  Ketentuan penomoran ini bersifat unik mutlak dengan asas ketat: SATU KODE UNTUK SATU DOKUMEN (1 Kode Dokumen = 1 Dokumen Sah). Duplikasi nomor dokumen atau penggunaan nomor yang sama untuk dokumen berbeda dilarang keras oleh sistem.
+- Penutup Halaman      : Explicit Page Break ke Halaman 4
+
+--------------------------------------------------------------------------------
+5. ACUAN STRUKTUR ISI SURAT (HALAMAN 4: TIM DCC, DIKTUM PENUTUP, & PENGESAHAN)
+--------------------------------------------------------------------------------
+- Diktum KEDUA         :
+  Menunjuk dan menetapkan personel berikut sebagai Tim Document Control Center (DCC) PT Nirwana Bhumi Energy:
+  * Personel 1: Mazmur Gusti Agung Larosa (Direktur Keuangan & Teknik) sebagai Lead Document Controller & System Administrator.
+    Tugas: Memvalidasi naskah, registrasi kode unik, eksekusi Tombol Fix Kode, dan sinkronisasi arsip Google Drive.
+  * Personel 2: Dennis Raditya (Direktur Operasional & Teknologi) sebagai Technical Verifier & QA Approver.
+    Tugas: Memeriksa kesesuaian format teknis, layout sub-pixel, serta kepatuhan standar mutu IMS & CSMS.
+  * Personel 3: Abdul Qodir Al Jailani (Komisaris / IMS Lead) sebagai Independent Compliance Overseer.
+    Tugas: Mengawasi audit berkala dokumen terkontrol, penomoran masa lalu (backdating), dan integritas retensi arsip.
+- Diktum KETIGA        :
+  Mengatur tata kelola penyimpanan dan registrasi dokumen digital perusahaan melalui fitur Tombol "Fix Kode" pada sistem web, di mana setelah kode diverifikasi dan dikunci, sistem secara otomatis mengintegrasikan dokumen ke Google Drive korporat (Folder Induk ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) pada subfolder klasifikasi divisi masing-masing.
+- Diktum KEEMPAT       :
+  Menetapkan alur revisi dokumen terkontrol, di mana setiap pembaruan terhadap dokumen yang telah terbit wajib mencantumkan sufiks (-rev1, -rev2, dst.) pada berkas digital, mencatatkan alasan perubahan secara rinci pada tabel Revision Index, serta memusnahkan salinan dokumen usang (obsolete) dari peredaran kerja.
+- Diktum KELIMA        :
+  Surat Keputusan ini mulai berlaku efektif sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan atau penyesuaian regulasi industri migas/ketenagalistrikan dalam penetapannya, akan diadakan evaluasi dan perbaikan sebagaimana mestinya.
+- Klausul Penanggalan  :
+  Ditetapkan di : Semarang / Tuban
+  Pada tanggal  : 17 Oktober 2026
+  DIREKSI PT NIRWANA BHUMI ENERGY
+- Tabel Tanda Tangan   : 3 Kolom Selebar Halaman (cantSplit aktif)
+  * Kolom 1 (Kiri)     : Disetujui Oleh: President Director / CEO | Ruang Meterai Rp 10.000, Tanda Tangan & Cap | BIMA SATRYO HARTANTO (Direktur Utama)
+  * Kolom 2 (Tengah)   : Diverifikasi Oleh: Director of Operations & Tech (CTO) | Ruang Tanda Tangan & Cap | DENNIS RADITYA (Direktur Operasional)
+  * Kolom 3 (Kanan)    : Disiapkan & Diajukan Oleh: Director of Finance & Eng (CFO / DCC) | Ruang Tanda Tangan & Cap | MAZMUR GUSTI AGUNG LAROSA (Direktur Keuangan & Teknik)
+
+=== AKHIR ACUAN TEMPLATE DOKUMEN TXT ===

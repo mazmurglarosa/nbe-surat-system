@@ -56,7 +56,7 @@ interface MasterCategoriesViewProps {
   initialTab?: ActiveCategoryTab;
 }
 
-type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers';
+export type ActiveCategoryTab = 'types' | 'subcategories' | 'subsubcategories' | 'divisions' | 'approvers' | 'templates';
 
 export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   initialTab = 'types',
@@ -336,7 +336,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           : SUB_SUB_CATEGORIES)
       : activeTab === 'divisions'
       ? masterCodes.divisions
-      : masterCodes.approvers;
+      : activeTab === 'approvers'
+      ? masterCodes.approvers
+      : [];
 
   const filteredList = currentList.filter(
     (item) =>
@@ -376,41 +378,57 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               marginTop: '0.35rem',
             }}
           >
-            Tambahkan atau kelola Kategori Dokumen (Document Type), Divisi Penerbit Surat, dan Otoritas Pengesahan (Approver) sesuai perkembangan perusahaan.
+            Kelola Kategori Dokumen, Sub-Kategori (ZZ), Sub-sub Kategori (AA), Divisi Penerbit, Otoritas Pengesahan, dan Acuan Template Dokumen (.txt & .pdf) NBE.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
-            onClick={handleReset}
+            onClick={activeTab === 'templates' ? handleResetTemplate : handleReset}
             className="btn btn-secondary btn-sm"
-            title="Kembalikan master kode ke standar awal SOP"
+            title="Kembalikan konfigurasi ke standar awal SOP NBE"
           >
             <RotateCcw size={15} />
             <span>Reset ke Default SOP</span>
           </button>
-          <button
-            onClick={handleOpenAdd}
-            className="btn btn-primary btn-sm"
-            style={{
-              background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
-              border: 'none',
-              fontWeight: 600,
-            }}
-          >
-            <Plus size={16} />
-            <span>
-              {activeTab === 'types'
-                ? '+ Tambah Kategori Surat'
-                : activeTab === 'subcategories'
-                ? '+ Tambah Sub-Kategori (ZZ)'
-                : activeTab === 'subsubcategories'
-                ? '+ Tambah Sub-sub Kategori (AA)'
-                : activeTab === 'divisions'
-                ? '+ Tambah Divisi Penerbit'
-                : '+ Tambah Otoritas Pengesahan'}
-            </span>
-          </button>
+          {activeTab !== 'templates' ? (
+            <button
+              onClick={handleOpenAdd}
+              className="btn btn-primary btn-sm"
+              style={{
+                background: 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)',
+                border: 'none',
+                fontWeight: 600,
+              }}
+            >
+              <Plus size={16} />
+              <span>
+                {activeTab === 'types'
+                  ? '+ Tambah Kategori Surat'
+                  : activeTab === 'subcategories'
+                  ? '+ Tambah Sub-Kategori (ZZ)'
+                  : activeTab === 'subsubcategories'
+                  ? '+ Tambah Sub-sub Kategori (AA)'
+                  : activeTab === 'divisions'
+                  ? '+ Tambah Divisi Penerbit'
+                  : '+ Tambah Otoritas Pengesahan'}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={handleSaveTemplate}
+              disabled={isSavingTemplate}
+              className="btn btn-primary btn-sm"
+              style={{
+                background: 'linear-gradient(90deg, #ec4899 0%, #db2777 100%)',
+                border: 'none',
+                fontWeight: 600,
+              }}
+            >
+              <Save size={16} />
+              <span>{isSavingTemplate ? 'Menyimpan...' : 'Simpan Acuan Template'}</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -490,6 +508,14 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'approvers' ? 800 : 500 }}
         >
           5. Otoritas Pengesahan ({masterCodes.approvers.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => { setActiveTab('templates'); setSearchQuery(''); }}
+          className={`btn btn-sm ${activeTab === 'templates' ? 'btn-primary' : 'btn-ghost'}`}
+          style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'templates' ? 800 : 500 }}
+        >
+          6. Acuan Template Dokumen
         </button>
       </div>
 
@@ -818,9 +844,73 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             Approving Authority Code (contoh: CEO, CTO, COO, CFO, MNG, SPV)
           </p>
         </div>
+
+        {/* TAB 6: Acuan Template Dokumen */}
+        <div
+          onClick={() => {
+            setActiveTab('templates');
+            setSearchQuery('');
+          }}
+          style={{
+            cursor: 'pointer',
+            padding: '1.25rem',
+            borderRadius: 'var(--radius-lg)',
+            border:
+              activeTab === 'templates'
+                ? '2px solid #ec4899'
+                : '1px solid var(--border-subtle)',
+            background:
+              activeTab === 'templates'
+                ? 'rgba(236, 72, 153, 0.1)'
+                : 'var(--bg-secondary)',
+            transition: 'all 0.2s ease',
+            boxShadow:
+              activeTab === 'templates'
+                ? '0 4px 16px rgba(236, 72, 153, 0.15)'
+                : 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+              <div
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  background: '#ec4899',
+                  color: '#ffffff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 800,
+                  fontSize: '0.9rem',
+                }}
+              >
+                6
+              </div>
+              <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                Acuan Template Dokumen
+              </h3>
+            </div>
+            <span
+              className="badge mono"
+              style={{
+                background: 'rgba(236, 72, 153, 0.2)',
+                color: '#ec4899',
+                fontWeight: 700,
+              }}
+            >
+              .txt & .pdf
+            </span>
+          </div>
+          <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+            Acuan teks (.txt) & visual layout (.pdf) standar NBE
+          </p>
+        </div>
       </div>
 
       {/* 1. MASTER CODES FILTER & LIST CARD (TABS 1 - 5) */}
+      {activeTab !== 'templates' && (
       <div className="glass-card" style={{ padding: '1.5rem', marginBottom: '2rem' }}>
         {/* Action Bar */}
         <div
@@ -1008,6 +1098,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           )}
         </div>
       </div>
+      )}
 
       {/* 2. ACUAN TEMPLATE DOKUMEN & PANDUAN STANDARDISASI BOT (TERLETAK DIBAWAH DAFTAR KODE) */}
       <div className="glass-card animate-fade-in" style={{ padding: '1.75rem', marginBottom: '2rem' }}>

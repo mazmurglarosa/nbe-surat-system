@@ -508,7 +508,7 @@ export async function generateStandardNbeDocx(
             borders: bordersBox,
             children: [
               new Paragraph({
-                children: [new TextRun({ text: 'Bima Satryo Hartanto', bold: true, size: 18, font: 'Arial' })],
+                children: [new TextRun({ text: data.preparedBy || 'Mazmur Gusti Agung Larosa', bold: true, size: 18, font: 'Arial' })],
               }),
             ],
           }),
@@ -518,7 +518,7 @@ export async function generateStandardNbeDocx(
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: lang === 'en' ? 'President Director (CEO)' : 'Direktur Utama (CEO)',
+                    text: lang === 'en' ? 'Director of Finance & Engineering' : 'Direktur Keuangan & Teknik',
                     size: 18,
                     font: 'Arial',
                   }),
@@ -534,8 +534,8 @@ export async function generateStandardNbeDocx(
                   new TextRun({
                     text:
                       lang === 'en'
-                        ? 'Highest Corporate Document Approval & Authorization'
-                        : 'Penanggung Jawab Otorisasi & Pengesah Dokumen Puncak Korporat',
+                        ? 'Lead Document Controller & System Administrator: Validates manuscripts, registers unique codes, executes Fix Code, and synchronises Google Drive archives.'
+                        : 'Lead Document Controller & System Administrator: Memvalidasi naskah, registrasi kode unik, eksekusi Tombol Fix Kode, dan sinkronisasi arsip Google Drive.',
                     size: 17,
                     font: 'Arial',
                   }),
@@ -562,7 +562,7 @@ export async function generateStandardNbeDocx(
             shading: { fill: 'F9FBFD' },
             children: [
               new Paragraph({
-                children: [new TextRun({ text: 'Dennis Raditya', bold: true, size: 18, font: 'Arial' })],
+                children: [new TextRun({ text: data.verifiedBy || 'Dennis Raditya', bold: true, size: 18, font: 'Arial' })],
               }),
             ],
           }),
@@ -573,7 +573,7 @@ export async function generateStandardNbeDocx(
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: lang === 'en' ? 'Technical Director (CTO)' : 'Direktur Teknik (CTO)',
+                    text: lang === 'en' ? 'Director of Operations & Technology' : 'Direktur Operasional & Teknologi',
                     size: 18,
                     font: 'Arial',
                   }),
@@ -590,8 +590,8 @@ export async function generateStandardNbeDocx(
                   new TextRun({
                     text:
                       lang === 'en'
-                        ? 'Technical Standard & Engineering Quality Verification'
-                        : 'Verifikator Standar Teknis & Engineering Quality Assurance',
+                        ? 'Technical Verifier & QA Approver: Verifies technical formatting, sub-pixel layout, and compliance with IMS & CSMS quality standards.'
+                        : 'Technical Verifier & QA Approver: Memeriksa kesesuaian format teknis, layout sub-pixel, serta kepatuhan standar mutu IMS & CSMS.',
                     size: 17,
                     font: 'Arial',
                   }),
@@ -617,7 +617,7 @@ export async function generateStandardNbeDocx(
             children: [
               new Paragraph({
                 children: [
-                  new TextRun({ text: 'Mazmur Gusti Agung Larosa', bold: true, size: 18, font: 'Arial' }),
+                  new TextRun({ text: 'Abdul Qodir Al Jailani', bold: true, size: 18, font: 'Arial' }),
                 ],
               }),
             ],
@@ -628,10 +628,7 @@ export async function generateStandardNbeDocx(
               new Paragraph({
                 children: [
                   new TextRun({
-                    text:
-                      lang === 'en'
-                        ? 'Finance Director (CFO) / Lead DCC'
-                        : 'Direktur Keuangan (CFO) / Lead DCC',
+                    text: lang === 'en' ? 'Commissioner / IMS Lead' : 'Komisaris / IMS Lead',
                     size: 18,
                     font: 'Arial',
                   }),
@@ -647,8 +644,8 @@ export async function generateStandardNbeDocx(
                   new TextRun({
                     text:
                       lang === 'en'
-                        ? 'Lead Document Controller, Numbering & Cloud Register Admin'
-                        : 'Lead Document Controller, Administrator Sistem Penomoran & Cloud Register',
+                        ? 'Independent Compliance Overseer: Oversees periodic audits of controlled documents, backdating control, and archive retention integrity.'
+                        : 'Independent Compliance Overseer: Mengawasi audit berkala dokumen terkontrol, penomoran masa lalu (backdating), dan integritas retensi arsip.',
                     size: 17,
                     font: 'Arial',
                   }),

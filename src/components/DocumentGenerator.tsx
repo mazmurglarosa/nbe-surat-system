@@ -56,7 +56,7 @@ import { addSubCategory, addSubSubCategory, addDocumentType } from '../services/
 import { pushAllLocalDataToCloud } from '../services/cloudSync';
 import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
-import { generateStandardNbeDocx } from '../services/docTemplateGenerator';
+import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 
 function generateDocumentId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -113,12 +113,12 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const divs = divisions && divisions.length > 0 ? divisions : DIVISIONS;
   const apprvs = approvers && approvers.length > 0 ? approvers : APPROVERS;
 
-  // Step selections
-  const [selectedType, setSelectedType] = useState<string>(docTypes[0]?.code || 'SOP');
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>(subCats[0]?.code || 'GP');
-  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState<string>(subSubCats[0]?.code || 'AI');
-  const [selectedDivision, setSelectedDivision] = useState<string>(divs[0]?.code || 'GNR');
-  const [selectedApprover, setSelectedApprover] = useState<string>(apprvs[0]?.code || 'CEO');
+  // Step selections (Default sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE)
+  const [selectedType, setSelectedType] = useState<string>(docTypes.find((d) => d.code === 'KB')?.code || 'KB');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
+  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState<string>('');
+  const [selectedDivision, setSelectedDivision] = useState<string>(divs.find((d) => d.code === 'GNR')?.code || 'GNR');
+  const [selectedApprover, setSelectedApprover] = useState<string>(apprvs.find((a) => a.code === 'CEO')?.code || 'CEO');
 
   // Quick Add Modal state for Document Types, Sub Categories, and Sub-sub Categories
   const [quickAddModal, setQuickAddModal] = useState<'type' | 'subcategory' | 'subsubcategory' | null>(null);
@@ -145,12 +145,10 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
 
   // Metadata
   const [title, setTitle] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [createdBy, setCreatedBy] = useState<string>('');
-  const [approvedBy, setApprovedBy] = useState<string>(
-    () => apprvs.find((a) => a.code === (approvers?.[0]?.code || 'CEO'))?.label || 'President Director (CEO)'
-  );
-  const [verifiedBy, setVerifiedBy] = useState<string>('Management Representative (MR)');
+  const [description, setDescription] = useState<string>('Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.');
+  const [createdBy, setCreatedBy] = useState<string>('Mazmur Gusti Agung Larosa');
+  const [approvedBy, setApprovedBy] = useState<string>('Bima Satryo Hartanto');
+  const [verifiedBy, setVerifiedBy] = useState<string>('Dennis Raditya');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
   const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
@@ -541,34 +539,28 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const handleDownloadDocx = async () => {
     try {
       const typeDef = docTypes.find((d) => d.code === selectedType);
-      const res = await generateStandardNbeDocx({
-        title: title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN',
-        code: activeCode,
-        issueDateFormatted: formatIssueDate(issueDate),
-        revision: revision,
+      const divDef = divs.find((d) => d.code === selectedDivision);
+      const apprvDef = apprvs.find((a) => a.code === selectedApprover);
+
+      await generateAndDownloadNbeDocx({
+        docCode: activeCode,
+        titleId: title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN',
+        titleEn: title.trim().toUpperCase() || 'DOCUMENT CONTROL AND NUMBERING SYSTEM',
+        categoryNameId: typeDef?.label || selectedType,
+        divisionName: divDef?.label || selectedDivision,
+        revisionNo: String(revision),
+        issueDateId: formatIssueDate(issueDate),
+        issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
         preparedBy: createdBy.trim() || 'Mazmur Gusti Agung Larosa',
+        preparedRole: 'Director of Finance & Engineering / DCC Lead',
         verifiedBy: verifiedBy || 'Dennis Raditya',
+        verifiedRole: 'Director of Operations & Technology / CTO',
         approvedBy: approvedBy || 'Bima Satryo Hartanto',
-        docTypeLabel: typeDef?.label || selectedType,
-        revisions: [
-          {
-            revision: revision,
-            date: formatIssueDate(issueDate),
-            description: revision === 0 ? 'Initial Issue' : 'Penerbitan Baru',
-            revisedBy: createdBy.trim() || 'Staff NBE',
-          },
-        ],
+        approvedRole: apprvDef?.label || 'President Director / CEO',
         language: selectedLang,
       });
-
-      const a = document.createElement('a');
-      a.href = res.dataUrl;
-      a.download = `${activeCode}-${selectedLang.toUpperCase()}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
     } catch (err: any) {
-      alert('Gagal mendownload Word (.docx): ' + err.message);
+      alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
     }
   };
 

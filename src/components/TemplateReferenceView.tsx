@@ -25,14 +25,14 @@ import {
 import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
 import { DocumentLanguage } from '../types';
-import { generateStandardNbeDocx } from '../services/docTemplateGenerator';
+import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 
 export const TemplateReferenceView: React.FC = () => {
   const [settings, setSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
   const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
   const [isSavedBanner, setIsSavedBanner] = useState(false);
-  const [txtFileName, setTxtFileName] = useState(settings.txtGuidelinesName || 'Perhatikan_file_panduan_NBE.txt');
-  const [pdfFileName, setPdfFileName] = useState(settings.pdfLayoutName || '0001-KB-GNR-CEO-X-2026.pdf');
+  const [txtFileName, setTxtFileName] = useState(settings.txtGuidelinesName || 'ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.txt');
+  const [pdfFileName, setPdfFileName] = useState(settings.pdfLayoutName || '0002-KB-GNR-CEO-X-2026.pdf');
   const [txtContent, setTxtContent] = useState(settings.txtGuidelinesContent);
 
   // File Upload Handlers
@@ -100,8 +100,8 @@ export const TemplateReferenceView: React.FC = () => {
     if (confirm('Kembalikan konfigurasi Acuan Template Dokumen ke standar baku PT Nirwana Bhumi Energy?')) {
       const def = resetTemplateSettings();
       setSettings(def);
-      setTxtFileName(def.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt');
-      setPdfFileName(def.pdfLayoutName || '0001-KB-GNR-CEO-X-2026.pdf');
+      setTxtFileName(def.txtGuidelinesName || 'ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.txt');
+      setPdfFileName(def.pdfLayoutName || '0002-KB-GNR-CEO-X-2026.pdf');
       setTxtContent(def.txtGuidelinesContent);
       triggerSuccessBanner();
     }
@@ -109,28 +109,26 @@ export const TemplateReferenceView: React.FC = () => {
 
   const handleDownloadSampleDocx = async () => {
     try {
-      const res = await generateStandardNbeDocx({
-        title: 'SISTEM KONTROL DAN PENOMORAN DOKUMEN',
-        code: '0001-KB-GNR-CEO-X-2026',
-        issueDateFormatted: '17 Oktober 2026',
-        revision: 0,
+      await generateAndDownloadNbeDocx({
+        docCode: '0002-KB-GNR-CEO-X-2026',
+        titleId: 'SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)',
+        titleEn: 'ESTABLISHMENT OF DOCUMENT CONTROL MANAGEMENT SYSTEM AND APPOINTMENT OF DCC TEAM',
+        categoryNameId: 'Kebijakan Perusahaan (Company Policy / KB)',
+        divisionName: 'General & Management (GNR)',
+        revisionNo: '0',
+        issueDateId: '17 Oktober 2026',
+        issueDateEn: '17 October 2026',
         preparedBy: 'Mazmur Gusti Agung Larosa',
+        preparedRole: 'Director of Finance & Engineering / DCC Lead',
         verifiedBy: 'Dennis Raditya',
+        verifiedRole: 'Director of Operations & Technology / CTO',
         approvedBy: 'Bima Satryo Hartanto',
-        docTypeLabel: 'Surat Keputusan Direksi (KB)',
-        revisions: [],
+        approvedRole: 'President Director / CEO',
         language: selectedLang,
       });
-
-      const a = document.createElement('a');
-      a.href = res.dataUrl;
-      a.download = `0001-KB-GNR-CEO-X-2026-${selectedLang.toUpperCase()}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Download error:', err);
-      alert('Gagal mengenerate file Word: ' + err);
+      alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
     }
   };
 
@@ -481,7 +479,7 @@ export const TemplateReferenceView: React.FC = () => {
             </span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <a
-                href="/0001-KB-GNR-CEO-X-2026.pdf"
+                href="/0002-KB-GNR-CEO-X-2026.pdf"
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -492,18 +490,62 @@ export const TemplateReferenceView: React.FC = () => {
                   borderRadius: '6px',
                   background: 'var(--bg-secondary)',
                   border: '1px solid var(--border-subtle)',
-                  color: '#0284c7',
+                  color: '#059669',
                   textDecoration: 'none',
                   fontSize: '0.8rem',
                   fontWeight: 600,
                 }}
               >
-                <span>📄 0001-KB-GNR-CEO-X-2026.pdf (SK Penunjukan CIVD Acuan)</span>
+                <span>📄 0002-KB-GNR-CEO-X-2026 (SK Direksi ID - Revisi Final)</span>
                 <ExternalLink size={14} />
               </a>
 
               <a
-                href="/0001-SOP-GNR-CEO-IX-2026.pdf"
+                href="/0002-KB-GNR-CEO-X-2026-EN.pdf"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  color: '#2563eb',
+                  textDecoration: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                }}
+              >
+                <span>📄 0002-KB-GNR-CEO-X-2026-EN (British English Resolution)</span>
+                <ExternalLink size={14} />
+              </a>
+
+              <a
+                href="/0002-KB-GNR-CEO-X-2026-BI.pdf"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.5rem 0.75rem',
+                  borderRadius: '6px',
+                  background: 'var(--bg-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  color: '#9333ea',
+                  textDecoration: 'none',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                }}
+              >
+                <span>📄 0002-KB-GNR-CEO-X-2026-BI (Bilingual ID - EN Parallel)</span>
+                <ExternalLink size={14} />
+              </a>
+
+              <a
+                href="/ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.txt"
                 target="_blank"
                 rel="noreferrer"
                 style={{
@@ -520,7 +562,7 @@ export const TemplateReferenceView: React.FC = () => {
                   fontWeight: 600,
                 }}
               >
-                <span>📄 0001-SOP-GNR-CEO-IX-2026.pdf (Prosedur Baku NBE)</span>
+                <span>📝 ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.txt</span>
                 <ExternalLink size={14} />
               </a>
             </div>

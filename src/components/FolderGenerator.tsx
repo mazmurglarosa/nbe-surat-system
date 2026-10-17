@@ -78,6 +78,7 @@ import {
 } from '../services/googleDocsService';
 import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
+import { generateAndDownloadNbeDocx, generateNbeDocxBlob, NbeDocumentPayload } from '../utils/nbeDocxGenerator';
 
 function generateDocumentId(): string {
   return `doc-folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -222,20 +223,20 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     };
   }, []);
 
-  // GLOBAL PARAMETERS (Shared defaults)
-  const [selectedType, setSelectedType] = useState<string>(docTypes[0]?.code || 'CSMS');
-  const [selectedSubCategory, setSelectedSubCategory] = useState<string>(subCats[0]?.code || 'GP');
-  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState<string>(subSubCats[0]?.code || 'AI');
-  const [selectedDivision, setSelectedDivision] = useState<string>(divs[0]?.code || 'FNC');
-  const [selectedApprover, setSelectedApprover] = useState<string>(apprvs[0]?.code || 'CFO');
+  // GLOBAL PARAMETERS (Shared defaults sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE)
+  const [selectedType, setSelectedType] = useState<string>(docTypes.find((d) => d.code === 'KB')?.code || 'KB');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>('');
+  const [selectedSubSubCategory, setSelectedSubSubCategory] = useState<string>('');
+  const [selectedDivision, setSelectedDivision] = useState<string>(divs.find((d) => d.code === 'GNR')?.code || 'GNR');
+  const [selectedApprover, setSelectedApprover] = useState<string>(apprvs.find((a) => a.code === 'CEO')?.code || 'CEO');
 
   const [issueDate, setIssueDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [monthNumber, setMonthNumber] = useState<number>(() => new Date().getMonth() + 1);
   const [year, setYear] = useState<number>(() => new Date().getFullYear());
 
-  const [preparedBy, setPreparedBy] = useState<string>('Mazmur L');
-  const [verifiedBy, setVerifiedBy] = useState<string>('Auditor Internal Utama');
-  const [approvedBy, setApprovedBy] = useState<string>('Direktur Keuangan (CFO)');
+  const [preparedBy, setPreparedBy] = useState<string>('Mazmur Gusti Agung Larosa');
+  const [verifiedBy, setVerifiedBy] = useState<string>('Dennis Raditya');
+  const [approvedBy, setApprovedBy] = useState<string>('Bima Satryo Hartanto');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
 
@@ -284,7 +285,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   // Active file being customized in Tahap 3
   const activeWordFile = wordFiles[selectedWordIndex] || null;
   const activeCustomization: FileMetadataCustomization = (activeWordFile && fileCustomizations[activeWordFile.id]) || {
-    title: activeWordFile ? stripFileExtension(activeWordFile.name).toUpperCase().replace(/[_-]/g, ' ') : 'INTERNAL AUDIT PROCEDURES',
+    title: activeWordFile ? stripFileExtension(activeWordFile.name).toUpperCase().replace(/[_-]/g, ' ') : 'PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)',
     code: activeCode,
     issueDate: issueDate,
     revision: revision,
@@ -292,12 +293,12 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     preparedBy: preparedBy,
     verifiedBy: verifiedBy,
     approvedBy: approvedBy,
-    description: `Prosedur standar sistem manajemen terintegrasi PT Nirwana Bhumi Energi.`,
+    description: `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`,
     revisions: [
       {
         revision: revision,
         date: formatIssueDate(issueDate),
-        description: `Edisi Awal - Penerbitan Dokumen Standar CSMS PT NBE (${activeCode})`,
+        description: `Initial Edition – Penetapan Surat Keputusan Direksi (${activeCode})`,
         revisedBy: preparedBy,
       },
     ],
@@ -447,25 +448,35 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           autoConverted++;
           const newDocxName = `${stripFileExtension(pdf.name)}.docx`;
           const cleanTitle = stripFileExtension(pdf.name).toUpperCase().replace(/[_-]/g, ' ');
+          const seq = effectiveSequence + finalWords.length;
+          const codeForThis = generateDocumentCode(
+            seq,
+            selectedType,
+            selectedSubCategory,
+            selectedSubSubCategory,
+            selectedDivision,
+            selectedApprover,
+            monthNumber,
+            year
+          );
 
-          // Create standard Word file for this PDF using docx
-          const generated = await generateStandardNbeDocx({
-            title: cleanTitle,
-            code: activeCode,
-            issueDateFormatted: formatIssueDate(issueDate),
-            revision: 0,
+          // Create pure OpenXML Word file for this PDF using docx matching ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE
+          const generated = await generateNbeDocxBlob({
+            docCode: codeForThis,
+            titleId: cleanTitle,
+            titleEn: cleanTitle,
+            categoryNameId: docTypes.find((d) => d.code === selectedType)?.label || 'KEBIJAKAN PERUSAHAAN (KB)',
+            divisionName: divs.find((d) => d.code === selectedDivision)?.label || 'GENERAL & MANAGEMENT (GNR)',
+            revisionNo: '0',
+            issueDateId: formatIssueDate(issueDate),
+            issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
             preparedBy: preparedBy,
+            preparedRole: 'Director of Finance & Engineering / DCC Lead',
             verifiedBy: verifiedBy,
+            verifiedRole: 'Director of Operations & Technology / CTO',
             approvedBy: approvedBy,
-            revisions: [
-              {
-                revision: 0,
-                date: formatIssueDate(issueDate),
-                description: `Edisi Awal – Dikonversi & Distandarisasi dari dokumen PDF: ${pdf.name}`,
-                revisedBy: preparedBy,
-              },
-            ],
-            description: `Dokumen resmi PT Nirwana Bhumi Energi hasil konversi dan standarisasi dari berkas ${pdf.name}.`,
+            approvedRole: 'President Director / CEO',
+            language: selectedLang,
           });
 
           const convertedWordItem: AnalyzedFileItem = {
@@ -489,9 +500,10 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       setPdfFiles(pdfs);
       setAutoConvertedCount(autoConverted);
 
-      // Initialize customizations for each word file
+      // Initialize customizations and standardize every Word file to ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE
       const initialCustoms: Record<string, FileMetadataCustomization> = {};
-      finalWords.forEach((wf, index) => {
+      for (let index = 0; index < finalWords.length; index++) {
+        const wf = finalWords[index];
         const seq = effectiveSequence + index;
         const codeForThis = generateDocumentCode(
           seq,
@@ -506,7 +518,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         const cleanTitle = stripFileExtension(wf.name).toUpperCase().replace(/[_-]/g, ' ');
 
         initialCustoms[wf.id] = {
-          title: cleanTitle || 'INTERNAL AUDIT PROCEDURES',
+          title: cleanTitle || 'PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)',
           code: codeForThis,
           issueDate: issueDate,
           revision: 0,
@@ -514,12 +526,12 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           preparedBy: preparedBy,
           verifiedBy: verifiedBy,
           approvedBy: approvedBy,
-          description: `Prosedur standar sistem manajemen terintegrasi PT Nirwana Bhumi Energi untuk ${cleanTitle}.`,
+          description: `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`,
           revisions: [
             {
               revision: 0,
               date: formatIssueDate(issueDate),
-              description: `Initial Edition – Penerbitan Dokumen Standar ${cleanTitle} (${codeForThis})`,
+              description: `Initial Edition – ${cleanTitle} PT Nirwana Bhumi Energy (${codeForThis})`,
               revisedBy: preparedBy,
             },
           ],
@@ -529,7 +541,32 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           divisionCode: selectedDivision,
           approverCode: selectedApprover,
         };
-      });
+
+        // Otomatis standarisasi berkas Word ke template baku OpenXML NBE 4 Halaman
+        try {
+          const docxStandard = await generateNbeDocxBlob({
+            docCode: codeForThis,
+            titleId: cleanTitle,
+            titleEn: cleanTitle,
+            categoryNameId: docTypes.find((d) => d.code === selectedType)?.label || 'KEBIJAKAN PERUSAHAAN (KB)',
+            divisionName: divs.find((d) => d.code === selectedDivision)?.label || 'GENERAL & MANAGEMENT (GNR)',
+            revisionNo: '0',
+            issueDateId: formatIssueDate(issueDate),
+            issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+            preparedBy: preparedBy,
+            preparedRole: 'Director of Finance & Engineering / DCC Lead',
+            verifiedBy: verifiedBy,
+            verifiedRole: 'Director of Operations & Technology / CTO',
+            approvedBy: approvedBy,
+            approvedRole: 'President Director / CEO',
+            language: selectedLang,
+          });
+          wf.dataUrl = docxStandard.dataUrl;
+          wf.size = docxStandard.blob.size;
+        } catch (e) {
+          console.warn('Word file standardization note:', e);
+        }
+      }
 
       setFileCustomizations(initialCustoms);
       setCurrentStage(2);
@@ -772,27 +809,26 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     setIsGeneratingDocx(true);
     try {
       const typeDef = docTypes.find((t) => t.code.toUpperCase() === custom.typeCode.toUpperCase());
-      const res = await generateStandardNbeDocx({
-        title: custom.title,
-        code: custom.code,
-        docTypeLabel: typeDef?.label,
-        issueDateFormatted: formatIssueDate(custom.issueDate),
-        revision: custom.revision,
-        preparedBy: custom.preparedBy,
-        verifiedBy: custom.verifiedBy,
-        approvedBy: custom.approvedBy,
-        description: custom.description,
-        revisions: custom.revisions,
+      const divDef = divs.find((d) => d.code.toUpperCase() === custom.divisionCode?.toUpperCase());
+      await generateAndDownloadNbeDocx({
+        docCode: custom.code,
+        titleId: custom.title,
+        titleEn: custom.title,
+        categoryNameId: typeDef?.label || custom.typeCode,
+        divisionName: divDef?.label || custom.divisionCode || 'General & Management (GNR)',
+        revisionNo: String(custom.revision || 0),
+        issueDateId: formatIssueDate(custom.issueDate),
+        issueDateEn: new Date(custom.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        preparedBy: custom.preparedBy || 'Mazmur Gusti Agung Larosa',
+        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+        verifiedBy: custom.verifiedBy || 'Dennis Raditya',
+        verifiedRole: 'Director of Operations & Technology / CTO',
+        approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
+        approvedRole: 'President Director / CEO',
+        language: selectedLang,
       });
-
-      const a = document.createElement('a');
-      a.href = res.dataUrl;
-      a.download = `${custom.code} - ${custom.title}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
     } catch (err: any) {
-      alert(`Gagal membuat file Word: ${err.message}`);
+      alert(`Gagal membuat file Word (.docx): ${err.message}`);
     } finally {
       setIsGeneratingDocx(false);
     }
@@ -2290,898 +2326,30 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                 }}
                 onDownloadDocx={async () => {
                   try {
-                    const res = await generateStandardNbeDocx({
-                      title: activeCustomization.title,
-                      code: activeCustomization.code,
-                      docTypeLabel: docTypes.find((d) => d.code === activeCustomization.typeCode)?.label,
-                      issueDateFormatted: formatIssueDate(activeCustomization.issueDate),
-                      revision: activeCustomization.revision,
+                    const docTypeLabel = docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode;
+                    const divisionLabel = divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode;
+                    await generateAndDownloadNbeDocx({
+                      docCode: activeCustomization.code,
+                      titleId: activeCustomization.title,
+                      titleEn: activeCustomization.title,
+                      categoryNameId: docTypeLabel,
+                      divisionName: divisionLabel,
+                      revisionNo: String(activeCustomization.revision),
+                      issueDateId: formatIssueDate(activeCustomization.issueDate),
+                      issueDateEn: new Date(activeCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
                       preparedBy: activeCustomization.preparedBy,
+                      preparedRole: 'Director of Finance & Engineering / DCC Lead',
                       verifiedBy: activeCustomization.verifiedBy,
+                      verifiedRole: 'Director of Operations & Technology / CTO',
                       approvedBy: activeCustomization.approvedBy,
-                      description: activeCustomization.description,
-                      revisions: activeCustomization.revisions,
+                      approvedRole: 'President Director / CEO',
                       language: selectedLang,
                     });
-                    const a = document.createElement('a');
-                    a.href = res.dataUrl;
-                    a.download = `${activeCustomization.code}-${selectedLang.toUpperCase()}.docx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
                   } catch (err: any) {
-                    alert('Gagal mengunduh berkas Word: ' + err.message);
+                    alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
                   }
                 }}
               />
-
-              {/* ============================================================= */}
-              {/* DOCUMENT PREVIEW SECTION (PLACED BELOW CLASSIFICATION CARD)    */}
-              {/* ============================================================= */}
-              <div
-                id="document-preview-section"
-                className="glass-card animate-fade-in"
-                style={{
-                  padding: '1.75rem',
-                  border: '1.5px solid rgba(0, 212, 178, 0.35)',
-                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
-                }}
-              >
-                {/* PREVIEW TOOLBAR & HEADER */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '1.25rem',
-                    flexWrap: 'wrap',
-                    gap: '1rem',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-                    paddingBottom: '1rem',
-                  }}
-                >
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <Eye size={20} color="var(--primary)" />
-                      <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0 }}>
-                        Pratinjau Nyata Seluruh Halaman Dokumen (Realtime Paper Preview)
-                      </h3>
-                    </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.25rem', marginBottom: 0 }}>
-                      Kondisi nyata tata letak Google Docs & Word otomatis disesuaikan dengan acuan template dokumen (TXT & PDF).
-                    </p>
-                  </div>
-
-                  {/* ACTIVE PAPER & TEMPLATE BADGES */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '0.3rem 0.65rem',
-                        borderRadius: '6px',
-                        background: 'rgba(0, 212, 178, 0.15)',
-                        color: 'var(--primary)',
-                        fontWeight: 700,
-                        border: '1px solid rgba(0, 212, 178, 0.3)',
-                      }}
-                    >
-                      Kertas: {templateSettings.paperSize} ({templateSettings.paperSize === 'A4' ? '210 × 297 mm' : templateSettings.paperSize === 'Letter' ? '216 × 279 mm' : '215 × 330 mm'})
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '0.3rem 0.65rem',
-                        borderRadius: '6px',
-                        background: 'rgba(56, 189, 248, 0.12)',
-                        color: '#38bdf8',
-                        fontWeight: 700,
-                        border: '1px solid rgba(56, 189, 248, 0.25)',
-                      }}
-                    >
-                      Margin: {templateSettings.marginTopCm ?? 2.54} cm
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '0.3rem 0.65rem',
-                        borderRadius: '6px',
-                        background: 'rgba(168, 85, 247, 0.12)',
-                        color: '#c084fc',
-                        fontWeight: 700,
-                        border: '1px solid rgba(168, 85, 247, 0.25)',
-                      }}
-                    >
-                      Acuan {templateSettings.txtGuidelinesName?.toLowerCase().endsWith('.md') ? 'MD' : 'TXT'}: {templateSettings.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt'}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '0.75rem',
-                        padding: '0.3rem 0.65rem',
-                        borderRadius: '6px',
-                        background: 'rgba(245, 158, 11, 0.12)',
-                        color: '#fbbf24',
-                        fontWeight: 700,
-                        border: '1px solid rgba(245, 158, 11, 0.25)',
-                      }}
-                    >
-                      Acuan PDF: {templateSettings.pdfLayoutName || 'pedoman_tata_letak_sop.pdf'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* CONTROLS: PAGE SELECTION TABS & EXPORT/DOCS BUTTONS */}
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '1.5rem',
-                    flexWrap: 'wrap',
-                    gap: '0.75rem',
-                  }}
-                >
-                  {/* Page Filter Tabs */}
-                  <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('all')}
-                      className={`btn btn-sm ${previewTab === 'all' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'all' ? 800 : 600 }}
-                    >
-                      Semua Halaman (Lengkap)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('cover')}
-                      className={`btn btn-sm ${previewTab === 'cover' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'cover' ? 800 : 600 }}
-                    >
-                      Halaman 1 (Cover Dokumen)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('header')}
-                      className={`btn btn-sm ${previewTab === 'header' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'header' ? 800 : 600 }}
-                    >
-                      Halaman 2 (Kop & Index Revisi)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('body')}
-                      className={`btn btn-sm ${previewTab === 'body' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'body' ? 800 : 600 }}
-                    >
-                      Halaman 3+ (Isi Bab Standar)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPreviewTab('both')}
-                      className={`btn btn-sm ${previewTab === 'both' ? 'btn-primary' : 'btn-secondary'}`}
-                      style={{ fontSize: '0.78rem', fontWeight: previewTab === 'both' ? 800 : 600 }}
-                    >
-                      Dua Halaman (Side-by-Side)
-                    </button>
-                  </div>
-
-                  {/* Actions for current active word file */}
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {activeWordFile && (
-                      <>
-                        {googleDocsRegistry[activeWordFile.id] ? (
-                          <button
-                            type="button"
-                            onClick={() => setDocsModalNotice(googleDocsRegistry[activeWordFile.id])}
-                            className="btn btn-secondary btn-sm"
-                            style={{
-                              fontSize: '0.78rem',
-                              color: '#38bdf8',
-                              borderColor: 'rgba(56, 189, 248, 0.4)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                            }}
-                          >
-                            <ExternalLink size={14} />
-                            <span>Buka Google Docs Terhubung</span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleConvertToGoogleDoc(activeWordFile)}
-                            disabled={isConvertingToDocs}
-                            className="btn btn-secondary btn-sm"
-                            style={{
-                              fontSize: '0.78rem',
-                              color: 'var(--primary)',
-                              borderColor: 'rgba(0, 212, 178, 0.4)',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.35rem',
-                            }}
-                          >
-                            <Sparkles size={14} />
-                            <span>Jadikan Google Docs (MCP)</span>
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadDocxPreview(activeWordFile)}
-                          disabled={isGeneratingDocx}
-                          className="btn btn-secondary btn-sm"
-                          style={{
-                            fontSize: '0.78rem',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.35rem',
-                          }}
-                          title="Unduh file Word hasil standarisasi Cover & Kop"
-                        >
-                          <Download size={14} />
-                          <span>Unduh .docx</span>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* REALISTIC DOCUMENT CANVAS (DARK BACKGROUND WITH CRISP WHITE PAPER PAGES) */}
-                <div
-                  style={{
-                    background: '#090d16',
-                    padding: '2.5rem 1.5rem',
-                    borderRadius: 'var(--radius-lg)',
-                    border: '1px solid rgba(255, 255, 255, 0.08)',
-                    display: 'flex',
-                    flexDirection: previewTab === 'both' ? 'row' : 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '2.5rem',
-                    overflowX: 'auto',
-                    minHeight: '650px',
-                  }}
-                >
-                  {/* ======================================================== */}
-                  {/* PAGE 1: COVER DOKUMEN RESMI                              */}
-                  {/* ======================================================== */}
-                  {(previewTab === 'all' || previewTab === 'cover' || previewTab === 'both') && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: previewTab === 'both' ? '48%' : '100%', maxWidth: '794px' }}>
-                      <div
-                        style={{
-                          marginBottom: '0.65rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: '#94a3b8',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          padding: '0.2rem 0.75rem',
-                          borderRadius: '20px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                        }}
-                      >
-                        <FileText size={13} color="var(--primary)" />
-                        <span>Halaman 1 dari 4 • Cover Dokumen Resmi Standar NBE ({templateSettings.paperSize})</span>
-                      </div>
-
-                      <div
-                        style={{
-                          background: '#ffffff',
-                          color: '#0f172a',
-                          borderRadius: '2px',
-                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
-                          width: '100%',
-                          minHeight: previewTab === 'both' ? '680px' : '960px',
-                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          fontFamily: 'serif',
-                          position: 'relative',
-                        }}
-                      >
-                        {/* Header: Centered Logo & Corporate Title */}
-                        <div style={{ textAlign: 'center', paddingTop: '1rem' }}>
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              gap: '0.75rem',
-                              marginBottom: '0.75rem',
-                            }}
-                          >
-                            <img
-                              src="/+BG.png"
-                              alt="Logo NBE"
-                              onError={(e) => {
-                                (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                              }}
-                              style={{ height: '54px', objectFit: 'contain' }}
-                            />
-                            <div style={{ textAlign: 'left' }}>
-                              <div
-                                style={{
-                                  fontSize: '1.45rem',
-                                  fontWeight: 900,
-                                  color: '#0284c7',
-                                  lineHeight: 1.1,
-                                  fontFamily: 'sans-serif',
-                                }}
-                              >
-                                Nirwana Bhumi Energy
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: '0.85rem',
-                                  fontWeight: 700,
-                                  color: '#334155',
-                                  fontFamily: 'sans-serif',
-                                }}
-                              >
-                                PT Nirwana Bhumi Energi
-                              </div>
-                            </div>
-                          </div>
-                          <div
-                            style={{
-                              height: '2px',
-                              background: 'linear-gradient(90deg, transparent, #0284c7, transparent)',
-                              margin: '0.85rem auto',
-                              maxWidth: '65%',
-                            }}
-                          />
-                        </div>
-
-                        {/* Centered Document Title */}
-                        <div style={{ textAlign: 'center', margin: 'auto 0', padding: '2rem 0' }}>
-                          <div
-                            style={{
-                              fontSize: '0.85rem',
-                              fontWeight: 800,
-                              color: '#64748b',
-                              letterSpacing: '0.12em',
-                              textTransform: 'uppercase',
-                              marginBottom: '0.65rem',
-                              fontFamily: 'sans-serif',
-                            }}
-                          >
-                            STANDAR OPERASIONAL PROSEDUR
-                          </div>
-                          <h1
-                            style={{
-                              fontSize: previewTab === 'both' ? '1.3rem' : '1.75rem',
-                              fontWeight: 900,
-                              color: '#0f172a',
-                              textTransform: 'uppercase',
-                              letterSpacing: '0.04em',
-                              lineHeight: 1.35,
-                              maxWidth: '92%',
-                              margin: '0 auto',
-                              fontFamily: 'sans-serif',
-                            }}
-                          >
-                            {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
-                          </h1>
-                          <div
-                            style={{
-                              fontSize: '0.95rem',
-                              fontWeight: 700,
-                              color: '#0284c7',
-                              marginTop: '0.75rem',
-                              fontFamily: 'monospace',
-                            }}
-                          >
-                            {activeCustomization.code}
-                          </div>
-                        </div>
-
-                        {/* Bottom 3-Tier Approval Box (as in image1.png & user PDF guideline) */}
-                        <div
-                          style={{
-                            alignSelf: 'flex-end',
-                            width: '290px',
-                            fontSize: '0.82rem',
-                            fontFamily: 'sans-serif',
-                            color: '#1e293b',
-                            borderTop: '1px solid #cbd5e1',
-                            paddingTop: '0.85rem',
-                          }}
-                        >
-                          <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '0.35rem', marginBottom: '0.35rem' }}>
-                            <span style={{ fontWeight: 700, color: '#475569' }}>Approved by</span>
-                            <span style={{ fontWeight: 600 }}>: {activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'}</span>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '0.35rem', marginBottom: '0.35rem' }}>
-                            <span style={{ fontWeight: 700, color: '#475569' }}>Verified by</span>
-                            <span style={{ fontWeight: 600 }}>: {activeCustomization.verifiedBy || 'Auditor Internal Utama'}</span>
-                          </div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '105px 1fr', gap: '0.35rem' }}>
-                            <span style={{ fontWeight: 700, color: '#475569' }}>Prepared by</span>
-                            <span style={{ fontWeight: 600 }}>: {activeCustomization.preparedBy || 'Mazmur L'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ======================================================== */}
-                  {/* PAGE 2: KOP HEADER & REVISION INDEX TABLE                */}
-                  {/* ======================================================== */}
-                  {(previewTab === 'all' || previewTab === 'header' || previewTab === 'both') && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: previewTab === 'both' ? '48%' : '100%', maxWidth: '794px' }}>
-                      <div
-                        style={{
-                          marginBottom: '0.65rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: '#94a3b8',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          padding: '0.2rem 0.75rem',
-                          borderRadius: '20px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                        }}
-                      >
-                        <FileText size={13} color="var(--primary)" />
-                        <span>Halaman 2 dari 4 • Kop Standar & Tabel Index Revisi ({templateSettings.paperSize})</span>
-                      </div>
-
-                      <div
-                        style={{
-                          background: '#ffffff',
-                          color: '#0f172a',
-                          borderRadius: '2px',
-                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
-                          width: '100%',
-                          minHeight: previewTab === 'both' ? '680px' : '960px',
-                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          fontFamily: 'sans-serif',
-                          position: 'relative',
-                        }}
-                      >
-                        <div>
-                          {/* KOP HEADER BOX (Matching image1.png & user PDF guideline) */}
-                          <div
-                            style={{
-                              border: '1.5px solid #000000',
-                              display: 'grid',
-                              gridTemplateColumns: '120px 1fr',
-                              marginBottom: '1.75rem',
-                            }}
-                          >
-                            {/* Left: Logo */}
-                            <div
-                              style={{
-                                borderRight: '1.5px solid #000000',
-                                padding: '0.65rem',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                textAlign: 'center',
-                              }}
-                            >
-                              <img
-                                src="/+BG.png"
-                                alt="NBE"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                                }}
-                                style={{ maxHeight: '42px', objectFit: 'contain' }}
-                              />
-                              <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '0.25rem', color: '#0284c7' }}>
-                                NBE
-                              </span>
-                            </div>
-
-                            {/* Right: Table Info */}
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <div
-                                style={{
-                                  borderBottom: '1px solid #000',
-                                  padding: '0.35rem 0.5rem',
-                                  textAlign: 'center',
-                                  fontSize: '0.82rem',
-                                  fontWeight: 800,
-                                  letterSpacing: '0.02em',
-                                }}
-                              >
-                                SISTEM PENGENDALI INTERNAL
-                              </div>
-                              <div
-                                style={{
-                                  borderBottom: '1px solid #000',
-                                  padding: '0.3rem 0.5rem',
-                                  textAlign: 'center',
-                                  fontSize: '0.76rem',
-                                  fontWeight: 700,
-                                }}
-                              >
-                                Standar Operasional Prosedur (SOP)
-                              </div>
-                              <div
-                                style={{
-                                  borderBottom: '1px solid #000',
-                                  padding: '0.4rem 0.5rem',
-                                  textAlign: 'center',
-                                  fontSize: '0.88rem',
-                                  fontWeight: 900,
-                                  color: '#0f172a',
-                                  textTransform: 'uppercase',
-                                }}
-                              >
-                                {activeCustomization.title || 'INTERNAL AUDIT PROCEDURES'}
-                              </div>
-                              <div
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: '75px 1fr 125px',
-                                  padding: '0.3rem 0.5rem',
-                                  fontSize: '0.7rem',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                <span>Revisi: {activeCustomization.revision || 0}</span>
-                                <span className="mono" style={{ textAlign: 'center', fontWeight: 800 }}>
-                                  {activeCustomization.code}
-                                </span>
-                                <span style={{ textAlign: 'right' }}>
-                                  Tanggal: {formatIssueDate(activeCustomization.issueDate)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* REVISION INDEX SECTION */}
-                          <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-                            <h4 style={{ fontSize: '0.95rem', fontWeight: 800, textTransform: 'none', margin: 0 }}>
-                              Revision Index
-                            </h4>
-                          </div>
-
-                          {/* REVISION TABLE (4 Columns matching image1.png) */}
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', border: '1.5px solid #000' }}>
-                            <thead>
-                              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #000', fontWeight: 800 }}>
-                                <th style={{ borderRight: '1px solid #000', padding: '0.45rem 0.5rem', textAlign: 'center', width: '60px' }}>
-                                  Revisi
-                                </th>
-                                <th style={{ borderRight: '1px solid #000', padding: '0.45rem 0.5rem', textAlign: 'center', width: '105px' }}>
-                                  Tanggal
-                                </th>
-                                <th style={{ borderRight: '1px solid #000', padding: '0.45rem 0.6rem', textAlign: 'center' }}>
-                                  Deskripsi Perubahan
-                                </th>
-                                <th style={{ padding: '0.45rem 0.5rem', textAlign: 'center', width: '95px' }}>
-                                  Direvisi Oleh
-                                </th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {activeCustomization.revisions && activeCustomization.revisions.length > 0 ? (
-                                activeCustomization.revisions.map((rev, rIdx) => (
-                                  <tr key={rIdx} style={{ borderBottom: '1px solid #000' }}>
-                                    <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center', fontWeight: 700 }}>
-                                      {rev.revision}
-                                    </td>
-                                    <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center' }}>
-                                      {rev.date}
-                                    </td>
-                                    <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.6rem' }}>
-                                      {rev.description}
-                                    </td>
-                                    <td style={{ padding: '0.45rem 0.4rem', textAlign: 'center' }}>
-                                      {rev.revisedBy}
-                                    </td>
-                                  </tr>
-                                ))
-                              ) : (
-                                <tr style={{ borderBottom: '1px solid #000' }}>
-                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center' }}>0</td>
-                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.4rem', textAlign: 'center' }}>
-                                    {formatIssueDate(activeCustomization.issueDate)}
-                                  </td>
-                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem 0.6rem' }}>
-                                    Initial Edition – {activeCustomization.title} ({activeCustomization.code})
-                                  </td>
-                                  <td style={{ padding: '0.45rem 0.4rem', textAlign: 'center' }}>
-                                    {activeCustomization.preparedBy || 'Mazmur L'}
-                                  </td>
-                                </tr>
-                              )}
-                              {/* Clean placeholder rows matching image1.png */}
-                              {Array.from({ length: Math.max(0, 4 - (activeCustomization.revisions?.length || 1)) }).map((_, emptyIdx) => (
-                                <tr key={`empty-${emptyIdx}`} style={{ borderBottom: '1px solid #000' }}>
-                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
-                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
-                                  <td style={{ borderRight: '1px solid #000', padding: '0.45rem' }}>&nbsp;</td>
-                                  <td style={{ padding: '0.45rem' }}>&nbsp;</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-
-                        {/* Page 2 Footer Line */}
-                        <div
-                          style={{
-                            borderTop: '1px solid #94a3b8',
-                            paddingTop: '0.45rem',
-                            marginTop: '1.5rem',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: '0.72rem',
-                            color: '#64748b',
-                          }}
-                        >
-                          <span className="mono">{activeCustomization.code}</span>
-                          <span>Halaman 2 dari 4</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ======================================================== */}
-                  {/* PAGE 3: BATANG TUBUH PROSEDUR (BAB I s/d BAB IV)         */}
-                  {/* ======================================================== */}
-                  {(previewTab === 'all' || previewTab === 'body') && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '794px' }}>
-                      <div
-                        style={{
-                          marginBottom: '0.65rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: '#94a3b8',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          padding: '0.2rem 0.75rem',
-                          borderRadius: '20px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                        }}
-                      >
-                        <FileText size={13} color="var(--primary)" />
-                        <span>Halaman 3 dari 4 • Batang Tubuh SOP (Bab I s/d Bab IV) – Sesuai Acuan TXT ({templateSettings.paperSize})</span>
-                      </div>
-
-                      <div
-                        style={{
-                          background: '#ffffff',
-                          color: '#0f172a',
-                          borderRadius: '2px',
-                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
-                          width: '100%',
-                          minHeight: '960px',
-                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          fontFamily: 'serif',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        <div>
-                          {/* Mini running Kop on Body Pages */}
-                          <div
-                            style={{
-                              borderBottom: '1.5px solid #000000',
-                              paddingBottom: '0.4rem',
-                              marginBottom: '1.5rem',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              fontFamily: 'sans-serif',
-                              fontSize: '0.75rem',
-                            }}
-                          >
-                            <span style={{ fontWeight: 800, color: '#0284c7' }}>PT NIRWANA BHUMI ENERGI</span>
-                            <span className="mono" style={{ fontWeight: 700 }}>{activeCustomization.code}</span>
-                          </div>
-
-                          <div style={{ fontFamily: 'sans-serif', fontSize: '0.85rem' }}>
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB I. TUJUAN (PURPOSE)
-                              </h4>
-                              <p style={{ color: '#334155', margin: 0, textAlign: 'justify' }}>
-                                Prosedur baku ini disusun untuk memberikan panduan komprehensif, terstruktur, dan terukur dalam pelaksanaan {activeCustomization.title || 'prosedur operasional'} di lingkungan PT Nirwana Bhumi Energi guna memastikan efisiensi kerja, mitigasi risiko operasional, kepatuhan regulasi, serta konsistensi standar mutu perusahaan.
-                              </p>
-                            </div>
-
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB II. RUANG LINGKUP (SCOPE)
-                              </h4>
-                              <p style={{ color: '#334155', margin: 0, textAlign: 'justify' }}>
-                                Prosedur operasional standar ini berlaku secara menyeluruh di lingkungan PT Nirwana Bhumi Energi, mencakup seluruh divisi penerbit ({activeCustomization.divisionCode || 'GNR'}), unit kerja operasional, personil terkait, subkontraktor, serta seluruh aktivitas yang berada dalam cakupan {activeCustomization.title || 'dokumen ini'}.
-                              </p>
-                            </div>
-
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB III. DEFINISI & REFERENSI
-                              </h4>
-                              <ul style={{ color: '#334155', margin: 0, paddingLeft: '1.25rem' }}>
-                                <li><strong>Perusahaan:</strong> PT Nirwana Bhumi Energi (NBE).</li>
-                                <li><strong>SOP:</strong> Standar Operasional Prosedur baku bernomor resmi {activeCustomization.code}.</li>
-                                <li><strong>Approver:</strong> Otoritas pengesahan resmi ({activeCustomization.approvedBy || 'CFO'}).</li>
-                                <li><strong>Referensi:</strong> Manual Sistem Manajemen Terintegrasi NBE dan ISO 9001/14001/45001.</li>
-                              </ul>
-                            </div>
-
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB IV. TANGGUNG JAWAB & WEWENANG
-                              </h4>
-                              <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '0.4rem', color: '#334155' }}>
-                                <span style={{ fontWeight: 700 }}>Penyusun:</span>
-                                <span>{activeCustomization.preparedBy || 'Mazmur L'} (Bertanggung jawab merumuskan teknis prosedur)</span>
-                                <span style={{ fontWeight: 700 }}>Verifikator:</span>
-                                <span>{activeCustomization.verifiedBy || 'Auditor Internal Utama'} (Memverifikasi keselarasan sistem)</span>
-                                <span style={{ fontWeight: 700 }}>Pengesah:</span>
-                                <span>{activeCustomization.approvedBy || 'Direktur Keuangan (CFO)'} (Otorisasi implementasi resmi)</span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Page 3 Footer Line */}
-                        <div
-                          style={{
-                            borderTop: '1px solid #94a3b8',
-                            paddingTop: '0.45rem',
-                            marginTop: '1.5rem',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: '0.72rem',
-                            color: '#64748b',
-                            fontFamily: 'sans-serif',
-                          }}
-                        >
-                          <span className="mono">{activeCustomization.code}</span>
-                          <span>Halaman 3 dari 4</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* ======================================================== */}
-                  {/* PAGE 4: BATANG TUBUH PROSEDUR (BAB V s/d BAB VII)         */}
-                  {/* ======================================================== */}
-                  {(previewTab === 'all' || previewTab === 'body') && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', maxWidth: '794px' }}>
-                      <div
-                        style={{
-                          marginBottom: '0.65rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: '#94a3b8',
-                          background: 'rgba(255, 255, 255, 0.06)',
-                          padding: '0.2rem 0.75rem',
-                          borderRadius: '20px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.4rem',
-                        }}
-                      >
-                        <FileText size={13} color="var(--primary)" />
-                        <span>Halaman 4 dari 4 • Batang Tubuh SOP (Bab V s/d Bab VII & Lampiran) ({templateSettings.paperSize})</span>
-                      </div>
-
-                      <div
-                        style={{
-                          background: '#ffffff',
-                          color: '#0f172a',
-                          borderRadius: '2px',
-                          padding: 'clamp(2.5rem, 5vw, 3.75rem) clamp(2rem, 4vw, 3.25rem)',
-                          width: '100%',
-                          minHeight: '960px',
-                          boxShadow: '0 20px 45px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(0, 0, 0, 0.06)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          fontFamily: 'serif',
-                          lineHeight: 1.6,
-                        }}
-                      >
-                        <div>
-                          {/* Mini running Kop on Body Pages */}
-                          <div
-                            style={{
-                              borderBottom: '1.5px solid #000000',
-                              paddingBottom: '0.4rem',
-                              marginBottom: '1.5rem',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              fontFamily: 'sans-serif',
-                              fontSize: '0.75rem',
-                            }}
-                          >
-                            <span style={{ fontWeight: 800, color: '#0284c7' }}>PT NIRWANA BHUMI ENERGI</span>
-                            <span className="mono" style={{ fontWeight: 700 }}>{activeCustomization.code}</span>
-                          </div>
-
-                          <div style={{ fontFamily: 'sans-serif', fontSize: '0.85rem' }}>
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB V. URAIAN PROSEDUR & ALUR KERJA (WORKFLOW)
-                              </h4>
-                              <p style={{ color: '#334155', margin: 0, textAlign: 'justify', marginBottom: '0.5rem' }}>
-                                Alur kerja pelaksanaan {activeCustomization.title || 'prosedur ini'} dijalankan melalui tahapan baku berurutan:
-                              </p>
-                              <ol style={{ color: '#334155', margin: 0, paddingLeft: '1.25rem' }}>
-                                <li style={{ marginBottom: '0.25rem' }}>Inisiasi & identifikasi kebutuhan tugas operasional sesuai mandat divisi {activeCustomization.divisionCode}.</li>
-                                <li style={{ marginBottom: '0.25rem' }}>Verifikasi kelengkapan data administratif dan kepatuhan standar mutu NBE.</li>
-                                <li style={{ marginBottom: '0.25rem' }}>Eksekusi prosedur teknis dengan pendokumentasian bukti rekaman kerja lengkap.</li>
-                                <li>Review akhir, evaluasi kinerja berkala, dan penyerahan laporan kepada otoritas pengesahan.</li>
-                              </ol>
-                            </div>
-
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB VI. DOKUMEN & REKAMAN TERKAIT
-                              </h4>
-                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', border: '1px solid #cbd5e1' }}>
-                                <thead>
-                                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                                    <th style={{ padding: '0.35rem 0.5rem', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Nama Dokumen / Rekaman</th>
-                                    <th style={{ padding: '0.35rem 0.5rem', textAlign: 'left', borderRight: '1px solid #cbd5e1' }}>Masa Simpan</th>
-                                    <th style={{ padding: '0.35rem 0.5rem', textAlign: 'left' }}>Penanggung Jawab</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr style={{ borderBottom: '1px solid #cbd5e1' }}>
-                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>Formulir Evaluasi & Catatan Prosedur {activeCustomization.title}</td>
-                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>5 Tahun</td>
-                                    <td style={{ padding: '0.35rem 0.5rem' }}>Divisi {activeCustomization.divisionCode || 'GNR'}</td>
-                                  </tr>
-                                  <tr>
-                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>Berita Acara Pengesahan Dokumen Resmi</td>
-                                    <td style={{ padding: '0.35rem 0.5rem', borderRight: '1px solid #cbd5e1' }}>Permanen</td>
-                                    <td style={{ padding: '0.35rem 0.5rem' }}>Sekretariat Manajemen NBE</td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </div>
-
-                            <div style={{ marginBottom: '1.25rem' }}>
-                              <h4 style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.35rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.2rem' }}>
-                                BAB VII. LAMPIRAN FORMULIR
-                              </h4>
-                              <p style={{ color: '#334155', margin: 0 }}>
-                                Lampiran formulir pendukung dan template isian teknis telah diselaraskan dengan hierarki 4-tingkat penyimpanan Google Drive perusahaan.
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Page 4 Footer Line */}
-                        <div
-                          style={{
-                            borderTop: '1px solid #94a3b8',
-                            paddingTop: '0.45rem',
-                            marginTop: '1.5rem',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            fontSize: '0.72rem',
-                            color: '#64748b',
-                            fontFamily: 'sans-serif',
-                          }}
-                        >
-                          <span className="mono">{activeCustomization.code}</span>
-                          <span>Halaman 4 dari 4 (Dokumen Lengkap)</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
 
                 {/* STAGE 3 NAVIGATION BUTTONS */}
                 <div
@@ -3216,7 +2384,6 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     <ArrowRight size={17} />
                   </button>
                 </div>
-              </div>
             </div>
           )}
 
