@@ -209,12 +209,12 @@ INSERT INTO public.master_codes (category_group, code, label, description, is_cu
 ON CONFLICT (category_group, code) DO NOTHING;
 
 -- ==============================================================================
--- 7. TABEL: document_templates (Acuan Template Dokumen TXT & PDF NBE)
+-- 7. TABEL: document_templates (Acuan Template Dokumen TXT, MD, & PDF NBE)
 -- ==============================================================================
 CREATE TABLE IF NOT EXISTS public.document_templates (
     id TEXT PRIMARY KEY DEFAULT 'primary_template',
-    txt_guidelines_name TEXT,
-    txt_guidelines_content TEXT NOT NULL,
+    txt_guidelines_name TEXT, -- Nama berkas acuan teks atau markdown (contoh: .txt atau .md)
+    txt_guidelines_content TEXT NOT NULL, -- Isi teks / markdown pedoman standardisasi
     pdf_layout_name TEXT,
     pdf_layout_data_url TEXT,
     paper_size TEXT NOT NULL DEFAULT 'A4' CHECK (paper_size IN ('A4', 'Letter', 'F4')),
