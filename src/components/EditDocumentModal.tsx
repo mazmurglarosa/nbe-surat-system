@@ -406,12 +406,12 @@ export const EditDocumentModal: React.FC<EditDocumentModalProps> = ({
             {/* Upload File Baru */}
             <div className="form-group" style={{ gridColumn: 'span 2' }}>
               <label className="form-label">Perbarui File Lampiran (Opsional)</label>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg"
-                onChange={handleFileChange}
-                className="form-input"
-              />
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.md,text/plain,text/markdown"
+                  onChange={handleFileChange}
+                  className="form-input"
+                />
               {uploadedFile && (
                 <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                   <span style={{ fontSize: '0.78rem', color: 'var(--primary)' }}>

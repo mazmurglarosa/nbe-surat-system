@@ -2335,7 +2335,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         border: '1px solid rgba(168, 85, 247, 0.25)',
                       }}
                     >
-                      Acuan TXT: {templateSettings.txtGuidelinesName || 'template_sop_standar_nbe.txt'}
+                      Acuan {templateSettings.txtGuidelinesName?.toLowerCase().endsWith('.md') ? 'MD' : 'TXT'}: {templateSettings.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt'}
                     </span>
                     <span
                       style={{

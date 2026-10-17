@@ -429,7 +429,7 @@ export const ReviseDocumentModal: React.FC<ReviseDocumentModalProps> = ({
             >
               <input
                 type="file"
-                accept=".pdf,.docx,.doc,.xlsx,.pptx,.png,.jpg,.jpeg"
+                accept=".pdf,.docx,.doc,.xlsx,.pptx,.png,.jpg,.jpeg,.txt,.md,text/plain,text/markdown"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
@@ -466,7 +466,7 @@ export const ReviseDocumentModal: React.FC<ReviseDocumentModalProps> = ({
                     Klik atau seret berkas revisi baru ke sini
                   </p>
                   <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Mendukung format PDF, Word (.docx), Excel (.xlsx)
+                    Mendukung format PDF, Word (.docx), Excel (.xlsx), Markdown (.md), Teks (.txt)
                   </span>
                 </div>
               )}

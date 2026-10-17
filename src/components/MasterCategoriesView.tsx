@@ -132,9 +132,11 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
         txtGuidelinesName: file.name,
         txtGuidelinesContent: content,
       }));
-      showSuccessBanner(`Berkas teks acuan utama "${file.name}" berhasil dimuat!`);
+      const ext = file.name.split('.').pop()?.toUpperCase() || 'TXT/MD';
+      showSuccessBanner(`Berkas acuan panduan "${file.name}" (${ext}) berhasil dimuat!`);
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,6 +153,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
       showSuccessBanner(`Berkas PDF acuan visual "${file.name}" berhasil dimuat!`);
     };
     reader.readAsDataURL(file);
+    e.target.value = '';
   };
 
   const handleSaveTemplate = () => {
@@ -158,7 +161,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
     saveTemplateSettings(templateSettings);
     setTimeout(() => {
       setIsSavingTemplate(false);
-      showSuccessBanner('Acuan Template Dokumen (.txt & .pdf) berhasil disimpan dan disinkronkan ke seluruh sistem!');
+      showSuccessBanner('Acuan Template Dokumen (.txt / .md & .pdf) berhasil disimpan dan disinkronkan ke seluruh sistem!');
     }, 400);
   };
 
@@ -171,11 +174,14 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   };
 
   const handleDownloadTxtGuidelines = () => {
-    const blob = new Blob([templateSettings.txtGuidelinesContent], { type: 'text/plain;charset=utf-8' });
+    const isMarkdown = templateSettings.txtGuidelinesName?.toLowerCase().endsWith('.md');
+    const blob = new Blob([templateSettings.txtGuidelinesContent], {
+      type: isMarkdown ? 'text/markdown;charset=utf-8' : 'text/plain;charset=utf-8',
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = templateSettings.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt';
+    a.download = templateSettings.txtGuidelinesName || (isMarkdown ? 'Panduan_Standar_Dokumen_NBE_CSMS.md' : 'Panduan_Standar_Dokumen_NBE_CSMS.txt');
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1009,7 +1015,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           <input
             ref={txtInputRef}
             type="file"
-            accept=".txt,text/plain"
+            accept=".txt,.md,text/plain,text/markdown"
             onChange={handleTxtUpload}
             style={{ display: 'none' }}
           />
@@ -1070,7 +1076,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 </span>
               </div>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.5 }}>
-                Sesuai alur baku sistem: <strong>File (.txt)</strong> bertindak sebagai <em>acuan dasar utama</em> untuk mengedit keseluruhan isi dan halaman dokumen Word yang telah diunggah. <strong>File (.pdf)</strong> bertindak sebagai <em>acuan dasar kedua</em> untuk tata letak visual, proporsi, margin, dan looks halaman.
+                Sesuai alur baku sistem: <strong>File (.txt / .md)</strong> bertindak sebagai <em>acuan dasar utama</em> untuk mengedit keseluruhan isi dan halaman dokumen Word yang telah diunggah. <strong>File (.pdf)</strong> bertindak sebagai <em>acuan dasar kedua</em> untuk tata letak visual, proporsi, margin, dan looks halaman.
               </p>
             </div>
           </div>
@@ -1084,7 +1090,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               marginBottom: '1.75rem',
             }}
           >
-            {/* COLUMN 1: ACUAN DASAR UTAMA (.TXT) */}
+            {/* COLUMN 1: ACUAN DASAR UTAMA (.TXT / .MD) */}
             <div
               className="glass-card"
               style={{
@@ -1110,11 +1116,11 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                       <FileCode size={18} />
                     </div>
                     <h4 style={{ fontSize: '1rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
-                      1. Acuan Dasar Utama: File Panduan Teks (.txt)
+                      1. Acuan Dasar Utama: File Panduan Teks (.txt / .md)
                     </h4>
                   </div>
                   <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.3rem' }}>
-                    Pedoman teks utama bot untuk membedah, menyusun Cover, Kop Header, Tabel Revisi, serta Bab 1-7 Prosedur Word.
+                    Pedoman teks atau Markdown (.md) utama bot untuk membedah, menyusun Cover, Kop Header, Tabel Revisi, serta Bab 1-7 Prosedur Word.
                   </p>
                 </div>
                 <span
@@ -1129,11 +1135,11 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  Acuan Pokok
+                  Acuan Pokok (.txt / .md)
                 </span>
               </div>
 
-              {/* Upload Box for .TXT */}
+              {/* Upload Box for .TXT / .MD */}
               <div
                 onClick={() => txtInputRef.current?.click()}
                 style={{
@@ -1150,10 +1156,13 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               >
                 <Upload size={24} color="#38bdf8" style={{ margin: '0 auto 0.4rem auto' }} />
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                  Klik untuk Unggah Berkas Acuan (.txt) Baru
+                  Klik untuk Unggah Berkas Acuan (.txt / .md) Baru
                 </div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
                   Berkas aktif: <strong style={{ color: '#38bdf8' }}>{templateSettings.txtGuidelinesName || 'Panduan_Standar_Dokumen_NBE_CSMS.txt'}</strong>
+                </div>
+                <div style={{ fontSize: '0.7rem', color: '#0284c7', marginTop: '0.35rem', fontWeight: 600 }}>
+                  Mendukung berkas Markdown (.md) dan Teks biasa (.txt)
                 </div>
               </div>
 
@@ -1161,7 +1170,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                   <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
-                    ISI PANDUAN TEKS AKTIF (DAPAT DIEDIT LANGSUNG):
+                    ISI PANDUAN TEKS / MARKDOWN AKTIF (DAPAT DIEDIT LANGSUNG):
                   </label>
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button
@@ -1169,16 +1178,16 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                       onClick={handleDownloadTxtGuidelines}
                       className="btn btn-ghost btn-xs"
                       style={{ fontSize: '0.72rem', color: '#38bdf8' }}
-                      title="Unduh berkas .txt"
+                      title="Unduh berkas acuan"
                     >
                       <FileText size={12} />
-                      <span>Unduh .txt</span>
+                      <span>Unduh {templateSettings.txtGuidelinesName?.toLowerCase().endsWith('.md') ? '.md' : '.txt'}</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => {
                         navigator.clipboard.writeText(templateSettings.txtGuidelinesContent);
-                        showSuccessBanner('Isi panduan .txt disalin ke clipboard!');
+                        showSuccessBanner('Isi panduan disalin ke clipboard!');
                       }}
                       className="btn btn-ghost btn-xs"
                       style={{ fontSize: '0.72rem' }}
@@ -1205,7 +1214,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                     resize: 'vertical',
                     background: 'rgba(0, 0, 0, 0.25)',
                   }}
-                  placeholder="Ketik atau tempel pedoman standarisasi format teks di sini..."
+                  placeholder="Ketik atau tempel pedoman standarisasi format teks atau Markdown (.md) di sini..."
                 />
               </div>
             </div>

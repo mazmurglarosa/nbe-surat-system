@@ -2054,7 +2054,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               >
                 <input
                   type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.md,text/plain,text/markdown"
                   onChange={handleFileChange}
                   style={{
                     position: 'absolute',
@@ -2099,7 +2099,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                       Klik atau Seret file dokumen ke sini
                     </p>
                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                      Mendukung PDF, Word (.docx), Excel, gambar
+                      Mendukung PDF, Word (.docx), Excel, Markdown (.md), Teks (.txt), gambar
                     </p>
                   </div>
                 )}
