@@ -2444,6 +2444,14 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
           setTimeout(() => setCopied(false), 2000);
         }}
         onDownloadDocx={handleDownloadDocx}
+        onSaveDocument={(updated) => {
+          setTitle(updated.title);
+          setIssueDate(updated.issueDate);
+          setRevision(updated.revision);
+          setCreatedBy(updated.preparedBy);
+          setVerifiedBy(updated.verifiedBy);
+          setApprovedBy(updated.approvedBy);
+        }}
       />
 
       {/* MODAL CEPAT TAMBAH KODE KATEGORI / SUB-KATEGORI */}

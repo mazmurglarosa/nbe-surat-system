@@ -10,9 +10,24 @@ import {
   Eye,
   Layers,
   Sparkles,
+  Edit3,
+  Save,
+  X,
 } from 'lucide-react';
 import { DocumentLanguage, RevisionRecord } from '../types';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
+
+export interface DocumentSavePayload {
+  title: string;
+  code: string;
+  issueDate: string;
+  revision: number;
+  preparedBy: string;
+  verifiedBy: string;
+  approvedBy: string;
+  revisions?: RevisionRecord[];
+  bodyContent?: string;
+}
 
 export interface A4DocumentPreviewProps {
   language: DocumentLanguage;
@@ -30,6 +45,7 @@ export interface A4DocumentPreviewProps {
   bodyContent?: string;
   onCopyCode?: () => void;
   onDownloadDocx?: () => void;
+  onSaveDocument?: (updated: DocumentSavePayload) => void;
 }
 
 export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
@@ -48,18 +64,56 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   bodyContent,
   onCopyCode,
   onDownloadDocx,
+  onSaveDocument,
 }) => {
   const [activePageTab, setActivePageTab] = useState<'all' | 1 | 2 | 3 | 4>('all');
   const [isCopied, setIsCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDownloadingWord, setIsDownloadingWord] = useState(false);
 
-  const displayTitle = (title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN').trim().toUpperCase();
-  const effectiveCode = (code || '0001-KB-GNR-CEO-X-2026').trim().toUpperCase();
+  // Direct in-preview interactive editing states
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableTitle, setEditableTitle] = useState(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
+  const [editableCode, setEditableCode] = useState(code || '0001-KB-GNR-CEO-X-2026');
+  const [editableIssueDate, setEditableIssueDate] = useState(issueDate || '2026-10-17');
+  const [editableRevision, setEditableRevision] = useState(revision ?? 0);
+  const [editablePreparedBy, setEditablePreparedBy] = useState(preparedBy || 'Mazmur Gusti Agung Larosa');
+  const [editableVerifiedBy, setEditableVerifiedBy] = useState(verifiedBy || 'Dennis Raditya');
+  const [editableApprovedBy, setEditableApprovedBy] = useState(approvedBy || 'Bima Satryo Hartanto');
+  const [editableRevisionDesc, setEditableRevisionDesc] = useState(
+    revisions?.[0]?.description ||
+      `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
+  );
+  const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  // Synchronize state when props change and not actively in edit mode
+  React.useEffect(() => {
+    if (!isEditing) {
+      setEditableTitle(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
+      setEditableCode(code || '0001-KB-GNR-CEO-X-2026');
+      setEditableIssueDate(issueDate || '2026-10-17');
+      setEditableRevision(revision ?? 0);
+      setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
+      setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
+      setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
+      setEditableRevisionDesc(
+        revisions?.[0]?.description ||
+          `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
+      );
+    }
+  }, [title, code, issueDate, revision, preparedBy, verifiedBy, approvedBy, revisions, isEditing]);
+
+  const displayTitle = (isEditing ? editableTitle : title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN').trim().toUpperCase();
+  const effectiveCode = (isEditing ? editableCode : code || '0001-KB-GNR-CEO-X-2026').trim().toUpperCase();
+  const effectivePreparedBy = isEditing ? editablePreparedBy : preparedBy || 'Mazmur Gusti Agung Larosa';
+  const effectiveVerifiedBy = isEditing ? editableVerifiedBy : verifiedBy || 'Dennis Raditya';
+  const effectiveApprovedBy = isEditing ? editableApprovedBy : approvedBy || 'Bima Satryo Hartanto';
+  const effectiveRevision = isEditing ? editableRevision : revision ?? 0;
+  const effectiveDateStr = isEditing ? editableIssueDate : issueDate;
 
   const formattedDate = React.useMemo(() => {
     try {
-      const d = issueDate ? new Date(issueDate) : new Date();
+      const d = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
       if (isNaN(d.getTime())) return '17 Oktober 2026';
       return d.toLocaleDateString('id-ID', {
         day: 'numeric',
@@ -69,11 +123,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     } catch {
       return '17 Oktober 2026';
     }
-  }, [issueDate]);
+  }, [effectiveDateStr]);
 
   const formattedDateEn = React.useMemo(() => {
     try {
-      const d = issueDate ? new Date(issueDate) : new Date();
+      const d = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
       if (isNaN(d.getTime())) return '17 October 2026';
       return d.toLocaleDateString('en-GB', {
         day: 'numeric',
@@ -83,24 +137,36 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     } catch {
       return '17 October 2026';
     }
-  }, [issueDate]);
+  }, [effectiveDateStr]);
 
   const effectiveRevisions: RevisionRecord[] = React.useMemo(() => {
-    if (revisions && revisions.length > 0) return revisions;
+    if (revisions && revisions.length > 0) {
+      return [
+        {
+          ...revisions[0],
+          revision: effectiveRevision,
+          date: formattedDate,
+          description: editableRevisionDesc || revisions[0].description,
+          revisedBy: effectivePreparedBy,
+        },
+        ...revisions.slice(1),
+      ];
+    }
     return [
       {
-        revision: revision,
+        revision: effectiveRevision,
         date: formattedDate,
         description:
-          language === 'en'
+          editableRevisionDesc ||
+          (language === 'en'
             ? `Initial Edition – Corporate Standard Document (${effectiveCode})`
             : language === 'bi'
             ? `Edisi Awal – Penerbitan Dokumen Standar / Initial Edition (${effectiveCode})`
-            : `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${effectiveCode})`,
-        revisedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
+            : `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${effectiveCode})`),
+        revisedBy: effectivePreparedBy,
       },
     ];
-  }, [revisions, revision, formattedDate, language, effectiveCode, preparedBy]);
+  }, [revisions, effectiveRevision, formattedDate, language, effectiveCode, effectivePreparedBy, editableRevisionDesc]);
 
   const handleCopy = () => {
     if (navigator.clipboard) {
@@ -109,6 +175,52 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setTimeout(() => setIsCopied(false), 2000);
     }
     if (onCopyCode) onCopyCode();
+  };
+
+  const handleSave = () => {
+    const updatedRevs: RevisionRecord[] = [
+      {
+        revision: effectiveRevision,
+        date: formattedDate,
+        description: editableRevisionDesc,
+        revisedBy: effectivePreparedBy,
+      },
+      ...(revisions && revisions.length > 1 ? revisions.slice(1) : []),
+    ];
+
+    if (onSaveDocument) {
+      onSaveDocument({
+        title: displayTitle,
+        code: effectiveCode,
+        issueDate: effectiveDateStr,
+        revision: effectiveRevision,
+        preparedBy: effectivePreparedBy,
+        verifiedBy: effectiveVerifiedBy,
+        approvedBy: effectiveApprovedBy,
+        revisions: updatedRevs,
+      });
+    }
+
+    setIsEditing(false);
+    setSaveSuccessNotice('Perubahan dokumen berhasil disimpan ke format Word & Pratinjau!');
+    setTimeout(() => {
+      setSaveSuccessNotice(null);
+    }, 4000);
+  };
+
+  const handleCancelEdit = () => {
+    setEditableTitle(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
+    setEditableCode(code || '0001-KB-GNR-CEO-X-2026');
+    setEditableIssueDate(issueDate || '2026-10-17');
+    setEditableRevision(revision ?? 0);
+    setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
+    setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
+    setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
+    setEditableRevisionDesc(
+      revisions?.[0]?.description ||
+        `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
+    );
+    setIsEditing(false);
   };
 
   const handleDownloadWord = async () => {
@@ -124,14 +236,14 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         titleEn: displayTitle,
         categoryNameId: typeLabel,
         divisionName: divisionLabel,
-        revisionNo: String(revision),
+        revisionNo: String(effectiveRevision),
         issueDateId: formattedDate,
         issueDateEn: formattedDateEn,
-        preparedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
+        preparedBy: effectivePreparedBy,
         preparedRole: 'Director of Finance & Engineering / DCC Lead',
-        verifiedBy: verifiedBy || 'Dennis Raditya',
+        verifiedBy: effectiveVerifiedBy,
         verifiedRole: 'Director of Operations & Technology / CTO',
-        approvedBy: approvedBy || 'Bima Satryo Hartanto',
+        approvedBy: effectiveApprovedBy,
         approvedRole: 'President Director / CEO',
         language: language,
       });
@@ -296,6 +408,69 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Edit / Save Document Buttons */}
+          {!isEditing ? (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="btn btn-secondary btn-sm"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                background: '#f0fdf4',
+                borderColor: '#86efac',
+                color: '#166534',
+                fontWeight: 700,
+              }}
+              title="Edit teks dokumen langsung pada lembar pratinjau ini"
+            >
+              <Edit3 size={14} />
+              <span>Edit Dokumen</span>
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="btn btn-secondary btn-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: '#fef2f2',
+                  borderColor: '#fca5a5',
+                  color: '#991b1b',
+                  fontWeight: 600,
+                }}
+                title="Batal mengedit dokumen"
+              >
+                <X size={14} />
+                <span>Batal Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSave}
+                className="btn btn-primary btn-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                  borderColor: '#059669',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+                }}
+                title="Simpan perubahan dokumen ke Word dan Pratinjau"
+              >
+                <Save size={14} />
+                <span>Simpan Perubahan</span>
+              </button>
+            </>
+          )}
+
           {/* Copy Code Button */}
           <button
             type="button"
@@ -346,6 +521,74 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Toast Save Notification */}
+      {saveSuccessNotice && (
+        <div
+          className="no-print"
+          style={{
+            padding: '0.65rem 1.25rem',
+            background: '#ecfdf5',
+            color: '#065f46',
+            borderBottom: '1px solid #a7f3d0',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+          }}
+        >
+          <Check size={16} color="#059669" />
+          <span>{saveSuccessNotice}</span>
+        </div>
+      )}
+
+      {/* Mode Edit Banner */}
+      {isEditing && (
+        <div
+          className="no-print"
+          style={{
+            padding: '0.65rem 1.25rem',
+            background: '#eff6ff',
+            color: '#1e40af',
+            borderBottom: '1px solid #bfdbfe',
+            fontSize: '0.83rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Edit3 size={16} color="#2563eb" />
+            <span>
+              <strong>Mode Edit Langsung Aktif:</strong> Anda dapat mengedit Judul, Kode, Tanggal, Pengesah (Disiapkan, Diverifikasi, Disetujui), dan Catatan Revisi langsung di lembar dokumen di bawah.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleSave}
+            style={{
+              padding: '0.35rem 0.85rem',
+              borderRadius: '6px',
+              background: '#059669',
+              color: '#ffffff',
+              fontWeight: 800,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              fontSize: '0.8rem',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Save size={14} />
+            <span>Simpan Sekarang</span>
+          </button>
+        </div>
+      )}
 
       {/* Page Selector Tabs (Hidden during print) */}
       <div
@@ -481,30 +724,81 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   : 'SURAT KEPUTUSAN DIREKSI'}
               </div>
 
-              <div
-                style={{
-                  fontSize: '11.5pt',
-                  fontWeight: 'bold',
-                  color: '#3B3838',
-                  padding: '0 2rem',
-                  lineHeight: '1.4',
-                }}
-              >
-                {language === 'en' ? 'REGARDING:' : language === 'bi' ? 'TENTANG / REGARDING:' : 'TENTANG:'}{' '}
-                {displayTitle}
-              </div>
+              {isEditing ? (
+                <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>
+                  <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                    EDIT JUDUL DOKUMEN:
+                  </label>
+                  <textarea
+                    value={editableTitle}
+                    onChange={(e) => setEditableTitle(e.target.value.toUpperCase())}
+                    rows={2}
+                    style={{
+                      width: '100%',
+                      fontFamily: 'Arial, sans-serif',
+                      fontSize: '11pt',
+                      fontWeight: 'bold',
+                      color: '#000000',
+                      textAlign: 'center',
+                      border: '1.5px dashed #0284c7',
+                      background: '#f0f9ff',
+                      padding: '6px 8px',
+                      borderRadius: '6px',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: '11.5pt',
+                    fontWeight: 'bold',
+                    color: '#3B3838',
+                    padding: '0 2rem',
+                    lineHeight: '1.4',
+                  }}
+                >
+                  {language === 'en' ? 'REGARDING:' : language === 'bi' ? 'TENTANG / REGARDING:' : 'TENTANG:'}{' '}
+                  {displayTitle}
+                </div>
+              )}
 
-              <div
-                style={{
-                  fontSize: '11pt',
-                  fontWeight: 'bold',
-                  color: '#003366',
-                  letterSpacing: '0.06em',
-                  marginTop: '0.5rem',
-                }}
-              >
-                {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
-              </div>
+              {isEditing ? (
+                <div style={{ marginTop: '0.4rem', textAlign: 'center' }}>
+                  <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                    EDIT NOMOR / KODE DOKUMEN:
+                  </label>
+                  <input
+                    type="text"
+                    value={editableCode}
+                    onChange={(e) => setEditableCode(e.target.value.toUpperCase())}
+                    style={{
+                      width: '320px',
+                      fontFamily: 'Arial, sans-serif',
+                      fontSize: '10.5pt',
+                      fontWeight: 'bold',
+                      color: '#003366',
+                      textAlign: 'center',
+                      border: '1.5px dashed #0284c7',
+                      background: '#f0f9ff',
+                      padding: '4px 8px',
+                      borderRadius: '6px',
+                    }}
+                  />
+                </div>
+              ) : (
+                <div
+                  style={{
+                    fontSize: '11pt',
+                    fontWeight: 'bold',
+                    color: '#003366',
+                    letterSpacing: '0.06em',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
+                </div>
+              )}
             </div>
 
             {/* Vertical spacer to push authorization block to bottom right */}
@@ -526,9 +820,29 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 <span style={{ fontWeight: 'bold', color: '#000000' }}>
                   {language === 'en' ? 'Approved by:' : 'Approved by (Disetujui):'}
                 </span>
-                <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
-                  {approvedBy || 'Bima Satryo Hartanto'}
-                </div>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editableApprovedBy}
+                    onChange={(e) => setEditableApprovedBy(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontFamily: 'Arial, sans-serif',
+                      fontSize: '9.5pt',
+                      fontWeight: 'bold',
+                      color: '#003366',
+                      border: '1px dashed #0284c7',
+                      background: '#f0f9ff',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      marginTop: '2px',
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
+                    {effectiveApprovedBy}
+                  </div>
+                )}
                 <div style={{ fontSize: '8.5pt', color: '#64748b' }}>President Director (CEO)</div>
               </div>
 
@@ -536,9 +850,29 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 <span style={{ fontWeight: 'bold', color: '#000000' }}>
                   {language === 'en' ? 'Verified by:' : 'Verified by (Diverifikasi):'}
                 </span>
-                <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
-                  {verifiedBy || 'Dennis Raditya'}
-                </div>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editableVerifiedBy}
+                    onChange={(e) => setEditableVerifiedBy(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontFamily: 'Arial, sans-serif',
+                      fontSize: '9.5pt',
+                      fontWeight: 'bold',
+                      color: '#003366',
+                      border: '1px dashed #0284c7',
+                      background: '#f0f9ff',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      marginTop: '2px',
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
+                    {effectiveVerifiedBy}
+                  </div>
+                )}
                 <div style={{ fontSize: '8.5pt', color: '#64748b' }}>Technical Director (CTO)</div>
               </div>
 
@@ -546,9 +880,29 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 <span style={{ fontWeight: 'bold', color: '#000000' }}>
                   {language === 'en' ? 'Prepared by:' : 'Prepared by (Disiapkan):'}
                 </span>
-                <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
-                  {preparedBy || 'Mazmur Gusti Agung Larosa'}
-                </div>
+                {isEditing ? (
+                  <input
+                    type="text"
+                    value={editablePreparedBy}
+                    onChange={(e) => setEditablePreparedBy(e.target.value)}
+                    style={{
+                      width: '100%',
+                      fontFamily: 'Arial, sans-serif',
+                      fontSize: '9.5pt',
+                      fontWeight: 'bold',
+                      color: '#003366',
+                      border: '1px dashed #0284c7',
+                      background: '#f0f9ff',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      marginTop: '2px',
+                    }}
+                  />
+                ) : (
+                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
+                    {effectivePreparedBy}
+                  </div>
+                )}
                 <div style={{ fontSize: '8.5pt', color: '#64748b' }}>
                   Lead Document Controller & Finance Director
                 </div>
@@ -667,7 +1021,30 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                       background: '#f1f5f9',
                     }}
                   >
-                    {language === 'en' ? 'Revision:' : 'Revisi:'} {revision}
+                    {isEditing ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span>{language === 'en' ? 'Rev:' : 'Revisi:'}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={99}
+                          value={editableRevision}
+                          onChange={(e) => setEditableRevision(parseInt(e.target.value) || 0)}
+                          style={{
+                            width: '45px',
+                            fontFamily: 'Arial, sans-serif',
+                            fontSize: '8.5pt',
+                            fontWeight: 'bold',
+                            border: '1px dashed #0284c7',
+                            background: '#f0f9ff',
+                            padding: '2px 4px',
+                            borderRadius: '4px',
+                          }}
+                        />
+                      </span>
+                    ) : (
+                      <>{language === 'en' ? 'Revision:' : 'Revisi:'} {effectiveRevision}</>
+                    )}
                   </td>
                   <td
                     style={{
@@ -684,7 +1061,23 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     </span>
                     <span>
                       <strong>{language === 'en' ? 'Date:' : 'Tanggal:'}</strong>{' '}
-                      {language === 'en' ? formattedDateEn : formattedDate}
+                      {isEditing ? (
+                        <input
+                          type="date"
+                          value={editableIssueDate}
+                          onChange={(e) => setEditableIssueDate(e.target.value)}
+                          style={{
+                            fontFamily: 'Arial, sans-serif',
+                            fontSize: '8pt',
+                            border: '1px dashed #0284c7',
+                            background: '#f0f9ff',
+                            padding: '2px 4px',
+                            borderRadius: '4px',
+                          }}
+                        />
+                      ) : (
+                        language === 'en' ? formattedDateEn : formattedDate
+                      )}
                     </span>
                   </td>
                 </tr>
@@ -731,21 +1124,52 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 </tr>
               </thead>
               <tbody>
-                {effectiveRevisions.map((rev, idx) => (
-                  <tr
-                    key={idx}
-                    style={{
-                      background: idx % 2 === 0 ? '#FFFFFF' : '#F9FBFD',
-                    }}
-                  >
+                {isEditing ? (
+                  <tr style={{ background: '#F0F9FF' }}>
                     <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>
-                      {rev.revision}
+                      {editableRevision}
                     </td>
-                    <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.date}</td>
-                    <td style={tableCellStyle}>{rev.description}</td>
-                    <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.revisedBy}</td>
+                    <td style={{ ...tableCellStyle, textAlign: 'center' }}>
+                      {formattedDate}
+                    </td>
+                    <td style={tableCellStyle}>
+                      <textarea
+                        value={editableRevisionDesc}
+                        onChange={(e) => setEditableRevisionDesc(e.target.value)}
+                        rows={2}
+                        style={{
+                          width: '100%',
+                          fontFamily: 'Arial, sans-serif',
+                          fontSize: '8.5pt',
+                          border: '1px dashed #0284c7',
+                          background: '#ffffff',
+                          padding: '4px',
+                          borderRadius: '4px',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </td>
+                    <td style={{ ...tableCellStyle, textAlign: 'center' }}>
+                      {effectivePreparedBy}
+                    </td>
                   </tr>
-                ))}
+                ) : (
+                  effectiveRevisions.map((rev, idx) => (
+                    <tr
+                      key={idx}
+                      style={{
+                        background: idx % 2 === 0 ? '#FFFFFF' : '#F9FBFD',
+                      }}
+                    >
+                      <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>
+                        {rev.revision}
+                      </td>
+                      <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.date}</td>
+                      <td style={tableCellStyle}>{rev.description}</td>
+                      <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.revisedBy}</td>
+                    </tr>
+                  ))
+                )}
                 {/* Baris kosong cadangan untuk revisi selanjutnya */}
                 <tr style={{ background: '#FFFFFF' }}>
                   <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
@@ -1107,7 +1531,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   <tr style={{ background: '#FFFFFF' }}>
                     <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>1</td>
                     <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>
-                      {preparedBy || 'Mazmur Gusti Agung Larosa'}
+                      {effectivePreparedBy}
                     </td>
                     <td style={{ ...tableCellStyle, padding: '5px' }}>
                       {language === 'en'
@@ -1127,7 +1551,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   <tr style={{ background: '#F9FBFD' }}>
                     <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>2</td>
                     <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>
-                      {verifiedBy || 'Dennis Raditya'}
+                      {effectiveVerifiedBy}
                     </td>
                     <td style={{ ...tableCellStyle, padding: '5px' }}>
                       {language === 'en'
@@ -1240,7 +1664,23 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               </div>
               <div style={{ fontWeight: 'bold', color: '#000000' }}>
                 {language === 'en' ? 'On:' : language === 'bi' ? 'Pada tanggal / On:' : 'Pada tanggal:'}{' '}
-                {language === 'en' ? formattedDateEn : formattedDate}
+                {isEditing ? (
+                  <input
+                    type="date"
+                    value={editableIssueDate}
+                    onChange={(e) => setEditableIssueDate(e.target.value)}
+                    style={{
+                      fontFamily: 'Arial, sans-serif',
+                      fontSize: '8pt',
+                      border: '1px dashed #0284c7',
+                      background: '#f0f9ff',
+                      padding: '2px 4px',
+                      borderRadius: '4px',
+                    }}
+                  />
+                ) : (
+                  language === 'en' ? formattedDateEn : formattedDate
+                )}
               </div>
               <div style={{ fontWeight: 'bold', color: '#003366', marginTop: '2px' }}>
                 {language === 'en'
@@ -1327,19 +1767,76 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 </tr>
                 <tr style={{ background: '#F8FAFC' }}>
                   <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
-                    {(approvedBy || 'Bima Satryo Hartanto').toUpperCase()}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editableApprovedBy}
+                        onChange={(e) => setEditableApprovedBy(e.target.value)}
+                        style={{
+                          width: '95%',
+                          fontFamily: 'Arial, sans-serif',
+                          fontSize: '8pt',
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          border: '1px dashed #0284c7',
+                          background: '#f0f9ff',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                        }}
+                      />
+                    ) : (
+                      effectiveApprovedBy.toUpperCase()
+                    )}
                     <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
                       {language === 'en' ? 'President Director' : 'Direktur Utama'}
                     </div>
                   </td>
                   <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
-                    {(verifiedBy || 'Dennis Raditya').toUpperCase()}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editableVerifiedBy}
+                        onChange={(e) => setEditableVerifiedBy(e.target.value)}
+                        style={{
+                          width: '95%',
+                          fontFamily: 'Arial, sans-serif',
+                          fontSize: '8pt',
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          border: '1px dashed #0284c7',
+                          background: '#f0f9ff',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                        }}
+                      />
+                    ) : (
+                      effectiveVerifiedBy.toUpperCase()
+                    )}
                     <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
                       {language === 'en' ? 'Director of Operations' : 'Direktur Operasional'}
                     </div>
                   </td>
                   <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
-                    {(preparedBy || 'Mazmur Gusti Agung Larosa').toUpperCase()}
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editablePreparedBy}
+                        onChange={(e) => setEditablePreparedBy(e.target.value)}
+                        style={{
+                          width: '95%',
+                          fontFamily: 'Arial, sans-serif',
+                          fontSize: '8pt',
+                          fontWeight: 'bold',
+                          textAlign: 'center',
+                          border: '1px dashed #0284c7',
+                          background: '#f0f9ff',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                        }}
+                      />
+                    ) : (
+                      effectivePreparedBy.toUpperCase()
+                    )}
                     <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
                       {language === 'en' ? 'Director of Finance & Eng' : 'Direktur Keuangan & Teknik'}
                     </div>

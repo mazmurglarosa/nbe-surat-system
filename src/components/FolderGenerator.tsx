@@ -197,9 +197,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   // TAHAP 3: STANDARDIZATION & METADATA
   const [selectedWordIndex, setSelectedWordIndex] = useState<number>(0);
   const [fileCustomizations, setFileCustomizations] = useState<Record<string, FileMetadataCustomization>>({});
-  const [previewTab, setPreviewTab] = useState<'all' | 'cover' | 'header' | 'body' | 'both'>('all');
   const [isGeneratingDocx, setIsGeneratingDocx] = useState<boolean>(false);
-  const [isExpandedPreview, setIsExpandedPreview] = useState<boolean>(false);
   const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
 
   // Template settings & Google Docs MCP integration
@@ -2307,49 +2305,103 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
               />
 
               {/* REAL-TIME A4 DOCUMENT PREVIEW (4 HALAMAN BAKU SESUAI PANDUAN NBE) */}
-              <A4DocumentPreview
-                language={selectedLang}
-                title={activeCustomization.title}
-                code={activeCustomization.code}
-                issueDate={activeCustomization.issueDate}
-                revision={activeCustomization.revision}
-                revisions={activeCustomization.revisions}
-                preparedBy={activeCustomization.preparedBy}
-                verifiedBy={activeCustomization.verifiedBy}
-                approvedBy={activeCustomization.approvedBy}
-                typeLabel={docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode}
-                divisionLabel={divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode}
-                approverLabel={apprvs.find((a) => a.code === activeCustomization.approverCode)?.label || activeCustomization.approverCode}
-                onCopyCode={() => {
-                  navigator.clipboard.writeText(activeCustomization.code);
-                  alert(`Kode ${activeCustomization.code} berhasil disalin!`);
-                }}
-                onDownloadDocx={async () => {
-                  try {
-                    const docTypeLabel = docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode;
-                    const divisionLabel = divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode;
-                    await generateAndDownloadNbeDocx({
-                      docCode: activeCustomization.code,
-                      titleId: activeCustomization.title,
-                      titleEn: activeCustomization.title,
-                      categoryNameId: docTypeLabel,
-                      divisionName: divisionLabel,
-                      revisionNo: String(activeCustomization.revision),
-                      issueDateId: formatIssueDate(activeCustomization.issueDate),
-                      issueDateEn: new Date(activeCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
-                      preparedBy: activeCustomization.preparedBy,
-                      preparedRole: 'Director of Finance & Engineering / DCC Lead',
-                      verifiedBy: activeCustomization.verifiedBy,
-                      verifiedRole: 'Director of Operations & Technology / CTO',
-                      approvedBy: activeCustomization.approvedBy,
-                      approvedRole: 'President Director / CEO',
-                      language: selectedLang,
-                    });
-                  } catch (err: any) {
-                    alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
-                  }
-                }}
-              />
+              <div id="document-preview-section">
+                <A4DocumentPreview
+                  language={selectedLang}
+                  title={activeCustomization.title}
+                  code={activeCustomization.code}
+                  issueDate={activeCustomization.issueDate}
+                  revision={activeCustomization.revision}
+                  revisions={activeCustomization.revisions}
+                  preparedBy={activeCustomization.preparedBy}
+                  verifiedBy={activeCustomization.verifiedBy}
+                  approvedBy={activeCustomization.approvedBy}
+                  typeLabel={docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode}
+                  divisionLabel={divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode}
+                  approverLabel={apprvs.find((a) => a.code === activeCustomization.approverCode)?.label || activeCustomization.approverCode}
+                  onCopyCode={() => {
+                    navigator.clipboard.writeText(activeCustomization.code);
+                    alert(`Kode ${activeCustomization.code} berhasil disalin!`);
+                  }}
+                  onDownloadDocx={async () => {
+                    try {
+                      const docTypeLabel = docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode;
+                      const divisionLabel = divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode;
+                      await generateAndDownloadNbeDocx({
+                        docCode: activeCustomization.code,
+                        titleId: activeCustomization.title,
+                        titleEn: activeCustomization.title,
+                        categoryNameId: docTypeLabel,
+                        divisionName: divisionLabel,
+                        revisionNo: String(activeCustomization.revision),
+                        issueDateId: formatIssueDate(activeCustomization.issueDate),
+                        issueDateEn: new Date(activeCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+                        preparedBy: activeCustomization.preparedBy,
+                        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+                        verifiedBy: activeCustomization.verifiedBy,
+                        verifiedRole: 'Director of Operations & Technology / CTO',
+                        approvedBy: activeCustomization.approvedBy,
+                        approvedRole: 'President Director / CEO',
+                        language: selectedLang,
+                      });
+                    } catch (err: any) {
+                      alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
+                    }
+                  }}
+                  onSaveDocument={async (updated) => {
+                    if (!activeWordFile) return;
+                    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+                    const updatedCustomization: FileMetadataCustomization = {
+                      ...current,
+                      title: updated.title,
+                      code: updated.code,
+                      issueDate: updated.issueDate,
+                      revision: updated.revision,
+                      preparedBy: updated.preparedBy,
+                      verifiedBy: updated.verifiedBy,
+                      approvedBy: updated.approvedBy,
+                      revisions: updated.revisions || current.revisions,
+                    };
+
+                    setFileCustomizations((prev) => ({
+                      ...prev,
+                      [activeWordFile.id]: updatedCustomization,
+                    }));
+
+                    // Regenerate OpenXML Word file blob for activeWordFile in memory
+                    try {
+                      const docTypeLabel = docTypes.find((d) => d.code === updatedCustomization.typeCode)?.label || updatedCustomization.typeCode;
+                      const divisionLabel = divs.find((d) => d.code === updatedCustomization.divisionCode)?.label || updatedCustomization.divisionCode;
+                      const regenerated = await generateNbeDocxBlob({
+                        docCode: updatedCustomization.code,
+                        titleId: updatedCustomization.title,
+                        titleEn: updatedCustomization.title,
+                        categoryNameId: docTypeLabel,
+                        divisionName: divisionLabel,
+                        revisionNo: String(updatedCustomization.revision),
+                        issueDateId: formatIssueDate(updatedCustomization.issueDate),
+                        issueDateEn: new Date(updatedCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+                        preparedBy: updatedCustomization.preparedBy,
+                        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+                        verifiedBy: updatedCustomization.verifiedBy,
+                        verifiedRole: 'Director of Operations & Technology / CTO',
+                        approvedBy: updatedCustomization.approvedBy,
+                        approvedRole: 'President Director / CEO',
+                        language: selectedLang,
+                      });
+
+                      activeWordFile.dataUrl = regenerated.dataUrl;
+                      activeWordFile.size = regenerated.blob.size;
+
+                      setWordFiles((prev) =>
+                        prev.map((f) => (f.id === activeWordFile.id ? { ...f, dataUrl: regenerated.dataUrl, size: regenerated.blob.size } : f))
+                      );
+                    } catch (e) {
+                      console.error('Failed to regenerate word blob on save:', e);
+                    }
+                  }}
+                />
+              </div>
 
                 {/* STAGE 3 NAVIGATION BUTTONS */}
                 <div

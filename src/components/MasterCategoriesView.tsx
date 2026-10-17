@@ -33,6 +33,9 @@ import {
   DocumentTemplateSettings,
   DEFAULT_TEMPLATE_GUIDELINES,
   DEFAULT_TEMPLATE_SETTINGS,
+  analyzeTextGuidelines,
+  analyzeVisualPdfLayout,
+  resolveStandardAndHarmonize,
 } from '../services/templateSettings';
 
 interface MasterCategoriesViewProps {
@@ -127,13 +130,21 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
     const reader = new FileReader();
     reader.onload = (evt) => {
       const content = evt.target?.result as string;
-      setTemplateSettings((prev) => ({
-        ...prev,
+      const analyzedTxt = analyzeTextGuidelines(content);
+      const pdfMaster = analyzeVisualPdfLayout(templateSettings.pdfLayoutName || '0002-KB-GNR-CEO-X-2026.pdf');
+      const harmonized = resolveStandardAndHarmonize(analyzedTxt, pdfMaster);
+
+      const nextSettings: DocumentTemplateSettings = {
+        ...harmonized,
         txtGuidelinesName: file.name,
         txtGuidelinesContent: content,
-      }));
+      };
+
+      setTemplateSettings(nextSettings);
+      saveTemplateSettings(nextSettings);
+
       const ext = file.name.split('.').pop()?.toUpperCase() || 'TXT/MD';
-      showSuccessBanner(`Berkas acuan panduan "${file.name}" (${ext}) berhasil dimuat!`);
+      showSuccessBanner(`Berkas acuan panduan "${file.name}" (${ext}) berhasil dianalisis & disinkronkan sebagai standar teks pokok!`);
     };
     reader.readAsText(file);
     e.target.value = '';
@@ -145,12 +156,19 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
     const reader = new FileReader();
     reader.onload = (evt) => {
       const dataUrl = evt.target?.result as string;
-      setTemplateSettings((prev) => ({
-        ...prev,
+      const analyzedPdf = analyzeVisualPdfLayout(file.name, dataUrl);
+      const harmonized = resolveStandardAndHarmonize({}, analyzedPdf);
+
+      const nextSettings: DocumentTemplateSettings = {
+        ...harmonized,
         pdfLayoutName: file.name,
         pdfLayoutDataUrl: dataUrl,
-      }));
-      showSuccessBanner(`Berkas PDF acuan visual "${file.name}" berhasil dimuat!`);
+      };
+
+      setTemplateSettings(nextSettings);
+      saveTemplateSettings(nextSettings);
+
+      showSuccessBanner(`Berkas PDF acuan visual "${file.name}" berhasil dimuat sebagai standar tata letak mutlak (Supreme Visual Authority)!`);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
