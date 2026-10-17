@@ -105,6 +105,8 @@ export interface MasterCodesState {
 
 export const DOCUMENT_TYPES: CodeDefinition[] = [
   { code: 'SOP', label: 'Standard Operating Procedure (SOP)', description: 'Prosedur operasional baku organisasi dan departemen' },
+  { code: 'FOR', label: 'Formulir (FOR)', description: 'Formulir isian baku dan format rekaman mutu operasional' },
+  { code: 'POL', label: 'Policy / Kebijakan (POL)', description: 'Kebijakan perusahaan dan panduan tingkat direksi' },
   { code: 'WIK', label: 'Work Instruction (WIK)', description: 'Instruksi kerja rinci operasional cross-departemen & spesifik' },
   { code: 'MNL', label: 'Manual (MNL)', description: 'Panduan sistem manajemen terintegrasi perusahaan' },
   { code: 'KB', label: 'Policy (KB)', description: 'Kebijakan utama dan arahan strategis perusahaan' },
@@ -137,6 +139,10 @@ export const DIVISIONS: CodeDefinition[] = [
   { code: 'ENG', label: 'Engineering (ENG)', description: 'Divisi Teknik & Rekayasa' },
   { code: 'OPR', label: 'Operation (OPR)', description: 'Divisi Operasional Lapangan & Pabrik' },
   { code: 'FNC', label: 'Finance (FNC)', description: 'Divisi Keuangan, Akuntansi & Perpajakan' },
+  { code: 'AUD', label: 'Internal Audit (AUD)', description: 'Audit Internal & Kepatuhan' },
+  { code: 'HSE', label: 'Health, Safety & Environment (HSE)', description: 'Keselamatan, Kesehatan Kerja & Lingkungan' },
+  { code: 'IMS', label: 'Integrated Management System (IMS)', description: 'Sistem Manajemen Terintegrasi' },
+  { code: 'HRD', label: 'Human Resources (HRD)', description: 'Sumber Daya Manusia' },
 ];
 
 export const APPROVERS: CodeDefinition[] = [

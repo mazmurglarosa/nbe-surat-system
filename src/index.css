@@ -687,6 +687,8 @@ textarea:focus-visible {
   }
 
   /* 3. Make ONLY the isolated document canvas and its descendants visible */
+  #nbe-single-a4-preview-canvas,
+  #nbe-single-a4-preview-canvas *,
   #nbe-isolated-document-canvas,
   #nbe-isolated-document-canvas *,
   .a4-print-container,
@@ -695,6 +697,7 @@ textarea:focus-visible {
   }
 
   /* 4. Position isolated canvas at top-left corner without margins */
+  #nbe-single-a4-preview-canvas,
   #nbe-isolated-document-canvas,
   .a4-print-container {
     position: absolute !important;

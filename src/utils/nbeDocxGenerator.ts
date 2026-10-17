@@ -12,10 +12,14 @@ import {
   BorderStyle,
   PageBreak,
   Header,
+  Footer,
+  PageNumber,
+  TabStopType,
   ShadingType,
   convertInchesToTwip,
 } from "docx";
 import { saveAs } from "file-saver";
+import { DocxTableData } from "./docxExtractor";
 
 export type LanguageMode = "id" | "en" | "bi";
 
@@ -35,6 +39,9 @@ export interface NbeDocumentPayload {
   approvedBy: string;
   approvedRole: string;
   language: LanguageMode;
+  preservedBodyParagraphs?: string[];
+  bodyTables?: DocxTableData[];
+  revisionRows?: Array<{ rev: string; date: string; description: string; revisedBy: string }>;
 }
 
 const COLOR_BLACK = "000000";
@@ -63,12 +70,14 @@ const noBorders = {
 };
 
 function buildRunningHeader(data: NbeDocumentPayload): Header {
-  const kopTitle =
-    data.language === "en"
+  const isKB = data.docCode.includes("-KB-") || (data.categoryNameId && data.categoryNameId.toUpperCase().includes("KEBIJAKAN"));
+  const kopTitle = isKB
+    ? (data.language === "en"
       ? `BOARD OF DIRECTORS' RESOLUTION: ${(data.titleEn || data.titleId).toUpperCase()}`
       : data.language === "bi"
       ? `SURAT KEPUTUSAN DIREKSI / BOARD RESOLUTION: ${data.titleId.toUpperCase()}`
-      : `SURAT KEPUTUSAN DIREKSI: ${data.titleId.toUpperCase()}`;
+      : `SURAT KEPUTUSAN DIREKSI: ${data.titleId.toUpperCase()}`)
+    : `${(data.categoryNameId || "STANDAR OPERASIONAL PROSEDUR").toUpperCase()}: ${data.titleId.toUpperCase()}`;
 
   const dateStr = data.language === "en" ? data.issueDateEn : data.issueDateId;
 
@@ -182,20 +191,26 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   const isEn = data.language === "en";
   const isBi = data.language === "bi";
 
-  const coverDocType = isEn
-    ? "BOARD OF DIRECTORS' RESOLUTION"
-    : isBi
-    ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
-    : "SURAT KEPUTUSAN DIREKSI";
+  const isKB = data.docCode.includes("-KB-") || (data.categoryNameId && data.categoryNameId.toUpperCase().includes("KEBIJAKAN"));
+
+  const coverDocType = isKB
+    ? (isEn
+      ? "BOARD OF DIRECTORS' RESOLUTION"
+      : isBi
+      ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
+      : "SURAT KEPUTUSAN DIREKSI")
+    : (data.categoryNameId || "DOKUMEN RESMI STANDAR").toUpperCase();
 
   const cleanTitleId = data.titleId || "SISTEM MANAJEMEN PENGENDALIAN DOKUMEN";
   const cleanTitleEn = data.titleEn || "ESTABLISHMENT OF DOCUMENT CONTROL MANAGEMENT SYSTEM";
 
-  const coverSubject = isEn
-    ? `CONCERNING ${cleanTitleEn.toUpperCase()}`
-    : isBi
-    ? `TENTANG ${cleanTitleId.toUpperCase()}\n(CONCERNING ${cleanTitleEn.toUpperCase()})`
-    : `TENTANG ${cleanTitleId.toUpperCase()}`;
+  const coverSubject = isKB
+    ? (isEn
+      ? `CONCERNING ${cleanTitleEn.toUpperCase()}`
+      : isBi
+      ? `TENTANG ${cleanTitleId.toUpperCase()}\n(CONCERNING ${cleanTitleEn.toUpperCase()})`
+      : `TENTANG ${cleanTitleId.toUpperCase()}`)
+    : cleanTitleId.toUpperCase();
 
   const revDescription =
     data.revisionNo === "0" || data.revisionNo === ""
@@ -264,53 +279,193 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
     new Paragraph({ children: [new PageBreak()] }),
   ];
 
-  // HALAMAN 2: REVISION INDEX (TANPA CATATAN KENDALI DOKUMEN)
+  // HALAMAN 2: REVISION INDEX (Otomatis dari Kartu 2: Tabel Index Revisi Dokumen)
+  const revisionTableRows = [
+    new TableRow({
+      cantSplit: true,
+      tableHeader: true,
+      children: ["Revision", "Date", "Description of Changes", "Revised By"].map((colTitle, idx) =>
+        new TableCell({
+          width: { size: [12, 18, 50, 20][idx], type: WidthType.PERCENTAGE },
+          shading: { fill: COLOR_HEADER_FILL, type: ShadingType.CLEAR },
+          verticalAlign: VerticalAlign.CENTER,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [new TextRun({ text: colTitle, font: "Arial", size: 19, bold: true, color: COLOR_BLACK })],
+            }),
+          ],
+        })
+      ),
+    }),
+    ...(data.revisionRows && data.revisionRows.length > 0
+      ? data.revisionRows.map((r, rIdx) =>
+          new TableRow({
+            cantSplit: true,
+            children: [r.rev, r.date, r.description, r.revisedBy].map((val, idx) =>
+              new TableCell({
+                verticalAlign: VerticalAlign.CENTER,
+                shading: { fill: rIdx % 2 === 0 ? COLOR_ALT_ROW : "FFFFFF", type: ShadingType.CLEAR },
+                children: [
+                  new Paragraph({
+                    alignment: idx < 2 ? AlignmentType.CENTER : AlignmentType.LEFT,
+                    children: [new TextRun({ text: val, font: "Arial", size: 18, color: COLOR_BODY })],
+                  }),
+                ],
+              })
+            ),
+          })
+        )
+      : [
+          new TableRow({
+            cantSplit: true,
+            children: [data.revisionNo || "0", isEn ? data.issueDateEn : data.issueDateId, revDescription, data.preparedBy].map(
+              (val, idx) =>
+                new TableCell({
+                  verticalAlign: VerticalAlign.CENTER,
+                  shading: { fill: COLOR_ALT_ROW, type: ShadingType.CLEAR },
+                  children: [
+                    new Paragraph({
+                      alignment: idx === 2 ? AlignmentType.LEFT : AlignmentType.CENTER,
+                      children: [new TextRun({ text: val, font: "Arial", size: 18, color: COLOR_BODY })],
+                    }),
+                  ],
+                })
+            ),
+          }),
+        ]),
+  ];
+
   const page2Children = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 360, after: 240 },
+      spacing: { before: 240, after: 200 },
       children: [new TextRun({ text: "REVISION INDEX", font: "Arial", size: 24, bold: true, color: COLOR_BLACK })],
     }),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
       borders: tableBorders,
-      rows: [
-        new TableRow({
-          cantSplit: true,
-          tableHeader: true,
-          children: ["Rev.", "Date", "Description", "Prepared By"].map((colTitle, idx) =>
-            new TableCell({
-              width: { size: [10, 20, 48, 22][idx], type: WidthType.PERCENTAGE },
-              shading: { fill: COLOR_HEADER_FILL, type: ShadingType.CLEAR },
-              verticalAlign: VerticalAlign.CENTER,
-              children: [
-                new Paragraph({
-                  alignment: AlignmentType.CENTER,
-                  children: [new TextRun({ text: colTitle, font: "Arial", size: 19, bold: true, color: COLOR_BLACK })],
-                }),
-              ],
-            })
-          ),
-        }),
-        new TableRow({
-          cantSplit: true,
-          children: [data.revisionNo || "0", isEn ? data.issueDateEn : data.issueDateId, revDescription, data.preparedBy].map(
-            (val, idx) =>
-              new TableCell({
-                verticalAlign: VerticalAlign.CENTER,
-                children: [
-                  new Paragraph({
-                    alignment: idx === 2 ? AlignmentType.LEFT : AlignmentType.CENTER,
-                    children: [new TextRun({ text: val, font: "Arial", size: 19, color: COLOR_BODY })],
-                  }),
-                ],
-              })
-          ),
-        }),
-      ],
+      rows: revisionTableRows,
     }),
     new Paragraph({ children: [new PageBreak()] }),
   ];
+
+  // HALAMAN 3+: JIKA DOKUMEN MEMILIKI ISI ASLI / TABEL ASLI / EDITAN PREVIEW YANG DIPERTAHANKAN
+  const hasPreservedParagraphs = data.preservedBodyParagraphs && data.preservedBodyParagraphs.length > 0;
+  const hasPreservedTables = data.bodyTables && data.bodyTables.length > 0;
+
+  if (hasPreservedParagraphs || hasPreservedTables) {
+    const preservedBodyChildren: (Paragraph | Table)[] = [];
+
+    // Tambahkan paragraf body asli jika ada
+    if (hasPreservedParagraphs && data.preservedBodyParagraphs) {
+      data.preservedBodyParagraphs.forEach((paraText) => {
+        const isHeading = /^[0-9]+\.[0-9]+/.test(paraText.trim()) || /^[A-Z0-9\s:/-]{4,}$/.test(paraText.trim());
+        preservedBodyChildren.push(
+          new Paragraph({
+            alignment: isHeading ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
+            indent: { left: isHeading ? 0 : 720 },
+            tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+            spacing: { before: isHeading ? 240 : 80, after: isHeading ? 100 : 80, line: 276 },
+            children: [
+              new TextRun({
+                text: paraText,
+                font: "Arial",
+                size: isHeading ? 22 : 20,
+                bold: isHeading,
+                color: isHeading ? COLOR_BLACK : COLOR_BODY,
+              }),
+            ],
+          })
+        );
+      });
+    }
+
+    // Tambahkan tabel asli dari berkas pengguna
+    if (hasPreservedTables && data.bodyTables) {
+      data.bodyTables.forEach((tblData) => {
+        if (!tblData.rows || tblData.rows.length === 0) return;
+        const colCount = Math.max(...tblData.rows.map((r) => r.length), 1);
+        const colWidth = Math.floor(100 / colCount);
+        const docxRows = tblData.rows.map((rowCells, rIdx) => {
+          const isHeader = rIdx === 0;
+          return new TableRow({
+            cantSplit: true,
+            tableHeader: isHeader,
+            children: rowCells.map((cellText) =>
+              new TableCell({
+                width: { size: colWidth, type: WidthType.PERCENTAGE },
+                verticalAlign: VerticalAlign.CENTER,
+                shading: {
+                  fill: isHeader ? COLOR_HEADER_FILL : rIdx % 2 === 0 ? "FFFFFF" : COLOR_ALT_ROW,
+                  type: ShadingType.CLEAR,
+                },
+                children: [
+                  new Paragraph({
+                    alignment: isHeader ? AlignmentType.CENTER : AlignmentType.LEFT,
+                    spacing: { before: 60, after: 60 },
+                    children: [
+                      new TextRun({
+                        text: cellText,
+                        font: "Arial",
+                        size: isHeader ? 18 : 17,
+                        bold: isHeader,
+                        color: isHeader ? COLOR_BLACK : COLOR_BODY,
+                      }),
+                    ],
+                  }),
+                ],
+              })
+            ),
+          });
+        });
+
+        preservedBodyChildren.push(
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            borders: tableBorders,
+            rows: docxRows,
+          }),
+          new Paragraph({ spacing: { after: 240 } })
+        );
+      });
+    }
+
+    return new Document({
+      sections: [
+        {
+          properties: {
+            titlePage: true,
+            page: {
+              size: { width: 11906, height: 16838 },
+              margin: { left: 1247, right: 1134, top: 1134, bottom: 1134 },
+            },
+          },
+          headers: {
+            first: new Header({ children: [] }),
+            default: buildRunningHeader(data),
+          },
+          footers: {
+            first: new Footer({ children: [] }),
+            default: new Footer({
+              children: [
+                new Paragraph({
+                  alignment: AlignmentType.RIGHT,
+                  children: [
+                    new TextRun({ text: "Page ", font: "Arial", size: 18, color: "595959" }),
+                    new TextRun({ children: [PageNumber.CURRENT], font: "Arial", size: 18, color: "595959" }),
+                    new TextRun({ text: " of ", font: "Arial", size: 18, color: "595959" }),
+                    new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Arial", size: 18, color: "595959" }),
+                  ],
+                }),
+              ],
+            }),
+          },
+          children: [...page1Children, ...page2Children, ...preservedBodyChildren],
+        },
+      ],
+    });
+  }
 
   // HALAMAN 3 & 4: ISI SURAT & PENGESAHAN
   const dccTable = new Table({
@@ -711,12 +866,8 @@ export async function generateNbeDocxBlob(
 ): Promise<{ blob: Blob; fileName: string; dataUrl: string }> {
   const doc = buildNbeDocument(data);
   const blob = await Packer.toBlob(doc);
-  const fileName =
-    data.language === "en"
-      ? `${data.docCode} - Board of Directors Resolution (British English).docx`
-      : data.language === "bi"
-      ? `${data.docCode} - Surat Keputusan Direksi (Bilingual ID-EN).docx`
-      : `${data.docCode} - Surat Keputusan Direksi (Revisi Final).docx`;
+  const cleanTitle = data.titleId?.trim() || (data.language === "en" ? "Board of Directors Resolution" : "Surat Keputusan Direksi");
+  const fileName = `${data.docCode} - ${cleanTitle}.docx`;
 
   const dataUrl = await new Promise<string>((resolve) => {
     const reader = new FileReader();

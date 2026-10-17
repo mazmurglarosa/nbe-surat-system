@@ -533,7 +533,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
           className={`btn btn-sm ${activeTab === 'templates' ? 'btn-primary' : 'btn-ghost'}`}
           style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', borderRadius: '8px', fontWeight: activeTab === 'templates' ? 800 : 500 }}
         >
-          6. Acuan Template Dokumen
+          6. Acuan Template Dokumen & Panduan Standardisasi Bot
         </button>
       </div>
 

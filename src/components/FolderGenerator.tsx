@@ -79,6 +79,7 @@ import {
 import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx, generateNbeDocxBlob, NbeDocumentPayload } from '../utils/nbeDocxGenerator';
+import { extractDocxData, extractDocxParagraphs, DEFAULT_NBE_BODY_PARAGRAPHS, DocxTableData } from '../utils/docxExtractor';
 
 function generateDocumentId(): string {
   return `doc-folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -114,6 +115,56 @@ function normalizeNameForCompare(fileName: string): string {
     .replace(/[_\-\s]+/g, '');
 }
 
+export function romanToNumber(roman: string): number {
+  const romanMap: Record<string, number> = {
+    I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6,
+    VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12,
+  };
+  return romanMap[roman.toUpperCase()] || 10;
+}
+
+export interface ParsedNbeFile {
+  hasCode: boolean;
+  code?: string;
+  seq?: number;
+  typeCode?: string;
+  divCode?: string;
+  apprvCode?: string;
+  monthNumber?: number;
+  year?: number;
+  title: string;
+}
+
+export function parseNbeFileName(fileName: string): ParsedNbeFile {
+  const base = stripFileExtension(fileName);
+  // Pattern: 0001-FOR-AUD-CEO-X-2026 or 0001-KB-GNR-CEO-X-2026 with optional title
+  const codeRegex = /^([0-9]{4})-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([A-Za-z0-9]+)-([IVXLCDM]+)-([0-9]{4})(?:\s*[-–]\s*(.*))?$/i;
+  const match = base.match(codeRegex);
+  if (match) {
+    const rawCode = `${match[1]}-${match[2]}-${match[3]}-${match[4]}-${match[5]}-${match[6]}`.toUpperCase();
+    const typeCode = match[2].toUpperCase();
+    const divCode = match[3].toUpperCase();
+    const apprvCode = match[4].toUpperCase();
+    const rawTitle = (match[7] || '').trim();
+    const title = rawTitle ? rawTitle.toUpperCase().replace(/[_-]/g, ' ') : rawCode;
+    return {
+      hasCode: true,
+      code: rawCode,
+      seq: parseInt(match[1]),
+      typeCode,
+      divCode,
+      apprvCode,
+      monthNumber: romanToNumber(match[5]),
+      year: parseInt(match[6]),
+      title,
+    };
+  }
+  return {
+    hasCode: false,
+    title: base.toUpperCase().replace(/[_-]/g, ' '),
+  };
+}
+
 export interface AnalyzedFileItem extends DocumentFileItem {
   fileFormat: 'word' | 'pdf' | 'other';
   isAutoConverted?: boolean;
@@ -139,6 +190,8 @@ export interface FileMetadataCustomization {
   subSubCategoryCode?: string;
   divisionCode: string;
   approverCode: string;
+  preservedBodyParagraphs?: string[];
+  preservedBodyTables?: DocxTableData[];
 }
 
 interface FolderGeneratorProps {
@@ -282,30 +335,61 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
 
   // Active file being customized in Tahap 3
   const activeWordFile = wordFiles[selectedWordIndex] || null;
+  const parsedActiveFile = activeWordFile ? parseNbeFileName(activeWordFile.name) : null;
   const activeCustomization: FileMetadataCustomization = (activeWordFile && fileCustomizations[activeWordFile.id]) || {
-    title: activeWordFile ? stripFileExtension(activeWordFile.name).toUpperCase().replace(/[_-]/g, ' ') : 'PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)',
-    code: activeCode,
+    title: parsedActiveFile?.title || (activeWordFile ? stripFileExtension(activeWordFile.name).toUpperCase().replace(/[_-]/g, ' ') : 'PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)'),
+    code: parsedActiveFile?.hasCode ? parsedActiveFile.code : activeCode,
     issueDate: issueDate,
     revision: revision,
     status: status,
     preparedBy: preparedBy,
     verifiedBy: verifiedBy,
     approvedBy: approvedBy,
-    description: `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`,
+    description: parsedActiveFile?.hasCode && parsedActiveFile.typeCode !== 'KB'
+      ? `${docTypes.find((d) => d.code === parsedActiveFile.typeCode)?.label || parsedActiveFile.typeCode} PT Nirwana Bhumi Energy: ${parsedActiveFile.title}.`
+      : `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`,
     revisions: [
       {
         revision: revision,
         date: formatIssueDate(issueDate),
-        description: `Initial Edition – Penetapan Surat Keputusan Direksi (${activeCode})`,
+        description: parsedActiveFile?.hasCode
+          ? `Initial Edition – ${parsedActiveFile.title} (${parsedActiveFile.code})`
+          : `Initial Edition – Penetapan Surat Keputusan Direksi (${activeCode})`,
         revisedBy: preparedBy,
       },
     ],
-    typeCode: selectedType,
+    typeCode: parsedActiveFile?.hasCode ? parsedActiveFile.typeCode : selectedType,
     subCategoryCode: selectedSubCategory,
     subSubCategoryCode: selectedSubSubCategory,
-    divisionCode: selectedDivision,
-    approverCode: selectedApprover,
+    divisionCode: parsedActiveFile?.hasCode ? parsedActiveFile.divCode : selectedDivision,
+    approverCode: parsedActiveFile?.hasCode ? parsedActiveFile.apprvCode : selectedApprover,
+    preservedBodyParagraphs: (parsedActiveFile?.hasCode && parsedActiveFile.typeCode !== 'KB') ? [] : DEFAULT_NBE_BODY_PARAGRAPHS,
+    preservedBodyTables: [],
   };
+
+  // On-demand extraction for active Word file if tables/paragraphs not loaded yet
+  useEffect(() => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id];
+    const targetFile = activeWordFile.originalFile || (activeWordFile as any).file;
+    if (targetFile && (!current || (!current.preservedBodyTables && !current.preservedBodyParagraphs))) {
+      extractDocxData(targetFile)
+        .then((extracted) => {
+          setFileCustomizations((prev) => {
+            const existing = prev[activeWordFile.id] || activeCustomization;
+            return {
+              ...prev,
+              [activeWordFile.id]: {
+                ...existing,
+                preservedBodyParagraphs: extracted.paragraphs && extracted.paragraphs.length > 0 ? extracted.paragraphs : existing.preservedBodyParagraphs,
+                preservedBodyTables: extracted.tables && extracted.tables.length > 0 ? extracted.tables : existing.preservedBodyTables,
+              },
+            };
+          });
+        })
+        .catch((err) => console.warn('On-demand extraction notice:', err));
+    }
+  }, [activeWordFile?.id]);
 
   // Sync date changes with Roman Month
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -498,22 +582,50 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       setPdfFiles(pdfs);
       setAutoConvertedCount(autoConverted);
 
-      // Initialize customizations and standardize every Word file to ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE
+      // Initialize customizations and standardize every Word file with dynamic content preservation
       const initialCustoms: Record<string, FileMetadataCustomization> = {};
       for (let index = 0; index < finalWords.length; index++) {
         const wf = finalWords[index];
-        const seq = effectiveSequence + index;
-        const codeForThis = generateDocumentCode(
-          seq,
-          selectedType,
-          selectedSubCategory,
-          selectedSubSubCategory,
-          selectedDivision,
-          selectedApprover,
-          monthNumber,
-          year
-        );
-        const cleanTitle = stripFileExtension(wf.name).toUpperCase().replace(/[_-]/g, ' ');
+        const parsedFile = parseNbeFileName(wf.name);
+        const seq: number = (parsedFile.hasCode && typeof parsedFile.seq === 'number') ? parsedFile.seq : (effectiveSequence + index);
+        const docTypeCode: string = (parsedFile.hasCode && parsedFile.typeCode) ? parsedFile.typeCode : selectedType;
+        const divCode: string = (parsedFile.hasCode && parsedFile.divCode) ? parsedFile.divCode : selectedDivision;
+        const apprvCode: string = (parsedFile.hasCode && parsedFile.apprvCode) ? parsedFile.apprvCode : selectedApprover;
+        const codeForThis: string = (parsedFile.hasCode && parsedFile.code)
+          ? parsedFile.code
+          : generateDocumentCode(
+              seq,
+              docTypeCode,
+              selectedSubCategory,
+              selectedSubSubCategory,
+              divCode,
+              apprvCode,
+              monthNumber,
+              year
+            );
+        const cleanTitle: string = parsedFile.title || stripFileExtension(wf.name).toUpperCase().replace(/[_-]/g, ' ');
+
+        // Ekstraksi paragraf dan tabel asli dari berkas docx pengguna (Content Preservation Guardrail)
+        let extractedParagraphs: string[] | undefined = undefined;
+        let extractedTables: DocxTableData[] | undefined = undefined;
+        const targetFile = wf.originalFile || (wf as any).file;
+        if (targetFile) {
+          try {
+            const extracted = await extractDocxData(targetFile);
+            if (extracted.paragraphs && extracted.paragraphs.length > 0) {
+              extractedParagraphs = extracted.paragraphs;
+            }
+            if (extracted.tables && extracted.tables.length > 0) {
+              extractedTables = extracted.tables;
+            }
+          } catch (err) {
+            console.warn('Docx extraction note in executeAnalysis:', err);
+          }
+        }
+
+        const isSK = docTypeCode === 'KB';
+        const initialParagraphs = extractedParagraphs || (isSK ? DEFAULT_NBE_BODY_PARAGRAPHS : []);
+        const initialTables = extractedTables || [];
 
         initialCustoms[wf.id] = {
           title: cleanTitle || 'PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)',
@@ -524,7 +636,9 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           preparedBy: preparedBy,
           verifiedBy: verifiedBy,
           approvedBy: approvedBy,
-          description: `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`,
+          description: isSK
+            ? `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`
+            : `${docTypes.find((d) => d.code === docTypeCode)?.label || docTypeCode} PT Nirwana Bhumi Energy: ${cleanTitle}.`,
           revisions: [
             {
               revision: 0,
@@ -533,21 +647,25 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
               revisedBy: preparedBy,
             },
           ],
-          typeCode: selectedType,
+          typeCode: docTypeCode,
           subCategoryCode: selectedSubCategory,
           subSubCategoryCode: selectedSubSubCategory,
-          divisionCode: selectedDivision,
-          approverCode: selectedApprover,
+          divisionCode: divCode,
+          approverCode: apprvCode,
+          preservedBodyParagraphs: initialParagraphs,
+          preservedBodyTables: initialTables,
         };
 
-        // Otomatis standarisasi berkas Word ke template baku OpenXML NBE 4 Halaman
+        // Otomatis standarisasi berkas Word ke template baku OpenXML NBE dengan Cover, Kop, Revision & Konten Asli
         try {
+          const typeDef = docTypes.find((d) => d.code === docTypeCode);
+          const divDef = divs.find((d) => d.code === divCode);
           const docxStandard = await generateNbeDocxBlob({
             docCode: codeForThis,
             titleId: cleanTitle,
             titleEn: cleanTitle,
-            categoryNameId: docTypes.find((d) => d.code === selectedType)?.label || 'KEBIJAKAN PERUSAHAAN (KB)',
-            divisionName: divs.find((d) => d.code === selectedDivision)?.label || 'GENERAL & MANAGEMENT (GNR)',
+            categoryNameId: typeDef?.label || (docTypeCode === 'KB' ? 'KEBIJAKAN PERUSAHAAN (KB)' : docTypeCode),
+            divisionName: divDef?.label || (divCode === 'GNR' ? 'GENERAL & MANAGEMENT (GNR)' : divCode),
             revisionNo: '0',
             issueDateId: formatIssueDate(issueDate),
             issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
@@ -558,6 +676,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             approvedBy: approvedBy,
             approvedRole: 'President Director / CEO',
             language: selectedLang,
+            preservedBodyParagraphs: initialParagraphs,
+            bodyTables: initialTables,
           });
           wf.dataUrl = docxStandard.dataUrl;
           wf.size = docxStandard.blob.size;
@@ -824,6 +944,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
         approvedRole: 'President Director / CEO',
         language: selectedLang,
+        preservedBodyParagraphs: custom.preservedBodyParagraphs,
+        bodyTables: custom.preservedBodyTables,
       });
     } catch (err: any) {
       alert(`Gagal membuat file Word (.docx): ${err.message}`);
@@ -914,19 +1036,26 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           currentFileName: `${custom.code} - ${custom.title}.docx`,
         });
 
-        // Generate genuine DOCX
-        const docxResult = await generateStandardNbeDocx({
-          title: custom.title,
-          code: custom.code,
-          docTypeLabel: typeDef?.label,
-          issueDateFormatted: formatIssueDate(custom.issueDate),
-          revision: custom.revision,
-          preparedBy: custom.preparedBy,
-          verifiedBy: custom.verifiedBy,
-          approvedBy: custom.approvedBy,
-          description: custom.description,
-          revisions: custom.revisions,
+        // Generate genuine DOCX matching A4 4-Page Standard and preserved docx content
+        const divDef = divs.find((d) => d.code.toUpperCase() === custom.divisionCode?.toUpperCase());
+        const docxResult = await generateNbeDocxBlob({
+          docCode: custom.code,
+          titleId: custom.title,
+          titleEn: custom.title,
+          categoryNameId: typeDef?.label || custom.typeCode,
+          divisionName: divDef?.label || custom.divisionCode || 'General & Management (GNR)',
+          revisionNo: String(custom.revision || 0),
+          issueDateId: formatIssueDate(custom.issueDate),
+          issueDateEn: new Date(custom.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+          preparedBy: custom.preparedBy || 'Mazmur Gusti Agung Larosa',
+          preparedRole: 'Director of Finance & Engineering / DCC Lead',
+          verifiedBy: custom.verifiedBy || 'Dennis Raditya',
+          verifiedRole: 'Director of Operations & Technology / CTO',
+          approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
+          approvedRole: 'President Director / CEO',
           language: selectedLang,
+          preservedBodyParagraphs: custom.preservedBodyParagraphs,
+          bodyTables: custom.preservedBodyTables,
         });
 
         const uploadFileName = `${custom.code} - ${custom.title}.docx`;
@@ -2319,6 +2448,9 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   typeLabel={docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode}
                   divisionLabel={divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode}
                   approverLabel={apprvs.find((a) => a.code === activeCustomization.approverCode)?.label || activeCustomization.approverCode}
+                  categoryCode={activeCustomization.typeCode}
+                  preservedBodyParagraphs={activeCustomization.preservedBodyParagraphs}
+                  bodyTables={activeCustomization.preservedBodyTables}
                   onCopyCode={() => {
                     navigator.clipboard.writeText(activeCustomization.code);
                     alert(`Kode ${activeCustomization.code} berhasil disalin!`);
@@ -2343,6 +2475,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         approvedBy: activeCustomization.approvedBy,
                         approvedRole: 'President Director / CEO',
                         language: selectedLang,
+                        preservedBodyParagraphs: activeCustomization.preservedBodyParagraphs,
+                        bodyTables: activeCustomization.preservedBodyTables,
                       });
                     } catch (err: any) {
                       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
@@ -2361,6 +2495,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       verifiedBy: updated.verifiedBy,
                       approvedBy: updated.approvedBy,
                       revisions: updated.revisions || current.revisions,
+                      preservedBodyParagraphs: updated.preservedBodyParagraphs || current.preservedBodyParagraphs,
+                      preservedBodyTables: updated.bodyTables || current.preservedBodyTables,
                     };
 
                     setFileCustomizations((prev) => ({
@@ -2388,6 +2524,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         approvedBy: updatedCustomization.approvedBy,
                         approvedRole: 'President Director / CEO',
                         language: selectedLang,
+                        preservedBodyParagraphs: updatedCustomization.preservedBodyParagraphs,
+                        bodyTables: updatedCustomization.preservedBodyTables,
                       });
 
                       activeWordFile.dataUrl = regenerated.dataUrl;
