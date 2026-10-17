@@ -44,6 +44,7 @@ import {
   CodeDefinition,
   DocumentFileItem,
   RevisionRecord,
+  DocumentLanguage,
 } from '../types';
 import {
   generateDocumentCode,
@@ -75,6 +76,8 @@ import {
   convertWordToGoogleDocViaMcp,
   SyncedGoogleDoc,
 } from '../services/googleDocsService';
+import { LanguageSelector } from './LanguageSelector';
+import { A4DocumentPreview } from './A4DocumentPreview';
 
 function generateDocumentId(): string {
   return `doc-folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -196,6 +199,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   const [previewTab, setPreviewTab] = useState<'all' | 'cover' | 'header' | 'body' | 'both'>('all');
   const [isGeneratingDocx, setIsGeneratingDocx] = useState<boolean>(false);
   const [isExpandedPreview, setIsExpandedPreview] = useState<boolean>(false);
+  const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
 
   // Template settings & Google Docs MCP integration
   const [templateSettings, setTemplateSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
@@ -888,6 +892,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           approvedBy: custom.approvedBy,
           description: custom.description,
           revisions: custom.revisions,
+          language: selectedLang,
         });
 
         const uploadFileName = `${custom.code} - ${custom.title}.docx`;
@@ -2258,6 +2263,57 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* TOMBOL PILIHAN BAHASA DOKUMEN (LANGUAGE SELECTOR: ID / EN / BI) */}
+              <LanguageSelector
+                selectedLang={selectedLang}
+                onSelectLang={(l) => setSelectedLang(l)}
+              />
+
+              {/* REAL-TIME A4 DOCUMENT PREVIEW (4 HALAMAN BAKU SESUAI PANDUAN NBE) */}
+              <A4DocumentPreview
+                language={selectedLang}
+                title={activeCustomization.title}
+                code={activeCustomization.code}
+                issueDate={activeCustomization.issueDate}
+                revision={activeCustomization.revision}
+                revisions={activeCustomization.revisions}
+                preparedBy={activeCustomization.preparedBy}
+                verifiedBy={activeCustomization.verifiedBy}
+                approvedBy={activeCustomization.approvedBy}
+                typeLabel={docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode}
+                divisionLabel={divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode}
+                approverLabel={apprvs.find((a) => a.code === activeCustomization.approverCode)?.label || activeCustomization.approverCode}
+                onCopyCode={() => {
+                  navigator.clipboard.writeText(activeCustomization.code);
+                  alert(`Kode ${activeCustomization.code} berhasil disalin!`);
+                }}
+                onDownloadDocx={async () => {
+                  try {
+                    const res = await generateStandardNbeDocx({
+                      title: activeCustomization.title,
+                      code: activeCustomization.code,
+                      docTypeLabel: docTypes.find((d) => d.code === activeCustomization.typeCode)?.label,
+                      issueDateFormatted: formatIssueDate(activeCustomization.issueDate),
+                      revision: activeCustomization.revision,
+                      preparedBy: activeCustomization.preparedBy,
+                      verifiedBy: activeCustomization.verifiedBy,
+                      approvedBy: activeCustomization.approvedBy,
+                      description: activeCustomization.description,
+                      revisions: activeCustomization.revisions,
+                      language: selectedLang,
+                    });
+                    const a = document.createElement('a');
+                    a.href = res.dataUrl;
+                    a.download = `${activeCustomization.code}-${selectedLang.toUpperCase()}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                  } catch (err: any) {
+                    alert('Gagal mengunduh berkas Word: ' + err.message);
+                  }
+                }}
+              />
 
               {/* ============================================================= */}
               {/* DOCUMENT PREVIEW SECTION (PLACED BELOW CLASSIFICATION CARD)    */}

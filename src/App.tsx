@@ -10,6 +10,7 @@ import { GoogleDriveModal } from './components/GoogleDriveModal';
 import { BackupRestoreModal } from './components/BackupRestoreModal';
 import { PdfGuideModal } from './components/PdfGuideModal';
 import { MasterCategoriesView } from './components/MasterCategoriesView';
+import { TemplateReferenceView } from './components/TemplateReferenceView';
 import { ReviseDocumentModal } from './components/ReviseDocumentModal';
 import { DocumentRecord, ActivityLog, CodeDefinition, MasterCodesState } from './types';
 import {
@@ -615,6 +616,7 @@ export function App() {
               {activeTab === 'create' && 'Daftarkan Surat Baru'}
               {activeTab === 'create-folder' && 'Daftarkan Folder (Multi-File)'}
               {activeTab === 'master-categories' && 'Kelola Master Kategori & Kode'}
+              {activeTab === 'template-reference' && 'Acuan Template Dokumen & Panduan Standardisasi'}
               {activeTab.startsWith('div-') && (() => {
                 const code = activeTab.replace('div-', '').toUpperCase();
                 const d = masterCodes.divisions.find((x) => x.code.toUpperCase() === code);
@@ -794,6 +796,10 @@ export function App() {
               onDeleteApprover={handleDeleteApprover}
               onResetDefaults={handleResetMasterCodes}
             />
+          )}
+
+          {activeTab === 'template-reference' && (
+            <TemplateReferenceView />
           )}
 
           {activeTab === 'logs' && (

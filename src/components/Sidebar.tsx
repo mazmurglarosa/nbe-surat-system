@@ -10,6 +10,7 @@ import {
   ChevronRight,
   FolderKanban,
   Building2,
+  BookOpen,
 } from 'lucide-react';
 import { CodeDefinition, DocumentRecord, DIVISIONS } from '../types';
 
@@ -18,6 +19,7 @@ export type SidebarTab =
   | 'create'
   | 'create-folder'
   | 'master-categories'
+  | 'template-reference'
   | 'logs'
   | 'settings'
   | 'dir-ceo'
@@ -297,6 +299,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Kelola Kategori & Kode</span>
             </div>
             {activeTab === 'master-categories' && <ChevronRight size={16} />}
+          </button>
+
+          {/* 3b. Acuan Template Dokumen */}
+          <button
+            onClick={() => onSelectTab('template-reference')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '0.7rem 0.9rem',
+              borderRadius: '10px',
+              border: 'none',
+              background:
+                activeTab === 'template-reference'
+                  ? 'linear-gradient(90deg, #0284c7 0%, #0369a1 100%)'
+                  : 'transparent',
+              color: activeTab === 'template-reference' ? '#ffffff' : 'var(--text-secondary)',
+              fontWeight: activeTab === 'template-reference' ? 700 : 500,
+              fontSize: '0.875rem',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.15s ease',
+              boxShadow:
+                activeTab === 'template-reference'
+                  ? '0 4px 12px rgba(2, 132, 199, 0.35)'
+                  : 'none',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <BookOpen size={18} />
+              <span>Acuan Template Dokumen</span>
+            </div>
+            {activeTab === 'template-reference' && <ChevronRight size={16} />}
           </button>
 
           {/* Section Divider: DIVISI PENERBIT SURAT */}

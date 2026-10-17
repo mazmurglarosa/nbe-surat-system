@@ -32,6 +32,7 @@ import {
   DocumentRecord,
   DocumentStatus,
   CodeDefinition,
+  DocumentLanguage,
 } from '../types';
 import {
   generateDocumentCode,
@@ -53,6 +54,9 @@ import {
 } from '../services/googleDriveBot';
 import { addSubCategory, addSubSubCategory, addDocumentType } from '../services/masterCodes';
 import { pushAllLocalDataToCloud } from '../services/cloudSync';
+import { LanguageSelector } from './LanguageSelector';
+import { A4DocumentPreview } from './A4DocumentPreview';
+import { generateStandardNbeDocx } from '../services/docTemplateGenerator';
 
 function generateDocumentId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -149,6 +153,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [verifiedBy, setVerifiedBy] = useState<string>('Management Representative (MR)');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
+  const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
 
   // File Upload & Google Drive
   const [uploadedFile, setUploadedFile] = useState<{
@@ -530,6 +535,40 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       setIsManualOverride(false);
       setManualCode('');
       setCustomSequence('');
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    try {
+      const typeDef = docTypes.find((d) => d.code === selectedType);
+      const res = await generateStandardNbeDocx({
+        title: title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN',
+        code: activeCode,
+        issueDateFormatted: formatIssueDate(issueDate),
+        revision: revision,
+        preparedBy: createdBy.trim() || 'Mazmur Gusti Agung Larosa',
+        verifiedBy: verifiedBy || 'Dennis Raditya',
+        approvedBy: approvedBy || 'Bima Satryo Hartanto',
+        docTypeLabel: typeDef?.label || selectedType,
+        revisions: [
+          {
+            revision: revision,
+            date: formatIssueDate(issueDate),
+            description: revision === 0 ? 'Initial Issue' : 'Penerbitan Baru',
+            revisedBy: createdBy.trim() || 'Staff NBE',
+          },
+        ],
+        language: selectedLang,
+      });
+
+      const a = document.createElement('a');
+      a.href = res.dataUrl;
+      a.download = `${activeCode}-${selectedLang.toUpperCase()}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (err: any) {
+      alert('Gagal mendownload Word (.docx): ' + err.message);
     }
   };
 
@@ -2391,6 +2430,29 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
           </button>
         </div>
       </form>
+
+      {/* Real-Time Document Preview (Real Paper Size) TEPAT DI BAWAH form penomoran sesuai Panduan NBE */}
+      <LanguageSelector selectedLang={selectedLang} onSelectLang={(l) => setSelectedLang(l)} />
+
+      <A4DocumentPreview
+        language={selectedLang}
+        title={title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN'}
+        code={activeCode}
+        issueDate={issueDate}
+        revision={revision}
+        preparedBy={createdBy.trim() || 'Mazmur Gusti Agung Larosa'}
+        verifiedBy={verifiedBy || 'Dennis Raditya'}
+        approvedBy={approvedBy || 'Bima Satryo Hartanto'}
+        typeLabel={docTypes.find((d) => d.code === selectedType)?.label || selectedType}
+        divisionLabel={divs.find((d) => d.code === selectedDivision)?.label || selectedDivision}
+        approverLabel={apprvs.find((a) => a.code === selectedApprover)?.label || selectedApprover}
+        onCopyCode={() => {
+          navigator.clipboard.writeText(activeCode);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }}
+        onDownloadDocx={handleDownloadDocx}
+      />
 
       {/* MODAL CEPAT TAMBAH KODE KATEGORI / SUB-KATEGORI */}
       {quickAddModal && (

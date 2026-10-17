@@ -1,5 +1,7 @@
 export type DocumentTypeCode = 'SOP' | 'WIK' | 'MNL' | 'KB';
 
+export type DocumentLanguage = 'id' | 'en' | 'bi';
+
 export type DivisionCode = 'GNR' | 'ENG' | 'OPR' | 'FNC';
 
 export type ApproverCode = 'CEO' | 'CTO' | 'COO' | 'CFO' | 'MNG' | 'SPV';
@@ -47,6 +49,7 @@ export interface DocumentRecord {
   approvedBy?: string;
   verifiedBy?: string;
   issueDate: string; // YYYY-MM-DD
+  language?: DocumentLanguage; // id | en | bi
   
   // File Storage & Google Drive
   fileName?: string;
