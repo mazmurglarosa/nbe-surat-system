@@ -998,78 +998,94 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         {/* Floating Kop Size Tuner Bar when Edit Mode is active */}
         {isEditing && (
           <div className="ms-word-kop-tuner no-print">
-            <div className="ms-word-kop-tuner-group">
-              <span style={{ fontWeight: 700 }}>⚙️ Ukuran Kop:</span>
-              <span style={{ color: '#0369a1' }}>Lebar Kolom Logo:</span>
-              {[20, 25, 30, 35, 40].map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => updateKopSetting('logoWidthPercent', w)}
-                  className={`ms-word-kop-btn-pill ${kopSettings.logoWidthPercent === w ? 'active' : ''}`}
-                  title={`Ubah lebar kolom logo ke ${w}%`}
-                >
-                  {w}%
-                </button>
-              ))}
+            {/* Header Toolbar */}
+            <div className="ms-word-kop-tuner-header">
+              <span className="ms-word-kop-tuner-title">
+                <span>⚙️</span>
+                <span>Pengaturan Dimensi & Ukuran Kop Surat</span>
+              </span>
+              <span style={{ fontSize: '0.74rem', color: '#64748b', fontWeight: 600 }}>
+                💡 Klik tombol di bawah untuk menyesuaikan ukuran tabel kop secara visual
+              </span>
             </div>
 
-            <div className="ms-word-kop-tuner-group">
-              <span style={{ color: '#0369a1' }}>Skala Logo:</span>
-              {[
-                { val: 0.7, label: '70%' },
-                { val: 0.85, label: '85%' },
-                { val: 0.95, label: '95%' },
-                { val: 1.0, label: '100% (Penuh Kolom)' },
-              ].map((ls) => (
-                <button
-                  key={ls.val}
-                  type="button"
-                  onClick={() => updateKopSetting('logoScale', ls.val)}
-                  className={`ms-word-kop-btn-pill ${Math.abs((kopSettings.logoScale || 1.0) - ls.val) < 0.05 ? 'active' : ''}`}
-                  title={ls.val === 1.0 ? 'Skala terbesar: Logo tepat memenuhi seluruh kolom' : `Ubah skala logo ke ${ls.label}`}
-                >
-                  {ls.label}
-                </button>
-              ))}
+            {/* Row 1: Logo Column Width & Logo Scale */}
+            <div className="ms-word-kop-tuner-row">
+              <div className="ms-word-kop-tuner-group">
+                <span className="ms-word-kop-group-label">Lebar Kolom Logo:</span>
+                {[20, 25, 30, 35, 40].map((w) => (
+                  <button
+                    key={w}
+                    type="button"
+                    onClick={() => updateKopSetting('logoWidthPercent', w)}
+                    className={`ms-word-kop-btn-pill ${kopSettings.logoWidthPercent === w ? 'active' : ''}`}
+                    title={`Ubah lebar kolom logo ke ${w}%`}
+                  >
+                    {w}%
+                  </button>
+                ))}
+              </div>
+
+              <div className="ms-word-kop-tuner-group">
+                <span className="ms-word-kop-group-label">Skala Logo:</span>
+                {[
+                  { val: 0.7, label: '70%' },
+                  { val: 0.85, label: '85%' },
+                  { val: 0.95, label: '95%' },
+                  { val: 1.0, label: '100% (Penuh Kolom)' },
+                ].map((ls) => (
+                  <button
+                    key={ls.val}
+                    type="button"
+                    onClick={() => updateKopSetting('logoScale', ls.val)}
+                    className={`ms-word-kop-btn-pill ${Math.abs((kopSettings.logoScale || 1.0) - ls.val) < 0.05 ? 'active' : ''}`}
+                    title={ls.val === 1.0 ? 'Skala terbesar: Logo tepat memenuhi seluruh kolom' : `Ubah skala logo ke ${ls.label}`}
+                  >
+                    {ls.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="ms-word-kop-tuner-group">
-              <span style={{ color: '#0369a1' }}>Tinggi Sel:</span>
-              {[
-                { val: 4, label: 'Padat' },
-                { val: 6, label: 'Standar' },
-                { val: 9, label: 'Lega' },
-              ].map((p) => (
-                <button
-                  key={p.val}
-                  type="button"
-                  onClick={() => updateKopSetting('paddingY', p.val)}
-                  className={`ms-word-kop-btn-pill ${kopSettings.paddingY === p.val ? 'active' : ''}`}
-                  title={`Ubah jarak vertikal sel ke ${p.label}`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            {/* Row 2: Row Height Padding & Font Scale */}
+            <div className="ms-word-kop-tuner-row">
+              <div className="ms-word-kop-tuner-group">
+                <span className="ms-word-kop-group-label">Tinggi Sel / Padding:</span>
+                {[
+                  { val: 4, label: 'Padat (4px)' },
+                  { val: 6, label: 'Standar (6px)' },
+                  { val: 9, label: 'Lega (9px)' },
+                ].map((p) => (
+                  <button
+                    key={p.val}
+                    type="button"
+                    onClick={() => updateKopSetting('paddingY', p.val)}
+                    className={`ms-word-kop-btn-pill ${kopSettings.paddingY === p.val ? 'active' : ''}`}
+                    title={`Ubah jarak vertikal sel ke ${p.label}`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
 
-            <div className="ms-word-kop-tuner-group">
-              <span style={{ color: '#0369a1' }}>Skala Font:</span>
-              {[
-                { val: 0.9, label: '90%' },
-                { val: 1.0, label: '100%' },
-                { val: 1.1, label: '110%' },
-              ].map((s) => (
-                <button
-                  key={s.val}
-                  type="button"
-                  onClick={() => updateKopSetting('fontSizeScale', s.val)}
-                  className={`ms-word-kop-btn-pill ${kopSettings.fontSizeScale === s.val ? 'active' : ''}`}
-                  title={`Ubah skala font teks kop ke ${s.label}`}
-                >
-                  {s.label}
-                </button>
-              ))}
+              <div className="ms-word-kop-tuner-group">
+                <span className="ms-word-kop-group-label">Skala Font Teks:</span>
+                {[
+                  { val: 0.9, label: '90%' },
+                  { val: 1.0, label: '100%' },
+                  { val: 1.1, label: '110%' },
+                ].map((s) => (
+                  <button
+                    key={s.val}
+                    type="button"
+                    onClick={() => updateKopSetting('fontSizeScale', s.val)}
+                    className={`ms-word-kop-btn-pill ${kopSettings.fontSizeScale === s.val ? 'active' : ''}`}
+                    title={`Ubah skala font teks kop ke ${s.label}`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
