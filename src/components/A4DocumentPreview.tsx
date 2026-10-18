@@ -911,11 +911,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             style={{
               display: 'inline-block',
               margin: '0.5rem auto 0 auto',
-              padding: '6px 20px',
-              background: '#F0F4F8',
-              border: '1.5px solid #003366',
-              borderRadius: '4px',
-              fontSize: '12pt',
+              padding: '4px 0',
+              fontSize: '11pt',
               fontWeight: 'bold',
               color: '#003366',
               letterSpacing: '0.04em',
