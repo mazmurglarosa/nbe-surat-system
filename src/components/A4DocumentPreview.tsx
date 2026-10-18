@@ -16,7 +16,7 @@ import {
 import { DocumentLanguage, RevisionRecord } from '../types';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocxTableData } from '../utils/docxExtractor';
-import { WordRibbonBar } from './WordRibbonBar';
+import { MsWordRibbonEditor } from './MsWordRibbonEditor';
 import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
 
 export interface DocumentSavePayload {
@@ -126,8 +126,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     };
   }, []);
 
-  const effectiveCoverLogoDataUrl = coverLogoDataUrl || masterSettings.coverLogoDataUrl || null;
-  const effectiveKopLogoDataUrl = kopLogoDataUrl || masterSettings.kopLogoDataUrl || null;
+  const effectiveCoverLogoDataUrl = coverLogoDataUrl || masterSettings.coverLogoDataUrl || undefined;
+  const effectiveKopLogoDataUrl = kopLogoDataUrl || masterSettings.kopLogoDataUrl || undefined;
   const effectiveCoverLogoWidthInches = coverLogoWidthInches || masterSettings.coverLogoWidthInches || 3.2;
   const effectiveKopLogoWidthInches = kopLogoWidthInches || masterSettings.kopLogoWidthInches || 0.95;
 
@@ -716,6 +716,496 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     </table>
   );
 
+  const renderRunningKopHeader = () => renderSharedKopHeader();
+
+  const initialHtmlPages = React.useMemo(() => {
+    if (effectiveBodyPages && effectiveBodyPages.length > 0) {
+      return effectiveBodyPages.map((pageLines) => {
+        return pageLines
+          .map((line) => {
+            const matchH = line.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
+            if (matchH) {
+              const [, numPart, titlePart] = matchH;
+              const isMainH = numPart.endsWith('.0');
+              return `<div style="display: flex; align-items: baseline; font-weight: bold; color: #000000; padding-top: ${
+                isMainH ? '0.75rem' : '0.4rem'
+              }; margin-bottom: 0.3rem; font-size: ${
+                isMainH ? '11pt' : '10.5pt'
+              }; font-family: Arial;"><span style="display: inline-block; width: 0.5in; flex-shrink: 0;">${numPart}</span><span>${titlePart}</span></div>`;
+            }
+            return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial;">${line}</p>`;
+          })
+          .join('');
+      });
+    }
+    return [
+      "<p style='text-align: justify; font-size: 10.5pt; font-family: Arial;'>1.0\tOBJECTIVE</p>",
+    ];
+  }, [effectiveBodyPages]);
+
+  const handleSaveFromRibbonEditor = (updatedHtmlPages: string[]) => {
+    const extractedParagraphs: string[] = [];
+    updatedHtmlPages.forEach((pageHtml) => {
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = pageHtml;
+      const blocks = Array.from(tempDiv.querySelectorAll('p, div, h1, h2, h3, h4, li'));
+      if (blocks.length > 0) {
+        blocks.forEach((el) => {
+          const txt = (el as HTMLElement).innerText.trim();
+          if (txt && !extractedParagraphs.includes(txt)) {
+            extractedParagraphs.push(txt);
+          }
+        });
+      } else {
+        const lines = tempDiv.innerText
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => l.length > 0);
+        extractedParagraphs.push(...lines);
+      }
+    });
+
+    const finalParagraphs = extractedParagraphs.length > 0 ? extractedParagraphs : editableParagraphs;
+    setEditableParagraphs(finalParagraphs);
+
+    const updatedRevs: RevisionRecord[] = [
+      {
+        revision: effectiveRevision,
+        date: formattedDate,
+        description: editableRevisionDesc,
+        revisedBy: effectivePreparedBy,
+      },
+      ...(revisions && revisions.length > 1 ? revisions.slice(1) : []),
+    ];
+
+    if (onSaveDocument) {
+      onSaveDocument({
+        title: displayTitle,
+        code: effectiveCode,
+        issueDate: effectiveDateStr,
+        revision: effectiveRevision,
+        preparedBy: effectivePreparedBy,
+        verifiedBy: effectiveVerifiedBy,
+        approvedBy: effectiveApprovedBy,
+        revisions: updatedRevs,
+        preservedBodyParagraphs: finalParagraphs,
+        bodyTables: editableTables,
+      });
+    }
+
+    setSaveSuccessNotice('Perubahan dokumen berhasil disimpan ke format Word & Pratinjau!');
+    setTimeout(() => {
+      setSaveSuccessNotice(null);
+    }, 4000);
+  };
+
+  const renderSystemCoverPage = () => (
+    <div
+      style={a4PageStyle}
+      id="nbe-page-1"
+      className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(1) ? 'screen-hidden' : ''}`}
+    >
+      <div style={{ flex: 1, minHeight: '1.5rem' }} />
+
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          textAlign: 'center',
+          width: '100%',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+          }}
+        >
+          {effectiveCoverLogoDataUrl ? (
+            <img
+              src={effectiveCoverLogoDataUrl}
+              alt="Logo Cover NBE"
+              style={{
+                width: effectiveCoverLogoWidthInches ? `${effectiveCoverLogoWidthInches}in` : '3.2in',
+                maxHeight: '130px',
+                objectFit: 'contain',
+                marginBottom: '1rem',
+              }}
+            />
+          ) : (
+            <img
+              src="/+BG.png"
+              alt="PT Nirwana Bhumi Energy"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = '/logo.png';
+              }}
+              style={{
+                width: '4.7cm',
+                height: 'auto',
+                objectFit: 'contain',
+                marginBottom: '1rem',
+              }}
+            />
+          )}
+          <div
+            style={{
+              fontSize: '20pt',
+              fontWeight: 'bold',
+              color: '#000000',
+              letterSpacing: '0.04em',
+              fontFamily: 'Arial, sans-serif',
+            }}
+          >
+            PT NIRWANA BHUMI ENERGY
+          </div>
+        </div>
+
+        <div
+          style={{
+            textAlign: 'center',
+            marginTop: '2.5rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.85rem',
+            width: '100%',
+          }}
+        >
+          <div
+            style={{
+              fontSize: '13pt',
+              fontWeight: 'bold',
+              color: '#003366',
+              letterSpacing: '0.05em',
+              fontFamily: 'Arial, sans-serif',
+              textTransform: 'uppercase',
+            }}
+          >
+            {categoryCode === 'KB' || effectiveCode.includes('-KB-')
+              ? (language === 'en'
+                ? "BOARD OF DIRECTORS' RESOLUTION"
+                : language === 'bi'
+                ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
+                : 'SURAT KEPUTUSAN DIREKSI')
+              : typeLabel}
+          </div>
+
+          <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>
+            <div
+              style={{
+                fontSize: '15pt',
+                fontWeight: 'bold',
+                color: '#000000',
+                lineHeight: 1.4,
+                fontFamily: 'Arial, sans-serif',
+                textTransform: 'uppercase',
+              }}
+            >
+              {displayTitle}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'inline-block',
+              margin: '0.5rem auto 0 auto',
+              padding: '6px 20px',
+              background: '#F0F4F8',
+              border: '1.5px solid #003366',
+              borderRadius: '4px',
+              fontSize: '12pt',
+              fontWeight: 'bold',
+              color: '#003366',
+              letterSpacing: '0.04em',
+              fontFamily: 'Arial, sans-serif',
+            }}
+          >
+            {language === 'en' ? 'DOCUMENT NO:' : 'NOMOR DOKUMEN:'} {effectiveCode}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minHeight: '1.5rem' }} />
+
+      {/* Tabel Otorisasi Cover (Terjaga Sistem / contentEditable=false) */}
+      <div
+        contentEditable={false}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '0.75rem',
+          border: '1px solid #BFBFBF',
+          background: '#FAFBFD',
+          padding: '0.75rem 1rem',
+          borderRadius: '4px',
+          marginBottom: '1rem',
+          textAlign: 'center',
+        }}
+        className="select-none"
+      >
+        <div style={{ marginBottom: '0.35rem' }}>
+          <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
+            {language === 'en' ? 'Approved by:' : 'Approved by (Disetujui):'}
+          </div>
+          <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
+            {effectiveApprovedBy}
+          </div>
+          <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
+            President Director (CEO)
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '0.35rem' }}>
+          <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
+            {language === 'en' ? 'Verified by:' : 'Verified by (Diverifikasi):'}
+          </div>
+          <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
+            {effectiveVerifiedBy}
+          </div>
+          <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
+            Technical Director (CTO)
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
+            {language === 'en' ? 'Prepared by:' : 'Prepared by (Disiapkan):'}
+          </div>
+          <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
+            {effectivePreparedBy}
+          </div>
+          <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
+            Lead Document Controller & Finance Director
+          </div>
+        </div>
+      </div>
+
+      {/* Page Footer */}
+      <div
+        contentEditable={false}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          borderTop: '1px solid #e2e8f0',
+          paddingTop: '0.5rem',
+          fontSize: '8pt',
+          color: '#94a3b8',
+        }}
+        className="select-none"
+      >
+        <span>PT Nirwana Bhumi Energy | Corporate Document Management System</span>
+        <span>Page 1 of {totalPages}</span>
+      </div>
+    </div>
+  );
+
+  const renderSystemRevisionPage = (calcTotalPages: number) => (
+    <div
+      style={a4PageStyle}
+      id="nbe-page-2"
+      className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(2) ? 'screen-hidden' : ''}`}
+    >
+      {renderSharedKopHeader()}
+
+      <div
+        style={{
+          textAlign: 'center',
+          margin: '18pt 0 12pt 0',
+          fontSize: '12pt',
+          fontWeight: 'bold',
+          color: '#000000',
+          letterSpacing: '0.08em',
+        }}
+      >
+        {language === 'en' ? 'REVISION INDEX' : 'TABEL INDEKS REVISI / REVISION INDEX'}
+      </div>
+
+      <table
+        contentEditable={false}
+        style={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          border: '1px solid #BFBFBF',
+          marginBottom: '2rem',
+        }}
+        className="select-none"
+      >
+        <thead>
+          <tr>
+            <th style={{ ...tableHeaderStyle, width: '10%' }}>
+              {language === 'en' ? 'Rev' : 'Revisi'}
+            </th>
+            <th style={{ ...tableHeaderStyle, width: '22%' }}>
+              {language === 'en' ? 'Date' : 'Tanggal'}
+            </th>
+            <th style={{ ...tableHeaderStyle, width: '48%' }}>
+              {language === 'en' ? 'Description of Changes' : 'Deskripsi Perubahan'}
+            </th>
+            <th style={{ ...tableHeaderStyle, width: '20%' }}>
+              {language === 'en' ? 'Prepared By' : 'Disusun Oleh'}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {effectiveRevisions.map((rev, idx) => (
+            <tr
+              key={idx}
+              style={{
+                background: idx % 2 === 0 ? '#FFFFFF' : '#F9FBFD',
+              }}
+            >
+              <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>
+                {rev.revision}
+              </td>
+              <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.date}</td>
+              <td style={tableCellStyle}>{rev.description}</td>
+              <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.revisedBy}</td>
+            </tr>
+          ))}
+          <tr style={{ background: '#FFFFFF' }}>
+            <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
+            <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
+            <td style={{ ...tableCellStyle, color: '#94a3b8', fontStyle: 'italic' }}>
+              {language === 'en'
+                ? 'Reserved for subsequent revision log'
+                : 'Disediakan untuk catatan revisi lanjutan'}
+            </td>
+            <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style={{ flex: 1 }} />
+
+      <div
+        contentEditable={false}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          borderTop: '1px solid #e2e8f0',
+          paddingTop: '0.5rem',
+          fontSize: '8pt',
+          color: '#94a3b8',
+        }}
+        className="select-none"
+      >
+        <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+        <span>Page 2 of {calcTotalPages || totalPages}</span>
+      </div>
+    </div>
+  );
+
+  const renderSystemTocPage = (calcTotalPages: number) => {
+    if (isProceduralDoc) {
+      return (
+        <div
+          style={a4PageStyle}
+          id="nbe-page-3"
+          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
+        >
+          {renderSharedKopHeader()}
+
+          <div style={{ textAlign: 'center', margin: '1.25rem 0' }}>
+            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', color: '#000000', margin: 0, textTransform: 'uppercase' }}>
+              TABLE OF CONTENTS
+            </h4>
+          </div>
+
+          <div
+            contentEditable={false}
+            style={{
+              marginTop: '1.5rem',
+              marginBottom: '2rem',
+              padding: '0.5rem 0',
+            }}
+            className="select-none"
+          >
+            {effectiveTocList.map((item, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  paddingLeft: item.isSub ? '0.5in' : '0',
+                  fontWeight: item.isSub ? 'normal' : 'bold',
+                  color: item.isSub ? '#3B3838' : '#000000',
+                  marginBottom: '0.45rem',
+                  fontSize: '10.5pt',
+                }}
+              >
+                <span style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}>
+                  {item.num}
+                </span>
+                <span>{item.title}</span>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ flex: 1 }} />
+
+          <div
+            contentEditable={false}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              borderTop: '1px solid #e2e8f0',
+              paddingTop: '0.5rem',
+              fontSize: '8pt',
+              color: '#94a3b8',
+            }}
+            className="select-none"
+          >
+            <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+            <span>Page 3 of {calcTotalPages || totalPages}</span>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={a4PageStyle}
+        id="nbe-page-3"
+        className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
+      >
+        {renderSharedKopHeader()}
+        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '12pt', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase' }}>
+            {categoryCode === 'KB' || effectiveCode.includes('-KB-')
+              ? (language === 'en'
+                ? "BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY"
+                : language === 'bi'
+                ? "KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY / BOARD RESOLUTION"
+                : 'KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY')
+              : displayTitle}
+          </div>
+          <div style={{ fontSize: '10.5pt', fontWeight: 'bold', color: '#003366', marginTop: '4px' }}>
+            {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
+          </div>
+        </div>
+
+        <div style={{ flex: 1 }} />
+        <div
+          contentEditable={false}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            borderTop: '1px solid #e2e8f0',
+            paddingTop: '0.5rem',
+            fontSize: '8pt',
+            color: '#94a3b8',
+          }}
+          className="select-none"
+        >
+          <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+          <span>Page 3 of {calcTotalPages || totalPages}</span>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       style={{
@@ -940,16 +1430,6 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         </div>
       )}
 
-      {/* MICROSOFT WORD RIBBON BAR (SESUAI FOTO MS WORD PENGGUNA) */}
-      {isEditing && (
-        <WordRibbonBar
-          onSave={handleSave}
-          onCancel={handleCancelEdit}
-          onInsertTable={handleInsertTable}
-          onAddRow={handleAddRow}
-          onDeleteRow={handleDeleteRow}
-        />
-      )}
 
       {/* Page Selector Tabs (Hidden during print) */}
       <div
@@ -1014,1466 +1494,19 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         ))}
       </div>
 
-      {/* Preview Pages Container (Isolated during print) */}
-      <div
-        id="nbe-single-a4-preview-canvas"
-        className="a4-print-container"
-        style={{
-          padding: '2.5rem 1rem',
-          background: 'var(--bg-tertiary, #e2e8f0)',
-          overflowY: 'auto',
-          maxHeight: '900px',
-        }}
-      >
-        {/* ============================================================== */}
-        {/* HALAMAN 1: COVER PAGE                                         */}
-        {/* ============================================================== */}
-        <div
-          style={a4PageStyle}
-          id="nbe-page-1"
-          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(1) ? 'screen-hidden' : ''}`}
-        >
-            {/* Top spacer to vertically center the main hero block on the page */}
-            <div style={{ flex: 1, minHeight: '1.5rem' }} />
+      {/* MS WORD RIBBON BAR & AUTO-PAGINATION DOCUMENT CANVAS */}
+      <MsWordRibbonEditor
+        isEditing={isEditing}
+        onToggleEdit={() => setIsEditing(!isEditing)}
+        onSaveDocument={handleSaveFromRibbonEditor}
+        initialHtmlPages={initialHtmlPages}
+        renderSystemCoverPage={renderSystemCoverPage}
+        renderSystemRevisionPage={renderSystemRevisionPage}
+        renderSystemTocPage={renderSystemTocPage}
+        renderRunningKopHeader={renderRunningKopHeader}
+        activePageTab={activePageTab}
+      />
 
-            {/* Centered Main Hero Block (Logo + Company Name + Category + Title + Code) */}
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                textAlign: 'center',
-                width: '100%',
-              }}
-            >
-              {/* Header / Logo Center */}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                }}
-              >
-                {effectiveCoverLogoDataUrl ? (
-                  <img
-                    src={effectiveCoverLogoDataUrl}
-                    alt="Logo Cover NBE"
-                    style={{
-                      width: effectiveCoverLogoWidthInches ? `${effectiveCoverLogoWidthInches}in` : '3.2in',
-                      maxHeight: '130px',
-                      objectFit: 'contain',
-                      marginBottom: '1rem',
-                    }}
-                  />
-                ) : (
-                  <img
-                    src="/+BG.png"
-                    alt="PT Nirwana Bhumi Energy"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                    }}
-                    style={{
-                      width: '4.7cm',
-                      height: 'auto',
-                      objectFit: 'contain',
-                      marginBottom: '1rem',
-                    }}
-                  />
-                )}
-                <div
-                  style={{
-                    fontSize: '20pt',
-                    fontWeight: 'bold',
-                    color: '#000000',
-                    letterSpacing: '0.04em',
-                    fontFamily: 'Arial, sans-serif',
-                  }}
-                >
-                  PT NIRWANA BHUMI ENERGY
-                </div>
-              </div>
-
-              {/* Title Block */}
-              <div
-                style={{
-                  textAlign: 'center',
-                  marginTop: '2.5rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.85rem',
-                  width: '100%',
-                }}
-              >
-                {/* Category / Document Type Header */}
-                <div
-                  style={{
-                    fontSize: '13pt',
-                    fontWeight: 'bold',
-                    color: '#003366',
-                    letterSpacing: '0.05em',
-                    fontFamily: 'Arial, sans-serif',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-                    ? (language === 'en'
-                      ? "BOARD OF DIRECTORS' RESOLUTION"
-                      : language === 'bi'
-                      ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
-                      : 'SURAT KEPUTUSAN DIREKSI')
-                    : typeLabel}
-                </div>
-
-                {isEditing ? (
-                  <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>
-                    <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                      EDIT JUDUL DOKUMEN:
-                    </label>
-                    <textarea
-                      value={editableTitle}
-                      onChange={(e) => setEditableTitle(e.target.value.toUpperCase())}
-                      rows={2}
-                      style={{
-                        width: '100%',
-                        fontFamily: 'Arial, sans-serif',
-                        fontSize: '13.5pt',
-                        fontWeight: 'bold',
-                        color: '#000000',
-                        textAlign: 'center',
-                        border: '1.5px dashed #0284c7',
-                        background: '#f0f9ff',
-                        padding: '8px 12px',
-                        borderRadius: '6px',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      fontSize: '15pt',
-                      fontWeight: 'bold',
-                      color: '#000000',
-                      padding: '0 1.5rem',
-                      lineHeight: '1.35',
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-                      ? `${language === 'en' ? 'REGARDING:' : language === 'bi' ? 'TENTANG / REGARDING:' : 'TENTANG:'} ${displayTitle}`
-                      : displayTitle}
-                  </div>
-                )}
-
-                {isEditing ? (
-                  <div style={{ marginTop: '0.4rem', textAlign: 'center' }}>
-                    <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                      EDIT NOMOR / KODE DOKUMEN:
-                    </label>
-                    <input
-                      type="text"
-                      value={editableCode}
-                      onChange={(e) => setEditableCode(e.target.value.toUpperCase())}
-                      style={{
-                        width: '320px',
-                        fontFamily: 'Arial, sans-serif',
-                        fontSize: '10.5pt',
-                        fontWeight: 'bold',
-                        color: '#003366',
-                        textAlign: 'center',
-                        border: '1.5px dashed #0284c7',
-                        background: '#f0f9ff',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      fontSize: '11pt',
-                      fontWeight: 'bold',
-                      color: '#003366',
-                      letterSpacing: '0.06em',
-                      marginTop: '0.5rem',
-                    }}
-                  >
-                    {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Vertical spacer to push authorization block to bottom right */}
-            <div style={{ flex: 1, minHeight: '1.5rem' }} />
-
-            {/* Blok Otorisasi Ujung Kanan Bawah (proporsional & kompak) */}
-            <div
-              style={{
-                alignSelf: 'flex-end',
-                width: '270px',
-                borderLeft: '1.5px solid #003366',
-                paddingLeft: '0.65rem',
-                marginBottom: '1rem',
-                fontSize: '8pt',
-                color: '#3B3838',
-                lineHeight: 1.25,
-              }}
-            >
-              <div style={{ marginBottom: '0.35rem' }}>
-                <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
-                  {language === 'en' ? 'Approved by:' : 'Approved by (Disetujui):'}
-                </div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editableApprovedBy}
-                    onChange={(e) => setEditableApprovedBy(e.target.value)}
-                    style={{
-                      width: '100%',
-                      fontFamily: 'Arial, sans-serif',
-                      fontSize: '8.2pt',
-                      fontWeight: 'bold',
-                      color: '#003366',
-                      border: '1px dashed #0284c7',
-                      background: '#f0f9ff',
-                      padding: '1px 5px',
-                      borderRadius: '3px',
-                      marginTop: '1px',
-                      height: '21px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ) : (
-                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
-                    {effectiveApprovedBy}
-                  </div>
-                )}
-                <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
-                  President Director (CEO)
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '0.35rem' }}>
-                <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
-                  {language === 'en' ? 'Verified by:' : 'Verified by (Diverifikasi):'}
-                </div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editableVerifiedBy}
-                    onChange={(e) => setEditableVerifiedBy(e.target.value)}
-                    style={{
-                      width: '100%',
-                      fontFamily: 'Arial, sans-serif',
-                      fontSize: '8.2pt',
-                      fontWeight: 'bold',
-                      color: '#003366',
-                      border: '1px dashed #0284c7',
-                      background: '#f0f9ff',
-                      padding: '1px 5px',
-                      borderRadius: '3px',
-                      marginTop: '1px',
-                      height: '21px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ) : (
-                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
-                    {effectiveVerifiedBy}
-                  </div>
-                )}
-                <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
-                  Technical Director (CTO)
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
-                  {language === 'en' ? 'Prepared by:' : 'Prepared by (Disiapkan):'}
-                </div>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={editablePreparedBy}
-                    onChange={(e) => setEditablePreparedBy(e.target.value)}
-                    style={{
-                      width: '100%',
-                      fontFamily: 'Arial, sans-serif',
-                      fontSize: '8.2pt',
-                      fontWeight: 'bold',
-                      color: '#003366',
-                      border: '1px dashed #0284c7',
-                      background: '#f0f9ff',
-                      padding: '1px 5px',
-                      borderRadius: '3px',
-                      marginTop: '1px',
-                      height: '21px',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                ) : (
-                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
-                    {effectivePreparedBy}
-                  </div>
-                )}
-                <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
-                  Lead Document Controller & Finance Director
-                </div>
-              </div>
-            </div>
-
-            {/* Page Footer */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderTop: '1px solid #e2e8f0',
-                paddingTop: '0.5rem',
-                fontSize: '8pt',
-                color: '#94a3b8',
-              }}
-            >
-              <span>PT Nirwana Bhumi Energy | Corporate Document Management System</span>
-              <span>Page 1 of {totalPages}</span>
-            </div>
-          </div>
-
-        {/* ============================================================== */}
-        {/* HALAMAN 2: REVISION INDEX (BERSIH TANPA KENDALI DOKUMEN)        */}
-        {/* ============================================================== */}
-        <div
-          style={a4PageStyle}
-          id="nbe-page-2"
-          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(2) ? 'screen-hidden' : ''}`}
-        >
-            {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
-            {renderSharedKopHeader()}
-
-            {/* Judul REVISION INDEX Ditebalkan (Arial 12 pt Bold Centered) */}
-            <div
-              style={{
-                textAlign: 'center',
-                margin: '18pt 0 12pt 0',
-                fontSize: '12pt',
-                fontWeight: 'bold',
-                color: '#000000',
-                letterSpacing: '0.08em',
-              }}
-            >
-              {language === 'en' ? 'REVISION INDEX' : 'TABEL INDEKS REVISI / REVISION INDEX'}
-            </div>
-
-            {/* Tabel Revision Index (4 Kolom, Header #D9E1F2) */}
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                border: '1px solid #BFBFBF',
-                marginBottom: '2rem',
-              }}
-            >
-              <thead>
-                <tr>
-                  <th style={{ ...tableHeaderStyle, width: '10%' }}>
-                    {language === 'en' ? 'Rev' : 'Revisi'}
-                  </th>
-                  <th style={{ ...tableHeaderStyle, width: '22%' }}>
-                    {language === 'en' ? 'Date' : 'Tanggal'}
-                  </th>
-                  <th style={{ ...tableHeaderStyle, width: '48%' }}>
-                    {language === 'en' ? 'Description of Changes' : 'Deskripsi Perubahan'}
-                  </th>
-                  <th style={{ ...tableHeaderStyle, width: '20%' }}>
-                    {language === 'en' ? 'Prepared By' : 'Disusun Oleh'}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {isEditing ? (
-                  <tr style={{ background: '#F0F9FF' }}>
-                    <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>
-                      {editableRevision}
-                    </td>
-                    <td style={{ ...tableCellStyle, textAlign: 'center' }}>
-                      {formattedDate}
-                    </td>
-                    <td style={tableCellStyle}>
-                      <textarea
-                        value={editableRevisionDesc}
-                        onChange={(e) => setEditableRevisionDesc(e.target.value)}
-                        rows={2}
-                        style={{
-                          width: '100%',
-                          fontFamily: 'Arial, sans-serif',
-                          fontSize: '8.5pt',
-                          border: '1px dashed #0284c7',
-                          background: '#ffffff',
-                          padding: '4px',
-                          borderRadius: '4px',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                    </td>
-                    <td style={{ ...tableCellStyle, textAlign: 'center' }}>
-                      {effectivePreparedBy}
-                    </td>
-                  </tr>
-                ) : (
-                  effectiveRevisions.map((rev, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        background: idx % 2 === 0 ? '#FFFFFF' : '#F9FBFD',
-                      }}
-                    >
-                      <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>
-                        {rev.revision}
-                      </td>
-                      <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.date}</td>
-                      <td style={tableCellStyle}>{rev.description}</td>
-                      <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.revisedBy}</td>
-                    </tr>
-                  ))
-                )}
-                {/* Baris kosong cadangan untuk revisi selanjutnya */}
-                <tr style={{ background: '#FFFFFF' }}>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
-                  <td style={{ ...tableCellStyle, color: '#94a3b8', fontStyle: 'italic' }}>
-                    {language === 'en'
-                      ? 'Reserved for subsequent revision log'
-                      : 'Disediakan untuk catatan revisi lanjutan'}
-                  </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', color: '#94a3b8' }}>-</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style={{ flex: 1 }} />
-
-            {/* Note: Catatan Kendali Dokumen DITIADAKAN SEPENUHNYA agar Halaman 2 Bersih */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderTop: '1px solid #e2e8f0',
-                paddingTop: '0.5rem',
-                fontSize: '8pt',
-                color: '#94a3b8',
-              }}
-            >
-              <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-              <span>Page 2 of {totalPages}</span>
-            </div>
-          </div>
-
-        {isProceduralDoc ? (
-          <>
-            {/* ============================================================== */}
-            {/* HALAMAN 3: TABLE OF CONTENTS (KHUSUS 1 HALAMAN TERSENDIRI - POIN 8) */}
-            {/* ============================================================== */}
-            <div
-              style={a4PageStyle}
-              id="nbe-page-3"
-              className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
-            >
-              {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
-              {renderSharedKopHeader()}
-
-              <div style={{ textAlign: 'center', margin: '1.25rem 0' }}>
-                <h4 style={{ fontSize: '13pt', fontWeight: 'bold', color: '#000000', margin: 0, textTransform: 'uppercase' }}>
-                  TABLE OF CONTENTS
-                </h4>
-              </div>
-
-              <div
-                contentEditable={isEditing}
-                suppressContentEditableWarning
-                style={{
-                  marginTop: '1.5rem',
-                  marginBottom: '2rem',
-                  outline: isEditing ? '1px dashed #0284c7' : 'none',
-                  padding: isEditing ? '0.5rem' : '0',
-                  borderRadius: '4px',
-                  background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
-                }}
-              >
-                {effectiveTocList.map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'baseline',
-                      paddingLeft: item.isSub ? '0.5in' : '0',
-                      fontWeight: item.isSub ? 'normal' : 'bold',
-                      color: item.isSub ? '#3B3838' : '#000000',
-                      marginBottom: '0.45rem',
-                      fontSize: '10.5pt',
-                    }}
-                  >
-                    {/* Tab Stop 0.5 inci agar nomor dan judul bab tidak menempel (Poin 8) */}
-                    <span style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}>
-                      {item.num}
-                    </span>
-                    <span>{item.title}</span>
-                  </div>
-                ))}
-              </div>
-
-              <div style={{ flex: 1 }} />
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  borderTop: '1px solid #e2e8f0',
-                  paddingTop: '0.5rem',
-                  fontSize: '8pt',
-                  color: '#94a3b8',
-                }}
-              >
-                <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-                <span>Page 3 of {totalPages}</span>
-              </div>
-            </div>
-
-            {/* ============================================================== */}
-            {/* HALAMAN 4+: ISI DOKUMEN PROSEDUR (POIN 6: TANPA LEMBAR VALIDASI) */}
-            {/* ============================================================== */}
-            {effectiveBodyPages.map((pageLines, pageIdx) => {
-              const pageNum = 4 + pageIdx;
-              return (
-                <div
-                  key={pageIdx}
-                  style={a4PageStyle}
-                  id={`nbe-page-${pageNum}`}
-                  className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(pageNum) ? 'screen-hidden' : ''}`}
-                >
-                  {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
-                  {renderSharedKopHeader()}
-
-                  <div
-                    contentEditable={isEditing}
-                    suppressContentEditableWarning
-                    style={{
-                      marginTop: '0.5rem',
-                      fontSize: '10pt',
-                      color: '#3B3838',
-                      outline: isEditing ? '1px dashed #0284c7' : 'none',
-                      background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
-                      padding: isEditing ? '0.5rem' : '0',
-                      borderRadius: '4px',
-                      minHeight: '200px',
-                    }}
-                  >
-                    {pageLines.map((line, lIdx) => {
-                      const matchH = line.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
-                      if (matchH) {
-                        const [, numPart, titlePart] = matchH;
-                        const isMainH = numPart.endsWith('.0');
-                        return (
-                          <div
-                            key={lIdx}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'baseline',
-                              fontWeight: 'bold',
-                              color: '#000000',
-                              paddingTop: isMainH ? '0.75rem' : '0.4rem',
-                              marginBottom: '0.3rem',
-                              fontSize: isMainH ? '11pt' : '10.5pt',
-                            }}
-                          >
-                            <span style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}>
-                              {numPart}
-                            </span>
-                            <span>{titlePart}</span>
-                          </div>
-                        );
-                      }
-                      return (
-                        <p
-                          key={lIdx}
-                          style={{
-                            paddingLeft: '0.5in',
-                            textAlign: 'justify',
-                            lineHeight: 1.6,
-                            marginBottom: '0.5rem',
-                          }}
-                        >
-                          {line}
-                        </p>
-                      );
-                    })}
-                  </div>
-
-                  <div style={{ flex: 1 }} />
-
-                  {/* Catatan Poin 6: DOKUMEN LANGSUNG SELESAI, TANPA LEMBAR OTORISASI & VALIDASI AKHIR! */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      borderTop: '1px solid #e2e8f0',
-                      paddingTop: '0.5rem',
-                      fontSize: '8pt',
-                      color: '#94a3b8',
-                    }}
-                  >
-                    <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-                    <span>Page {pageNum} of {totalPages}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        ) : (
-          <>
-            {/* ============================================================== */}
-            {/* HALAMAN 3: PERMULAAN ISI SURAT (LETTER BODY & KESATU)          */}
-            {/* ============================================================== */}
-            <div
-              style={a4PageStyle}
-              id="nbe-page-3"
-              className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
-            >
-            {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
-            {renderSharedKopHeader()}
-
-            {/* Judul Resmi Dokumen */}
-            <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-              <div style={{ fontSize: '12pt', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase' }}>
-                {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-                  ? (language === 'en'
-                    ? "BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY"
-                    : language === 'bi'
-                    ? "KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY / BOARD RESOLUTION"
-                    : 'KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY')
-                  : displayTitle}
-              </div>
-              <div style={{ fontSize: '10.5pt', fontWeight: 'bold', color: '#003366', marginTop: '4px' }}>
-                {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
-              </div>
-              {(categoryCode === 'KB' || effectiveCode.includes('-KB-')) && (
-                <>
-                  <div style={{ fontSize: '10.5pt', fontWeight: 'bold', color: '#000000', marginTop: '4px' }}>
-                    {language === 'en' ? 'REGARDING:' : 'TENTANG:'} {displayTitle}
-                  </div>
-                  <div style={{ fontSize: '11pt', fontWeight: 'bold', color: '#000000', marginTop: '14px' }}>
-                    {language === 'en'
-                      ? 'THE BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY,'
-                      : 'DIREKSI PT NIRWANA BHUMI ENERGY,'}
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* OPSI BODY KONTEN: TABEL ASLI, PARAGRAF ASLI, ATAU TEMPLATE SK */}
-            {editableTables && editableTables.length > 0 ? (
-              <div
-                ref={editableBodyRef}
-                style={{
-                  outline: isEditing ? '2px dashed #0284c7' : 'none',
-                  background: isEditing ? 'rgba(2, 132, 199, 0.04)' : 'transparent',
-                  padding: isEditing ? '0.75rem' : '0',
-                  borderRadius: '6px',
-                  minHeight: '260px',
-                }}
-              >
-                {/* Paragraf pendukung jika ada */}
-                {editableParagraphs && editableParagraphs.length > 0 && (
-                  <div style={{ marginBottom: '1.25rem' }}>
-                    {editableParagraphs.map((paraText, pIdx) => {
-                      const isHeading =
-                        /^[0-9]+\.[0-9]+/.test(paraText.trim()) ||
-                        /^[A-Z0-9\s:/-]{4,}$/.test(paraText.trim());
-                      return (
-                        <p
-                          key={pIdx}
-                          contentEditable={isEditing}
-                          suppressContentEditableWarning
-                          style={{
-                            fontFamily: 'Arial, sans-serif',
-                            fontWeight: isHeading ? 700 : 400,
-                            color: isHeading ? '#000000' : '#3B3838',
-                            fontSize: isHeading ? '11pt' : '10pt',
-                            marginLeft: isHeading ? 0 : '0.5in',
-                            textAlign: isHeading ? 'left' : 'justify',
-                            lineHeight: '1.5',
-                            marginBottom: isHeading ? '0.5rem' : '0.45rem',
-                            marginTop: isHeading ? '0.75rem' : '0',
-                          }}
-                        >
-                          {paraText}
-                        </p>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {/* Tabel asli berkas pengguna */}
-                {editableTables.map((tbl, tIdx) => (
-                  <div key={tIdx} style={{ marginBottom: '1.25rem', overflowX: 'auto' }}>
-                    <table
-                      style={{
-                        width: '100%',
-                        borderCollapse: 'collapse',
-                        border: '1px solid #BFBFBF',
-                        fontSize: '8.5pt',
-                        fontFamily: 'Arial, sans-serif',
-                      }}
-                    >
-                      <tbody>
-                        {tbl.rows.map((row, rIdx) => {
-                          const isHeader = rIdx === 0;
-                          return (
-                            <tr
-                              key={rIdx}
-                              style={{
-                                background: isHeader ? '#D9E1F2' : rIdx % 2 === 0 ? '#FFFFFF' : '#F9FBFD',
-                                fontWeight: isHeader ? 'bold' : 'normal',
-                                color: isHeader ? '#000000' : '#3B3838',
-                              }}
-                            >
-                              {row.map((cellText, cIdx) => (
-                                <td
-                                  key={cIdx}
-                                  contentEditable={isEditing}
-                                  suppressContentEditableWarning
-                                  onBlur={(e) => {
-                                    if (isEditing) {
-                                      handleCellEdit(tIdx, rIdx, cIdx, e.currentTarget.innerText.trim());
-                                    }
-                                  }}
-                                  style={{
-                                    border: '1px solid #BFBFBF',
-                                    padding: '6px 8px',
-                                    textAlign: isHeader ? 'center' : (cIdx === 0 && row.length > 3 ? 'center' : 'left'),
-                                    outline: isEditing ? '1px dashed #0284c7' : 'none',
-                                  }}
-                                >
-                                  {cellText}
-                                </td>
-                              ))}
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                ))}
-              </div>
-            ) : editableParagraphs && editableParagraphs.length > 0 ? (
-              <div
-                ref={editableBodyRef}
-                contentEditable={isEditing}
-                suppressContentEditableWarning
-                style={{
-                  outline: isEditing ? '2px dashed #0284c7' : 'none',
-                  background: isEditing ? 'rgba(2, 132, 199, 0.04)' : 'transparent',
-                  padding: isEditing ? '0.75rem' : '0',
-                  borderRadius: '6px',
-                  minHeight: '260px',
-                }}
-              >
-                {editableParagraphs.map((paraText, pIdx) => {
-                  const isHeading =
-                    /^[0-9]+\.[0-9]+/.test(paraText.trim()) ||
-                    /^[A-Z0-9\s:/-]{4,}$/.test(paraText.trim());
-                  return (
-                    <p
-                      key={pIdx}
-                      style={{
-                        fontFamily: 'Arial, sans-serif',
-                        fontWeight: isHeading ? 700 : 400,
-                        color: isHeading ? '#000000' : '#3B3838',
-                        fontSize: isHeading ? '11pt' : '10pt',
-                        marginLeft: isHeading ? 0 : '0.5in',
-                        textAlign: isHeading ? 'left' : 'justify',
-                        lineHeight: '1.5',
-                        marginBottom: isHeading ? '0.5rem' : '0.45rem',
-                        marginTop: isHeading ? '0.75rem' : '0',
-                      }}
-                    >
-                      {paraText}
-                    </p>
-                  );
-                })}
-              </div>
-            ) : (categoryCode === 'KB' || effectiveCode.includes('-KB-')) ? (
-              language === 'bi' ? (
-                <div
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '1.25rem',
-                    fontSize: '8pt',
-                    lineHeight: '1.45',
-                    outline: isEditing ? '1px dashed #0284c7' : 'none',
-                    background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
-                    padding: isEditing ? '0.5rem' : '0',
-                    borderRadius: '4px',
-                  }}
-                >
-                  {/* Kolom Kiri: Bahasa Indonesia */}
-                  <div style={{ borderRight: '1px solid #e2e8f0', paddingRight: '1rem' }}>
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                      Menimbang:
-                    </div>
-                    <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0' }} type="a">
-                      <li>
-                        bahwa dalam rangka mewujudkan standarisasi, akuntabilitas, serta keterlacakan seluruh dokumen di lingkungan PT Nirwana Bhumi Energy, diperlukan sistem tata kelola dan kontrol dokumen yang baku dan terintegrasi;
-                      </li>
-                      <li>
-                        bahwa guna menjamin kepatuhan terhadap standar IMS (ISO 9001, ISO 14001, ISO 45001) dan CSMS SKK Migas serta PLN, diperlukan penunjukan personel Tim DCC;
-                      </li>
-                      <li>
-                        bahwa berdasarkan pertimbangan a dan b, perlu menetapkan Surat Keputusan Direksi tentang {displayTitle}.
-                      </li>
-                    </ol>
-
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                      Mengingat:
-                    </div>
-                    <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0' }}>
-                      <li>Akta Pendirian PT Nirwana Bhumi Energy;</li>
-                      <li>Standar ISO 9001:2015 Klausul 7.5 (Documented Information);</li>
-                      <li>Pedoman CSMS SKK Migas & PT PLN (Persero);</li>
-                      <li>Prosedur Baku No. 0001-SOP-GNR-CEO-IX-2026;</li>
-                      <li>Kebijakan Manajemen Terintegrasi No. 0001-KB-GNR-CEO-X-2026.</li>
-                    </ol>
-
-                    <div style={{ fontWeight: 'bold', textAlign: 'center', margin: '0.5rem 0' }}>
-                      MEMUTUSKAN:
-                    </div>
-                    <div style={{ fontWeight: 'bold', marginBottom: '0.35rem' }}>
-                      Menetapkan: SURAT KEPUTUSAN DIREKSI TENTANG {displayTitle.toUpperCase()}.
-                    </div>
-                    <div style={{ fontWeight: 'bold', color: '#003366' }}>KESATU:</div>
-                    <p style={{ margin: '0 0 0.4rem 0' }}>
-                      Memberlakukan Standar Penomoran Dokumen 6 Segmen: <strong>[NomorUrut4Digit]-[Kategori]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]</strong>. Asas mutlak: <strong>SATU KODE UNTUK SATU DOKUMEN (1 Kode = 1 Dokumen Sah)</strong>. Duplikasi nomor dokumen dilarang keras.
-                    </p>
-                  </div>
-
-                  {/* Kolom Kanan: British English */}
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                      Having Considered:
-                    </div>
-                    <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0', fontStyle: 'italic' }} type="a">
-                      <li>
-                        that in order to achieve standardisation, accountability, and traceability of all documents within PT Nirwana Bhumi Energy, a standardised and integrated document control system is required;
-                      </li>
-                      <li>
-                        that to ensure compliance with IMS standards (ISO 9001, ISO 14001, ISO 45001) and CSMS qualifications of SKK Migas and PLN, the appointment of a DCC Team is requisite;
-                      </li>
-                      <li>
-                        that based on considerations a and b, it is necessary to enact this Board of Directors' Resolution regarding {displayTitle}.
-                      </li>
-                    </ol>
-
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                      In View Of:
-                    </div>
-                    <ol style={{ paddingLeft: '1.1rem', margin: '0 0 0.6rem 0', fontStyle: 'italic' }}>
-                      <li>The Deed of Establishment of PT Nirwana Bhumi Energy;</li>
-                      <li>International Standard ISO 9001:2015 Clause 7.5;</li>
-                      <li>CSMS Guidelines of SKK Migas & PT PLN (Persero);</li>
-                      <li>Standard Operating Procedure No. 0001-SOP-GNR-CEO-IX-2026;</li>
-                      <li>Integrated Management Policy No. 0001-KB-GNR-CEO-X-2026.</li>
-                    </ol>
-
-                    <div style={{ fontWeight: 'bold', textAlign: 'center', margin: '0.5rem 0' }}>
-                      HEREBY RESOLVES:
-                    </div>
-                    <div style={{ fontWeight: 'bold', marginBottom: '0.35rem', fontStyle: 'italic' }}>
-                      To Enact: BOARD OF DIRECTORS' RESOLUTION CONCERNING {displayTitle.toUpperCase()}.
-                    </div>
-                    <div style={{ fontWeight: 'bold', color: '#003366' }}>FIRST:</div>
-                    <p style={{ margin: '0 0 0.4rem 0', fontStyle: 'italic' }}>
-                      To officially enact the 6-Segment Document Numbering System: <strong>[4DigitSequentialNo]-[DocCategory]-[Division]-[Authoriser]-[RomanMonth]-[Year]</strong>. Strict principle: <strong>ONE CODE FOR ONE DOCUMENT (1 Code = 1 Valid Document)</strong>.
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  contentEditable={isEditing}
-                  suppressContentEditableWarning
-                  style={{
-                    fontSize: '9pt',
-                    lineHeight: '1.5',
-                    color: '#3B3838',
-                    outline: isEditing ? '1px dashed #0284c7' : 'none',
-                    background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
-                    padding: isEditing ? '0.5rem' : '0',
-                    borderRadius: '4px',
-                  }}
-                >
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
-                    {language === 'en' ? 'Having Considered:' : 'Menimbang:'}
-                  </div>
-                  <ol style={{ paddingLeft: '1.4rem', margin: '0 0 0.8rem 0' }} type="a">
-                    <li>
-                      {language === 'en'
-                        ? 'that in order to achieve standardisation, accountability, and traceability of all corporate policy documents, standard operating procedures, work instructions, and technical forms within PT Nirwana Bhumi Energy, a standardised and integrated document governance and control system is required;'
-                        : 'bahwa dalam rangka mewujudkan standarisasi, akuntabilitas, serta keterlacakan seluruh dokumen kebijakan, prosedur operasional, instruksi kerja, dan formulir teknis di lingkungan PT Nirwana Bhumi Energy, diperlukan suatu sistem tata kelola dan kontrol dokumen yang baku dan terintegrasi;'}
-                    </li>
-                    <li>
-                      {language === 'en'
-                        ? 'that to ensure comprehensive compliance with Integrated Management System (IMS) standards based on ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, and Contractor Safety Management System (CSMS) qualifications of SKK Migas and PT PLN (Persero), the appointment of personnel responsible for document management is requisite;'
-                        : 'bahwa guna menjamin kepatuhan menyeluruh terhadap standar Sistem Manajemen Terintegrasi (IMS) berbasis ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, dan kualifikasi Contractor Safety Management System (CSMS) SKK Migas serta PLN, diperlukan penunjukan personel penanggung jawab pengelolaan dokumen;'}
-                    </li>
-                    <li>
-                      {language === 'en'
-                        ? `that based on the considerations referred to in paragraphs a and b above, it is deemed necessary to enact a Board of Directors' Resolution concerning ${displayTitle}.`
-                        : `bahwa berdasarkan pertimbangan sebagaimana dimaksud dalam huruf a dan b di atas, dipandang perlu untuk menetapkan Surat Keputusan Direksi tentang ${displayTitle}.`}
-                    </li>
-                  </ol>
-
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
-                    {language === 'en' ? 'In View Of:' : 'Mengingat:'}
-                  </div>
-                  <ol style={{ paddingLeft: '1.4rem', margin: '0 0 0.8rem 0' }}>
-                    <li>
-                      {language === 'en'
-                        ? 'The Deed of Establishment of PT Nirwana Bhumi Energy and prevailing statutory regulations governing limited liability companies;'
-                        : 'Akta Pendirian PT Nirwana Bhumi Energy serta peraturan perundang-undangan perseroan terbatas yang berlaku;'}
-                    </li>
-                    <li>
-                      {language === 'en'
-                        ? 'International Standard ISO 9001:2015 Clause 7.5 regarding Documented Information;'
-                        : 'Standar Internasional ISO 9001:2015 Klausul 7.5 tentang Informasi Terdokumentasi (Documented Information);'}
-                    </li>
-                    <li>
-                      {language === 'en'
-                        ? 'Standard Guidelines for the Contractor Safety Management System (CSMS) of SKK Migas and PT PLN (Persero);'
-                        : 'Pedoman Baku Contractor Safety Management System (CSMS) SKK Migas dan PT PLN (Persero);'}
-                    </li>
-                    <li>
-                      {language === 'en'
-                        ? 'Standard Operating Procedure No. 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure);'
-                        : 'Prosedur Baku No. 0001-SOP-GNR-CEO-IX-2026 (Documents and Records Control Procedure);'}
-                    </li>
-                    <li>
-                      {language === 'en'
-                        ? 'Integrated Management Policy No. 0001-KB-GNR-CEO-X-2026.'
-                        : 'Kebijakan Manajemen Terintegrasi No. 0001-KB-GNR-CEO-X-2026.'}
-                    </li>
-                  </ol>
-
-                  <div
-                    style={{
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '10.5pt',
-                      margin: '0.85rem 0 0.5rem 0',
-                      color: '#000000',
-                    }}
-                  >
-                    {language === 'en' ? 'HEREBY RESOLVES:' : 'MEMUTUSKAN:'}
-                  </div>
-
-                  <div style={{ fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                    {language === 'en'
-                      ? `To Enact: BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY CONCERNING ${displayTitle.toUpperCase()}.`
-                      : `Menetapkan: SURAT KEPUTUSAN DIREKSI PT NIRWANA BHUMI ENERGY TENTANG ${displayTitle.toUpperCase()}.`}
-                  </div>
-
-                  <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                    {language === 'en' ? 'FIRST:' : 'KESATU:'}
-                  </div>
-                  <p style={{ margin: '0 0 0.65rem 0' }}>
-                    {language === 'en'
-                      ? `To officially enact the Standard Format and 6-Segment Document Numbering System across all operational areas and the head office of PT Nirwana Bhumi Energy: [4DigitSequentialNo]-[DocCategory]-[Division]-[Authoriser]-[RomanMonth]-[Year]. This numbering provision is strictly unique under the rigorous principle: ONE CODE FOR ONE DOCUMENT (1 Document Code = 1 Valid Document). Any duplication of document numbers or reuse of the same number for different documents is strictly prohibited by the system.`
-                      : `Memberlakukan secara resmi Standar Format dan Sistem Penomoran Dokumen 6 Segmen di seluruh lingkungan operasional dan kantor pusat PT Nirwana Bhumi Energy: [NomorUrut4Digit]-[KategoriSurat]-[Divisi]-[Pengesah]-[BulanRomawi]-[Tahun]. Ketentuan penomoran ini bersifat unik mutlak dengan asas ketat: SATU KODE UNTUK SATU DOKUMEN (1 Kode Dokumen = 1 Dokumen Sah). Duplikasi nomor dokumen atau penggunaan nomor yang sama untuk dokumen berbeda dilarang keras oleh sistem.`}
-                  </p>
-                </div>
-              )
-            ) : (
-              <div
-                contentEditable={isEditing}
-                suppressContentEditableWarning
-                style={{
-                  fontSize: '9pt',
-                  lineHeight: '1.5',
-                  color: '#3B3838',
-                  outline: isEditing ? '1px dashed #0284c7' : 'none',
-                  background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
-                  padding: isEditing ? '0.5rem' : '0',
-                  borderRadius: '4px',
-                }}
-              >
-                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.4rem' }}>
-                  1.0 TUJUAN & RUANG LINGKUP
-                </div>
-                <p style={{ margin: '0 0 0.6rem 0', textIndent: '0.5in' }}>
-                  Dokumen ini menetapkan ketentuan operasional dan standar kepatuhan sistem terintegrasi di lingkungan PT Nirwana Bhumi Energy sesuai standar baku yang berlaku.
-                </p>
-                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.4rem' }}>
-                  2.0 TATA KELOLA DAN PELAKSANAAN
-                </div>
-                <p style={{ margin: '0 0 0.6rem 0', textIndent: '0.5in' }}>
-                  Pelaksanaan seluruh kegiatan operasional wajib merujuk pada standar tata kerja terkontrol dan kepatuhan sistem kendali mutu terintegrasi PT Nirwana Bhumi Energy.
-                </p>
-              </div>
-            )}
-
-            <div style={{ flex: 1 }} />
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderTop: '1px solid #e2e8f0',
-                paddingTop: '0.5rem',
-                fontSize: '8pt',
-                color: '#94a3b8',
-              }}
-            >
-              <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-              <span>Page 3 of 4</span>
-            </div>
-          </div>
-
-        {/* ============================================================== */}
-        {/* HALAMAN 4: LANJUTAN DIKTUM, TIM DCC, & TANDA TANGAN 3 KOLOM    */}
-        {/* ============================================================== */}
-        <div
-          style={a4PageStyle}
-          id="nbe-page-4"
-          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(4) ? 'screen-hidden' : ''}`}
-        >
-            {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
-            {renderSharedKopHeader()}
-
-            {/* Jika SK Direksi Murni: tampilkan Diktum KEDUA, Tabel Tim DCC, Diktum KETIGA-KELIMA */}
-            {(categoryCode === 'KB' || effectiveCode.includes('-KB-')) && (!editableTables || editableTables.length === 0) && (!editableParagraphs || editableParagraphs.length === 0) ? (
-              <div
-                contentEditable={isEditing}
-                suppressContentEditableWarning
-                style={{
-                  fontSize: '9pt',
-                  lineHeight: '1.45',
-                  color: '#3B3838',
-                  outline: isEditing ? '1px dashed #0284c7' : 'none',
-                  background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
-                  padding: isEditing ? '0.5rem' : '0',
-                  borderRadius: '4px',
-                }}
-              >
-                {language === 'bi' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.5rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>KEDUA:</div>
-                      <p style={{ margin: 0 }}>
-                        Menunjuk dan menetapkan personel berikut sebagai Tim Document Control Center (DCC) PT Nirwana Bhumi Energy:
-                      </p>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>SECOND:</div>
-                      <p style={{ margin: 0, fontStyle: 'italic' }}>
-                        To appoint and designate the following personnel as the Document Control Centre (DCC) Team of PT Nirwana Bhumi Energy:
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.2rem' }}>
-                      {language === 'en' ? 'SECOND:' : 'KEDUA:'}
-                    </div>
-                    <p style={{ margin: '0 0 0.5rem 0' }}>
-                      {language === 'en'
-                        ? 'To appoint and designate the following personnel as the Document Control Centre (DCC) Team of PT Nirwana Bhumi Energy:'
-                        : 'Menunjuk dan menetapkan personel berikut sebagai Tim Document Control Center (DCC) PT Nirwana Bhumi Energy:'}
-                    </p>
-                  </>
-                )}
-
-                {/* Tabel Tim DCC (4 Kolom, Full Width, Header #D9E1F2, Zebra Fill) */}
-                <table
-                  style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    border: '1px solid #BFBFBF',
-                    marginBottom: '0.75rem',
-                    fontSize: '8pt',
-                  }}
-                >
-                  <thead>
-                    <tr>
-                      <th style={{ ...tableHeaderStyle, width: '6%', padding: '5px' }}>No</th>
-                      <th style={{ ...tableHeaderStyle, width: '25%', padding: '5px' }}>
-                        {language === 'en' ? 'Personnel Name' : language === 'bi' ? 'Nama Personel / Name' : 'Nama Personel'}
-                      </th>
-                      <th style={{ ...tableHeaderStyle, width: '27%', padding: '5px' }}>
-                        {language === 'en' ? 'Structural Position' : language === 'bi' ? 'Jabatan / Position' : 'Jabatan Struktural'}
-                      </th>
-                      <th style={{ ...tableHeaderStyle, width: '42%', padding: '5px' }}>
-                        {language === 'en'
-                          ? 'DCC Role & Responsibilities'
-                          : language === 'bi'
-                          ? 'Peran & Tanggung Jawab / Role & Responsibilities'
-                          : 'Peran & Tanggung Jawab DCC'}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr style={{ background: '#FFFFFF' }}>
-                      <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>1</td>
-                      <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>
-                        {effectivePreparedBy}
-                      </td>
-                      <td style={{ ...tableCellStyle, padding: '5px' }}>
-                        {language === 'en'
-                          ? 'Director of Finance & Engineering'
-                          : language === 'bi'
-                          ? 'Direktur Keuangan & Teknik / Director of Finance & Engineering'
-                          : 'Direktur Keuangan & Teknik'}
-                      </td>
-                      <td style={{ ...tableCellStyle, padding: '5px' }}>
-                        {language === 'en'
-                          ? 'Lead Document Controller & System Administrator: Validates manuscripts, registers unique codes, executes Fix Code, and synchronises Google Drive archives.'
-                          : language === 'bi'
-                          ? 'Lead Document Controller & System Administrator: Validasi naskah, registrasi kode unik, eksekusi Fix Kode & sinkronisasi Google Drive / Validates manuscripts, registers unique codes, executes Fix Code & synchronises archives.'
-                          : 'Lead Document Controller & System Administrator: Memvalidasi naskah, registrasi kode unik, eksekusi Tombol Fix Kode, dan sinkronisasi arsip Google Drive.'}
-                      </td>
-                    </tr>
-                    <tr style={{ background: '#F9FBFD' }}>
-                      <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>2</td>
-                      <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>
-                        {effectiveVerifiedBy}
-                      </td>
-                      <td style={{ ...tableCellStyle, padding: '5px' }}>
-                        {language === 'en'
-                          ? 'Director of Operations & Technology'
-                          : language === 'bi'
-                          ? 'Direktur Operasional & Teknologi / Director of Operations & Technology'
-                          : 'Direktur Operasional & Teknologi'}
-                      </td>
-                      <td style={{ ...tableCellStyle, padding: '5px' }}>
-                        {language === 'en'
-                          ? 'Technical Verifier & QA Approver: Verifies technical formatting, sub-pixel layout, and compliance with IMS & CSMS quality standards.'
-                          : language === 'bi'
-                          ? 'Technical Verifier & QA Approver: Memeriksa format teknis, layout sub-pixel & standar mutu IMS & CSMS / Verifies technical formatting, sub-pixel layout, and compliance with IMS & CSMS.'
-                          : 'Technical Verifier & QA Approver: Memeriksa kesesuaian format teknis, layout sub-pixel, serta kepatuhan standar mutu IMS & CSMS.'}
-                      </td>
-                    </tr>
-                    <tr style={{ background: '#FFFFFF' }}>
-                      <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', padding: '5px' }}>3</td>
-                      <td style={{ ...tableCellStyle, fontWeight: 'bold', padding: '5px' }}>Abdul Qodir Al Jailani</td>
-                      <td style={{ ...tableCellStyle, padding: '5px' }}>
-                        {language === 'en'
-                          ? 'Commissioner / IMS Lead'
-                          : language === 'bi'
-                          ? 'Komisaris / IMS Lead'
-                          : 'Komisaris / IMS Lead'}
-                      </td>
-                      <td style={{ ...tableCellStyle, padding: '5px' }}>
-                        {language === 'en'
-                          ? 'Independent Compliance Overseer: Oversees periodic audits of controlled documents, backdating control, and archive retention integrity.'
-                          : language === 'bi'
-                          ? 'Independent Compliance Overseer: Mengawasi audit berkala, kontrol backdating & retensi arsip / Oversees periodic audits, backdating control & archive retention.'
-                          : 'Independent Compliance Overseer: Mengawasi audit berkala dokumen terkontrol, penomoran masa lalu (backdating), dan integritas retensi arsip.'}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Diktum KETIGA, KEEMPAT, KELIMA */}
-                {language === 'bi' ? (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '8pt', lineHeight: '1.4' }}>
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>KETIGA:</div>
-                      <p style={{ margin: '0 0 0.35rem 0' }}>
-                        Mengatur tata kelola penyimpanan dan registrasi dokumen digital perusahaan melalui fitur Tombol "Fix Kode" pada sistem web, di mana setelah kode diverifikasi dan dikunci, sistem secara otomatis mengintegrasikan dokumen ke Google Drive korporat (Folder Induk ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) pada subfolder klasifikasi divisi masing-masing.
-                      </p>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>KEEMPAT:</div>
-                      <p style={{ margin: '0 0 0.35rem 0' }}>
-                        Menetapkan alur revisi dokumen terkontrol, di mana setiap pembaruan terhadap dokumen yang telah terbit wajib mencantumkan sufiks (-rev1, -rev2, dst.) pada berkas digital, mencatatkan alasan perubahan secara rinci pada tabel Revision Index, serta memusnahkan salinan dokumen usang (obsolete) dari peredaran kerja.
-                      </p>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>KELIMA:</div>
-                      <p style={{ margin: '0 0 0.35rem 0' }}>
-                        Surat Keputusan ini mulai berlaku efektif sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan atau penyesuaian regulasi industri migas/ketenagalistrikan dalam penetapannya, akan diadakan evaluasi dan perbaikan sebagaimana mestinya.
-                      </p>
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>THIRD:</div>
-                      <p style={{ margin: '0 0 0.35rem 0', fontStyle: 'italic' }}>
-                        To govern the digital storage and registration of corporate documents via the 'Fix Code' button on the web system, whereby upon code verification and locking, the system automatically synchronises and archives the document into corporate Google Drive (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) within its respective divisional classification subfolder.
-                      </p>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>FOURTH:</div>
-                      <p style={{ margin: '0 0 0.35rem 0', fontStyle: 'italic' }}>
-                        To establish the revision workflow for controlled documents, whereby any subsequent amendment to an issued document must append a suffix (-rev1, -rev2, etc.) to the digital file, record the specific rationale in detail within the Revision Index table, and promptly withdraw and destroy obsolete hard copies and digital versions from active circulation.
-                      </p>
-                      <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.1rem' }}>FIFTH:</div>
-                      <p style={{ margin: '0 0 0.35rem 0', fontStyle: 'italic' }}>
-                        This Resolution shall enter into force effectively from the date of its enactment. Should any discrepancies or regulatory adjustments within the oil & gas or power industry arise in the future, due evaluation and rectification shall be executed accordingly.
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '8.5pt', lineHeight: '1.45' }}>
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>
-                      {language === 'en' ? 'THIRD:' : 'KETIGA:'}
-                    </div>
-                    <p style={{ margin: '0 0 0.4rem 0' }}>
-                      {language === 'en'
-                        ? "To govern the digital storage and registration of corporate documents via the 'Fix Code' button on the web system, whereby upon code verification and locking, the system automatically synchronises and archives the document into corporate Google Drive (Root Folder ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) within its respective divisional classification subfolder."
-                        : 'Mengatur tata kelola penyimpanan dan registrasi dokumen digital perusahaan melalui fitur Tombol "Fix Kode" pada sistem web, di mana setelah kode diverifikasi dan dikunci, sistem secara otomatis mengintegrasikan dokumen ke Google Drive korporat (Folder Induk ID: 1ny_1VhXfSaNrj_XdoOsC7V7BO-z0K8eF) pada subfolder klasifikasi divisi masing-masing.'}
-                    </p>
-
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>
-                      {language === 'en' ? 'FOURTH:' : 'KEEMPAT:'}
-                    </div>
-                    <p style={{ margin: '0 0 0.4rem 0' }}>
-                      {language === 'en'
-                        ? 'To establish the revision workflow for controlled documents, whereby any subsequent amendment to an issued document must append a suffix (-rev1, -rev2, etc.) to the digital file, record the specific rationale in detail within the Revision Index table, and promptly withdraw and destroy obsolete hard copies and digital versions from active circulation.'
-                        : 'Menetapkan alur revisi dokumen terkontrol, di mana setiap pembaruan terhadap dokumen yang telah terbit wajib mencantumkan sufiks (-rev1, -rev2, dst.) pada berkas digital, mencatatkan alasan perubahan secara rinci pada tabel Revision Index, serta memusnahkan salinan dokumen usang (obsolete) dari peredaran kerja.'}
-                    </p>
-
-                    <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.15rem' }}>
-                      {language === 'en' ? 'FIFTH:' : 'KELIMA:'}
-                    </div>
-                    <p style={{ margin: '0 0 0.5rem 0' }}>
-                      {language === 'en'
-                        ? 'This Resolution shall enter into force effectively from the date of its enactment. Should any discrepancies or regulatory adjustments within the oil & gas or power industry arise in the future, due evaluation and rectification shall be executed accordingly.'
-                        : 'Surat Keputusan ini mulai berlaku efektif sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan atau penyesuaian regulasi industri migas/ketenagalistrikan dalam penetapannya, akan diadakan evaluasi dan perbaikan sebagaimana mestinya.'}
-                    </p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* Untuk Dokumen Non-SK (Formulir, SOP, Dokumen Teknis): Otorisasi Dokumen */
-              <div style={{ fontSize: '9pt', lineHeight: '1.5', color: '#3B3838', marginBottom: '1.5rem' }}>
-                <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.35rem' }}>
-                  LEMBAR OTORISASI & VALIDASI AKHIR DOKUMEN:
-                </div>
-                <p style={{ margin: '0 0 0.45rem 0', textAlign: 'justify' }}>
-                  Seluruh isi teknis, tabel data temuan, dan format yang tercantum dalam dokumen <strong>{displayTitle}</strong> ({effectiveCode}) ini telah diverifikasi, divalidasi, dan disahkan oleh pejabat berwenang PT Nirwana Bhumi Energy yang tertera pada tabel otorisasi berikut.
-                </p>
-                <p style={{ margin: 0, fontStyle: 'italic', color: '#64748b', fontSize: '8pt' }}>
-                  Dokumen terkontrol ini sah berlaku efektif sejak tanggal ditetapkan dan terdokumentasi dalam Sistem Manajemen Pengendalian Dokumen PT Nirwana Bhumi Energy.
-                </p>
-              </div>
-            )}
-
-            {/* Tempat & Tanggal Penetapan */}
-            <div style={{ textAlign: 'right', fontSize: '8.5pt', margin: '0.5rem 0 0.35rem 0' }}>
-              <div>
-                {language === 'en'
-                  ? 'Enacted in Semarang / Tuban'
-                  : language === 'bi'
-                  ? 'Ditetapkan di Semarang / Tuban | Enacted in Semarang / Tuban'
-                  : 'Ditetapkan di Semarang / Tuban'}
-              </div>
-              <div style={{ fontWeight: 'bold', color: '#000000' }}>
-                {language === 'en' ? 'On:' : language === 'bi' ? 'Pada tanggal / On:' : 'Pada tanggal:'}{' '}
-                {isEditing ? (
-                  <input
-                    type="date"
-                    value={editableIssueDate}
-                    onChange={(e) => setEditableIssueDate(e.target.value)}
-                    style={{
-                      fontFamily: 'Arial, sans-serif',
-                      fontSize: '8pt',
-                      border: '1px dashed #0284c7',
-                      background: '#f0f9ff',
-                      padding: '2px 4px',
-                      borderRadius: '4px',
-                    }}
-                  />
-                ) : (
-                  language === 'en' ? formattedDateEn : formattedDate
-                )}
-              </div>
-              <div style={{ fontWeight: 'bold', color: '#003366', marginTop: '2px' }}>
-                {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-                  ? (language === 'en'
-                    ? 'BOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY'
-                    : language === 'bi'
-                    ? 'DIREKSI PT NIRWANA BHUMI ENERGY / BOARD OF DIRECTORS'
-                    : 'DIREKSI PT NIRWANA BHUMI ENERGY')
-                  : 'PT NIRWANA BHUMI ENERGY'}
-              </div>
-            </div>
-
-            {/* Tabel Tanda Tangan 3 Kolom */}
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                border: '1px solid #BFBFBF',
-                marginTop: '0.35rem',
-                marginBottom: '0.5rem',
-              }}
-            >
-              <thead>
-                <tr style={{ background: '#D9E1F2' }}>
-                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold', padding: '6px' }}>
-                    {language === 'en'
-                      ? 'Approved By:'
-                      : language === 'bi'
-                      ? 'Disetujui Oleh / Approved By:'
-                      : 'Disetujui Oleh:'}
-                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'normal' }}>
-                      President Director / CEO
-                    </div>
-                  </th>
-                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold', padding: '6px' }}>
-                    {language === 'en'
-                      ? 'Verified By:'
-                      : language === 'bi'
-                      ? 'Diverifikasi Oleh / Verified By:'
-                      : 'Diverifikasi Oleh:'}
-                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'normal' }}>
-                      Director of Operations & Tech (CTO)
-                    </div>
-                  </th>
-                  <th style={{ ...tableCellStyle, width: '33.33%', textAlign: 'center', fontWeight: 'bold', padding: '6px' }}>
-                    {language === 'en'
-                      ? 'Prepared & Proposed By:'
-                      : language === 'bi'
-                      ? 'Disiapkan Oleh / Prepared By:'
-                      : 'Disiapkan & Diajukan Oleh:'}
-                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'normal' }}>
-                      Director of Finance & Eng (CFO / DCC)
-                    </div>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ height: '65px', verticalAlign: 'middle', background: '#FFFFFF' }}>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', padding: '4px' }}>
-                    <div
-                      style={{
-                        display: 'inline-block',
-                        padding: '2px 6px',
-                        border: '1px dashed #94a3b8',
-                        fontSize: '7pt',
-                        color: '#64748b',
-                        marginBottom: '3px',
-                      }}
-                    >
-                      [ Duty Stamp IDR 10,000 / Meterai ]
-                    </div>
-                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'bold' }}>
-                      [ Signature & Corporate Seal ]
-                    </div>
-                  </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', padding: '4px' }}>
-                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'bold' }}>
-                      [ Signature & Stamp ]
-                    </div>
-                  </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', padding: '4px' }}>
-                    <div style={{ fontSize: '7.5pt', color: '#003366', fontWeight: 'bold' }}>
-                      [ Signature & Stamp ]
-                    </div>
-                  </td>
-                </tr>
-                <tr style={{ background: '#F8FAFC' }}>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editableApprovedBy}
-                        onChange={(e) => setEditableApprovedBy(e.target.value)}
-                        style={{
-                          width: '95%',
-                          fontFamily: 'Arial, sans-serif',
-                          fontSize: '8pt',
-                          fontWeight: 'bold',
-                          textAlign: 'center',
-                          border: '1px dashed #0284c7',
-                          background: '#f0f9ff',
-                          padding: '2px 4px',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    ) : (
-                      effectiveApprovedBy.toUpperCase()
-                    )}
-                    <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
-                      {language === 'en' ? 'President Director' : 'Direktur Utama'}
-                    </div>
-                  </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editableVerifiedBy}
-                        onChange={(e) => setEditableVerifiedBy(e.target.value)}
-                        style={{
-                          width: '95%',
-                          fontFamily: 'Arial, sans-serif',
-                          fontSize: '8pt',
-                          fontWeight: 'bold',
-                          textAlign: 'center',
-                          border: '1px dashed #0284c7',
-                          background: '#f0f9ff',
-                          padding: '2px 4px',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    ) : (
-                      effectiveVerifiedBy.toUpperCase()
-                    )}
-                    <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
-                      {language === 'en' ? 'Director of Operations' : 'Direktur Operasional'}
-                    </div>
-                  </td>
-                  <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#000000', padding: '5px', fontSize: '8pt' }}>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editablePreparedBy}
-                        onChange={(e) => setEditablePreparedBy(e.target.value)}
-                        style={{
-                          width: '95%',
-                          fontFamily: 'Arial, sans-serif',
-                          fontSize: '8pt',
-                          fontWeight: 'bold',
-                          textAlign: 'center',
-                          border: '1px dashed #0284c7',
-                          background: '#f0f9ff',
-                          padding: '2px 4px',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    ) : (
-                      effectivePreparedBy.toUpperCase()
-                    )}
-                    <div style={{ fontSize: '7pt', fontWeight: 'normal', color: '#64748b' }}>
-                      {language === 'en' ? 'Director of Finance & Eng' : 'Direktur Keuangan & Teknik'}
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style={{ flex: 1 }} />
-
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                borderTop: '1px solid #e2e8f0',
-                paddingTop: '0.5rem',
-                fontSize: '8pt',
-                color: '#94a3b8',
-              }}
-            >
-              <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-              <span>Page 4 of {totalPages}</span>
-            </div>
-          </div>
-          </>
-        )}
-      </div>
     </div>
   );
 };
