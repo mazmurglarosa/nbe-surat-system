@@ -767,6 +767,18 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
   const totalPages = isProceduralDoc ? 3 + effectiveBodyPages.length : 4;
 
+  const documentYear = React.useMemo(() => {
+    if (editableIssueDate) {
+      const match = String(editableIssueDate).match(/\b(20\d\d)\b/);
+      if (match) return match[1];
+    }
+    if (effectiveCode) {
+      const match = String(effectiveCode).match(/\b(20\d\d)\b/);
+      if (match) return match[1];
+    }
+    return new Date().getFullYear().toString();
+  }, [editableIssueDate, effectiveCode]);
+
   const handleCopy = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(effectiveCode);
@@ -1321,13 +1333,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             if (matchH) {
               const [, numPart, titlePart] = matchH;
               const isMainH = numPart.endsWith('.0');
-              return `<div style="display: flex; align-items: baseline; font-weight: bold; color: #000000; padding-top: ${
-                isMainH ? '0.75rem' : '0.4rem'
-              }; margin-bottom: 0.3rem; font-size: ${
+              return `<p style="margin: ${
+                isMainH ? '0.75rem' : '0.45rem'
+              } 0 0.3rem 0; font-weight: bold; color: #000000; font-size: ${
                 isMainH ? '11pt' : '10.5pt'
-              }; font-family: Arial;"><span style="display: inline-block; width: 0.5in; flex-shrink: 0;">${numPart}</span><span>${titlePart}</span></div>`;
+              }; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span>${titlePart}</p>`;
             }
-            return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial;">${line}</p>`;
+            return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; word-break: normal; overflow-wrap: break-word;">${line}</p>`;
           })
           .join('');
       });
@@ -1654,7 +1666,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         }}
         className="select-none"
       >
-        <span>PT Nirwana Bhumi Energy | Corporate Document Management System</span>
+        <span>© {documentYear} PT Nirwana Bhumi Energy</span>
         <span>Page 1 of {totalPages}</span>
       </div>
     </div>
@@ -1831,7 +1843,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         }}
         className="select-none"
       >
-        <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+        <span>© {documentYear} PT Nirwana Bhumi Energy</span>
         <span>Page 2 of {calcTotalPages || totalPages}</span>
       </div>
     </div>
@@ -1981,7 +1993,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             }}
             className="select-none"
           >
-            <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+            <span>© {documentYear} PT Nirwana Bhumi Energy</span>
             <span>Page 3 of {calcTotalPages || totalPages}</span>
           </div>
         </div>
@@ -2029,7 +2041,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           }}
           className="select-none"
         >
-          <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+          <span>© {documentYear} PT Nirwana Bhumi Energy</span>
           <span>Page 3 of {calcTotalPages || totalPages}</span>
         </div>
       </div>
@@ -2397,6 +2409,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         renderSystemTocPage={renderSystemTocPage}
         renderRunningKopHeader={renderRunningKopHeader}
         activePageTab={activePageTab}
+        documentYear={documentYear}
       />
 
     </div>

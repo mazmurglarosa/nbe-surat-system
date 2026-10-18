@@ -246,6 +246,12 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
         : `Initial Edition – ${cleanTitleId} PT Nirwana Bhumi Energy`
       : `Revision ${data.revisionNo} – Updated Controlled Document`;
 
+  const docYear =
+    data.issueDateId?.match(/\b(20\d\d)\b/)?.[1] ||
+    data.issueDateEn?.match(/\b(20\d\d)\b/)?.[1] ||
+    data.docCode?.match(/\b(20\d\d)\b/)?.[1] ||
+    "2026";
+
   // HALAMAN 1: COVER PAGE
   const coverWidthPt = data.coverLogoWidthInches ? Math.round(data.coverLogoWidthInches * 72) : 220;
   const coverHeightPt = Math.round(coverWidthPt * 0.35);
@@ -656,9 +662,9 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
             default: new Footer({
               children: [
                 new Paragraph({
-                  alignment: AlignmentType.RIGHT,
+                  tabStops: [{ type: TabStopType.RIGHT, position: 9525 }],
                   children: [
-                    new TextRun({ text: "Page ", font: "Arial", size: 18, color: "595959" }),
+                    new TextRun({ text: `© ${docYear} PT Nirwana Bhumi Energy\tPage `, font: "Arial", size: 18, color: "595959" }),
                     new TextRun({ children: [PageNumber.CURRENT], font: "Arial", size: 18, color: "595959" }),
                     new TextRun({ text: " of ", font: "Arial", size: 18, color: "595959" }),
                     new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Arial", size: 18, color: "595959" }),
@@ -1060,6 +1066,22 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
         headers: {
           first: new Header({ children: [] }),
           default: buildRunningHeader(data),
+        },
+        footers: {
+          first: new Footer({ children: [] }),
+          default: new Footer({
+            children: [
+              new Paragraph({
+                tabStops: [{ type: TabStopType.RIGHT, position: 9525 }],
+                children: [
+                  new TextRun({ text: `© ${docYear} PT Nirwana Bhumi Energy\tPage `, font: "Arial", size: 18, color: "595959" }),
+                  new TextRun({ children: [PageNumber.CURRENT], font: "Arial", size: 18, color: "595959" }),
+                  new TextRun({ text: " of ", font: "Arial", size: 18, color: "595959" }),
+                  new TextRun({ children: [PageNumber.TOTAL_PAGES], font: "Arial", size: 18, color: "595959" }),
+                ],
+              }),
+            ],
+          }),
         },
         children: [...page1Children, ...page2Children, ...page3And4Children],
       },

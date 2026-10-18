@@ -102,6 +102,25 @@ export interface MsWordEditorProps {
   onResetToTemplate?: () => void;
   kopSettings?: KopTableSettings;
   onUpdateKopSetting?: (key: keyof KopTableSettings, val: number) => void;
+  documentYear?: string;
+}
+
+export function repairCorruptedEditorHtml(html: string): string {
+  if (!html) return html;
+  let res = html;
+  // 1. Repair flex-based clause divs that had broken narrow widths
+  res = res.replace(
+    /<div[^>]*style="[^"]*display:\s*flex[^"]*"[^>]*>\s*<span[^>]*style="[^"]*width:\s*0\.5in[^"]*"[^>]*>([0-9]+\.[0-9]+)<\/span>\s*<span[^>]*>(.*?)<\/span>\s*<\/div>/gi,
+    '<p class="nbe-clause-heading" style="margin: 0.5rem 0 0.3rem 0; font-weight: bold; color: #000000; font-size: 10.5pt; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">$1</span>$2</p>'
+  );
+  // 2. Remove narrow width: 0.5in from any span or div that broke text into narrow syllables
+  res = res.replace(/style="([^"]*?)width:\s*0\.5in;?([^"]*?)"/gi, (match, before, after) => {
+    const cleaned = `${before} ${after}`.replace(/\s+/g, ' ').trim();
+    return cleaned ? `style="${cleaned}"` : '';
+  });
+  // 3. Remove inline flex / narrow containers
+  res = res.replace(/display:\s*inline-block;\s*width:\s*0\.5in;/gi, 'display: inline;');
+  return res;
 }
 
 export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
@@ -120,6 +139,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   onResetToTemplate,
   kopSettings,
   onUpdateKopSetting,
+  documentYear = "2026",
 }) => {
   const hasUserEditedRef = useRef<boolean>(false);
   const autoSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -133,13 +153,13 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
         const parsed = JSON.parse(draft);
         if (parsed.bodyPagesHtml && Array.isArray(parsed.bodyPagesHtml) && parsed.bodyPagesHtml.length > 0) {
           hasUserEditedRef.current = true;
-          return parsed.bodyPagesHtml;
+          return parsed.bodyPagesHtml.map(repairCorruptedEditorHtml);
         }
       }
     } catch (e) {}
 
     return initialHtmlPages && initialHtmlPages.length > 0
-      ? initialHtmlPages
+      ? initialHtmlPages.map(repairCorruptedEditorHtml)
       : ["<p style='text-align: justify; font-size: 10.5pt; font-family: Arial;'>1.0\tOBJECTIVE</p>"];
   });
 
@@ -147,7 +167,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   useEffect(() => {
     if (hasUserEditedRef.current) return;
     if (initialHtmlPages && initialHtmlPages.length > 0) {
-      setBodyPagesHtml(initialHtmlPages);
+      setBodyPagesHtml(initialHtmlPages.map(repairCorruptedEditorHtml));
     }
   }, [initialHtmlPages]);
 
@@ -161,6 +181,13 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   const [showRuler, setShowRuler] = useState<boolean>(true);
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [saveToast, setSaveToast] = useState<string | null>(null);
+
+  // Ruler & Indentation Guide State
+  const [activeIndentCm, setActiveIndentCm] = useState<number>(0);
+  const [firstLineIndentCm, setFirstLineIndentCm] = useState<number>(0);
+  const [rulerHoverCm, setRulerHoverCm] = useState<number | null>(null);
+  const [isDraggingRuler, setIsDraggingRuler] = useState<"left" | "first-line" | null>(null);
+  const rulerTrackRef = useRef<HTMLDivElement | null>(null);
 
   // Fitur Smart Finder / Pencarian Fitur Cepat
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -193,6 +220,25 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     }
   };
 
+  const getActiveBlockElement = (): HTMLElement | null => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    const activeContainer = pageRefs.current[activePageIdx];
+    if (!activeContainer) return null;
+
+    let node: Node | null = sel.anchorNode;
+    while (node && node !== activeContainer) {
+      if (
+        node instanceof HTMLElement &&
+        ["P", "DIV", "LI", "H1", "H2", "H3", "H4", "BLOCKQUOTE"].includes(node.tagName)
+      ) {
+        return node;
+      }
+      node = node.parentNode;
+    }
+    return null;
+  };
+
   const handleSelectionChange = () => {
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
@@ -218,6 +264,113 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
         }
       }
     }
+
+    const block = getActiveBlockElement();
+    if (block) {
+      const computed = window.getComputedStyle(block);
+      const pLeft = parseFloat(computed.paddingLeft) || parseFloat(computed.marginLeft) || 0;
+      const tIndent = parseFloat(computed.textIndent) || 0;
+      // 96px = 1in = 2.54cm
+      const indentCm = Math.round(((pLeft * 2.54) / 96) * 10) / 10;
+      const firstLineCm = Math.round(((tIndent * 2.54) / 96) * 10) / 10;
+      setActiveIndentCm(indentCm);
+      setFirstLineIndentCm(firstLineCm);
+    } else {
+      setActiveIndentCm(0);
+      setFirstLineIndentCm(0);
+    }
+  };
+
+  const adjustParagraphIndent = (deltaInches: number) => {
+    restoreSelection();
+    const block = getActiveBlockElement();
+    if (block) {
+      const computed = window.getComputedStyle(block);
+      const currentPx = parseFloat(computed.paddingLeft) || 0;
+      const currentInches = currentPx / 96;
+      const newInches = Math.max(0, Math.round((currentInches + deltaInches) * 100) / 100);
+
+      block.style.paddingLeft = newInches > 0 ? `${newInches}in` : "0";
+      const newCm = Math.round(newInches * 2.54 * 10) / 10;
+      setActiveIndentCm(newCm);
+    } else {
+      document.execCommand(deltaInches > 0 ? "indent" : "outdent", false);
+    }
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const setSpecificIndentCm = (targetCm: number) => {
+    restoreSelection();
+    const block = getActiveBlockElement();
+    if (block) {
+      const inches = targetCm / 2.54;
+      block.style.paddingLeft = inches > 0 ? `${inches.toFixed(2)}in` : "0";
+      setActiveIndentCm(targetCm);
+    }
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const setFirstLineIndent = (deltaCm: number) => {
+    restoreSelection();
+    const block = getActiveBlockElement();
+    if (block) {
+      const inches = deltaCm / 2.54;
+      block.style.textIndent = inches !== 0 ? `${inches.toFixed(2)}in` : "0";
+      setFirstLineIndentCm(deltaCm);
+    }
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const setHangingIndent = () => {
+    restoreSelection();
+    const block = getActiveBlockElement();
+    if (block) {
+      block.style.paddingLeft = "0.5in";
+      block.style.textIndent = "-0.5in";
+      setActiveIndentCm(1.27);
+      setFirstLineIndentCm(-1.27);
+    }
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const resetIndent = () => {
+    restoreSelection();
+    const block = getActiveBlockElement();
+    if (block) {
+      block.style.paddingLeft = "0";
+      block.style.marginLeft = "0";
+      block.style.textIndent = "0";
+      setActiveIndentCm(0);
+      setFirstLineIndentCm(0);
+    }
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const handleRulerPrintableClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    let cm = Math.max(0, Math.min(17.5, clickX / 37.828));
+    // Snap to nearest standard 0.5" tab stop (1.27, 2.54, 3.81, 5.08, etc.) or 0.25 cm
+    const tabStops = [0, 1.27, 2.54, 3.81, 5.08, 6.35, 7.62, 8.89, 10.16, 11.43, 12.7, 13.97, 15.24, 16.51];
+    const nearestTab = tabStops.find((t) => Math.abs(t - cm) < 0.22);
+    if (nearestTab !== undefined) {
+      cm = nearestTab;
+    } else {
+      cm = Math.round(cm * 4) / 4;
+    }
+    setSpecificIndentCm(cm);
+  };
+
+  const handleRulerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const cm = Math.max(0, Math.min(17.5, Math.round((mouseX / 37.828) * 10) / 10));
+    setRulerHoverCm(cm);
   };
 
   // ============================================================================
@@ -1078,10 +1231,10 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("outdent");
+                          adjustParagraphIndent(-0.5);
                         }}
                         className="ms-word-tool-btn"
-                        title="Kurangi Indentasi (Decrease Indent)"
+                        title="Kurangi Indentasi / Geser Kiri (Shift+Tab / -1.27 cm)"
                       >
                         <Outdent size={15} />
                       </button>
@@ -1090,10 +1243,10 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("indent");
+                          adjustParagraphIndent(0.5);
                         }}
                         className="ms-word-tool-btn"
-                        title="Tambah Indentasi (Increase Indent)"
+                        title="Tambah Indentasi / Geser Kanan (Tab / +1.27 cm)"
                       >
                         <Indent size={15} />
                       </button>
@@ -1503,16 +1656,160 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
             )}
           </div>
 
-          {/* 4. HORIZONTAL RULER */}
+          {/* 4. HORIZONTAL RULER & TAB GUIDE */}
           {showRuler && (
-            <div className="ms-word-ruler">
-              <div className="ms-word-ruler-track">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18].map((cm) => (
-                  <div key={cm} className="ms-word-ruler-mark">
-                    <span>{cm}</span>
-                    <div className="ms-word-ruler-tick" />
+            <div className="ms-word-ruler-wrapper">
+              <div className="ms-word-ruler">
+                <div
+                  ref={rulerTrackRef}
+                  className="ms-word-ruler-track"
+                  onMouseLeave={() => setRulerHoverCm(null)}
+                >
+                  {/* Left Margin area (83px / ~2.2cm) */}
+                  <div className="ms-word-ruler-margin-left" title="Margin Kiri Kertas A4 (2.2 cm)">
+                    <span>2.2 cm</span>
                   </div>
-                ))}
+
+                  {/* Printable area (662px / 0 to 17.5cm) */}
+                  <div
+                    className="ms-word-ruler-printable"
+                    onClick={handleRulerPrintableClick}
+                    onMouseMove={handleRulerMouseMove}
+                    title="Klik pada penggaris untuk mengatur Tab / Indentasi kalimat aktif"
+                  >
+                    {/* Centimeter Marks 1..17 */}
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map((cm) => (
+                      <div
+                        key={cm}
+                        className="ms-word-ruler-cm-mark"
+                        style={{ left: `${cm * 37.828}px` }}
+                      >
+                        <span className="ms-word-ruler-cm-num">{cm}</span>
+                        <div className="ms-word-ruler-cm-tick" />
+                      </div>
+                    ))}
+
+                    {/* Half-cm subticks */}
+                    {[0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5, 16.5].map((sub) => (
+                      <div
+                        key={`sub-${sub}`}
+                        className="ms-word-ruler-subtick"
+                        style={{ left: `${sub * 37.828}px` }}
+                      />
+                    ))}
+
+                    {/* Standard Tab Stop Markers (0.5", 1.0", 1.5", 2.0"...) */}
+                    {[1.27, 2.54, 3.81, 5.08, 6.35, 7.62, 8.89, 10.16, 11.43, 12.7, 13.97, 15.24].map((tabCm) => (
+                      <div
+                        key={`tab-${tabCm}`}
+                        className="ms-word-ruler-tabstop-mark"
+                        style={{ left: `${tabCm * 37.828}px` }}
+                        title={`Tab Stop ${tabCm / 2.54}" (${tabCm} cm)`}
+                      />
+                    ))}
+
+                    {/* First Line Indent Marker (Top Inverted Triangle ▼) */}
+                    <div
+                      className="ms-word-ruler-marker-firstline"
+                      style={{
+                        left: `${Math.max(0, Math.min(662, (activeIndentCm + firstLineIndentCm) * 37.828))}px`,
+                      }}
+                      title={`First-Line Indent: ${(activeIndentCm + firstLineIndentCm).toFixed(2)} cm`}
+                    />
+
+                    {/* Left / Hanging Indent Marker (Bottom Triangle ▲ + Box ■) */}
+                    <div
+                      className="ms-word-ruler-marker-left"
+                      style={{
+                        left: `${Math.max(0, Math.min(662, activeIndentCm * 37.828))}px`,
+                      }}
+                      title={`Left Indent: ${activeIndentCm.toFixed(2)} cm (${(activeIndentCm / 2.54).toFixed(2)}")`}
+                    >
+                      <div className="ms-word-ruler-marker-triangle" />
+                      <div className="ms-word-ruler-marker-base" />
+                    </div>
+                  </div>
+
+                  {/* Right Margin area (75px / ~2.0cm) */}
+                  <div className="ms-word-ruler-margin-right" title="Margin Kanan Kertas A4 (2.0 cm)">
+                    <span>2.0 cm</span>
+                  </div>
+                </div>
+
+                {/* Quick Shift & Tab Guide Toolbar */}
+                <div className="ms-word-ruler-control-bar">
+                  <div className="ms-word-ruler-info">
+                    <span className="ms-word-ruler-label">📐 Panduan Tab & Pergeseran Kalimat:</span>
+                    <span className="ms-word-ruler-val">
+                      {activeIndentCm > 0
+                        ? `${activeIndentCm.toFixed(2)} cm (${(activeIndentCm / 2.54).toFixed(2)}")`
+                        : "Margin 0 cm (Flush Kiri)"}
+                    </span>
+                    {firstLineIndentCm !== 0 && (
+                      <span className="ms-word-ruler-val" style={{ background: '#fef3c7', color: '#92400e', borderColor: '#fcd34d' }}>
+                        Baris 1: {firstLineIndentCm > 0 ? `+${firstLineIndentCm.toFixed(2)} cm` : `${firstLineIndentCm.toFixed(2)} cm`}
+                      </span>
+                    )}
+                  </div>
+                  <div className="ms-word-ruler-buttons">
+                    <button
+                      type="button"
+                      onClick={() => adjustParagraphIndent(-0.5)}
+                      className="ms-word-ruler-btn"
+                      title="Geser Kiri / Kurangi Indentasi (Shift + Tab / -1.27 cm)"
+                    >
+                      <Outdent size={13} /> <span>Geser Kiri</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => adjustParagraphIndent(0.5)}
+                      className="ms-word-ruler-btn ms-word-ruler-btn-primary"
+                      title="Geser Kanan / Tambah Indentasi (Tab / +1.27 cm)"
+                    >
+                      <Indent size={13} /> <span>Geser Kanan (Tab)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpecificIndentCm(1.27)}
+                      className={`ms-word-ruler-btn ${Math.abs(activeIndentCm - 1.27) < 0.1 ? "active" : ""}`}
+                      title="Atur Tab Stop 1 (0.5 inci / 1.27 cm)"
+                    >
+                      <span>Tab 1.27 cm (0.5")</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpecificIndentCm(2.54)}
+                      className={`ms-word-ruler-btn ${Math.abs(activeIndentCm - 2.54) < 0.1 ? "active" : ""}`}
+                      title="Atur Tab Stop 2 (1.0 inci / 2.54 cm)"
+                    >
+                      <span>Tab 2.54 cm (1.0")</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={setHangingIndent}
+                      className="ms-word-ruler-btn"
+                      title="Atur Indentasi Gantung / Klausul (Hanging Indent 0.5 in)"
+                    >
+                      <span>Indent Gantung</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFirstLineIndent(1.27)}
+                      className="ms-word-ruler-btn"
+                      title="Geser Kalimat Baris Pertama Saja (+1.27 cm)"
+                    >
+                      <span>Baris 1 Saja</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={resetIndent}
+                      className="ms-word-ruler-btn ms-word-ruler-btn-danger"
+                      title="Kembalikan Indentasi ke Batas Margin Kiri Normal (0 cm)"
+                    >
+                      <span>Reset 0</span>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1558,8 +1855,22 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
           transform: zoomLevel !== 100 ? `scale(${zoomLevel / 100})` : undefined,
           transformOrigin: "top center",
           transition: "transform 0.2s ease",
+          position: "relative",
         }}
       >
+        {/* Dynamic Vertical Guide Line for measuring tabs and alignment */}
+        {showRuler && rulerHoverCm !== null && (
+          <div
+            className="ms-word-ruler-guide-line no-print"
+            style={{
+              left: `calc(50% - 410px + 83px + ${rulerHoverCm * 37.828}px)`,
+            }}
+          >
+            <div className="ms-word-ruler-guide-tooltip">
+              📐 Panduan Tab: {rulerHoverCm.toFixed(2)} cm ({(rulerHoverCm / 2.54).toFixed(2)}")
+            </div>
+          </div>
+        )}
         {/* Halaman 1, 2, 3 yang diisi otomatis oleh sistem */}
         {renderSystemCoverPage()}
         {renderSystemRevisionPage(totalDocumentPages)}
@@ -1613,6 +1924,30 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                       e.preventDefault();
                       saveCurrentSelection();
                       handleInsertPageBreak();
+                    } else if (e.key === "Tab") {
+                      e.preventDefault();
+                      saveCurrentSelection();
+                      if (e.shiftKey) {
+                        // Shift + Tab -> Outdent / Kurangi Indentasi
+                        adjustParagraphIndent(-0.5);
+                      } else {
+                        // Tab -> Indent / Tambah Indentasi atau sisipkan tab space
+                        const sel = window.getSelection();
+                        if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+                          adjustParagraphIndent(0.5);
+                        } else if (sel && sel.rangeCount > 0) {
+                          const range = sel.getRangeAt(0);
+                          const block = getActiveBlockElement();
+                          if (block && range.startOffset === 0) {
+                            adjustParagraphIndent(0.5);
+                          } else {
+                            document.execCommand("insertHTML", false, "&emsp;");
+                          }
+                        } else {
+                          adjustParagraphIndent(0.5);
+                        }
+                      }
+                      notifyAutoSaveBody();
                     }
                   }}
                   style={{
@@ -1642,7 +1977,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                   userSelect: "none",
                 }}
               >
-                <span>PT Nirwana Bhumi Energy | Corporate Standard Document</span>
+                <span>© {documentYear || "2026"} PT Nirwana Bhumi Energy</span>
                 <span>
                   Page {4 + idx} of {totalDocumentPages}
                 </span>

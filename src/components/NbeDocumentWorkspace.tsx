@@ -1678,8 +1678,9 @@ export const NbeDocumentWorkspace: React.FC<{
                 })}
               </div>
             </div>
-            <div className="text-right text-xs text-slate-500 pt-4 border-t border-slate-100">
-              Page {4 + pageIdx} of {3 + activeDoc.bodyPages.length}
+            <div className="flex justify-between items-center text-xs text-slate-500 pt-4 border-t border-slate-100">
+              <span>© {activeDoc.issueDate?.match(/\b(20\d\d)\b/)?.[1] || "2026"} PT Nirwana Bhumi Energy</span>
+              <span>Page {4 + pageIdx} of {3 + activeDoc.bodyPages.length}</span>
             </div>
           </div>
         ))}
