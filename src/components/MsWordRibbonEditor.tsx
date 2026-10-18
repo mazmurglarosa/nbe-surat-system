@@ -83,6 +83,7 @@ export interface KopTableSettings {
   paddingY: number;
   fontSizeScale: number;
   borderWidth: number;
+  logoScale?: number;
 }
 
 export interface MsWordEditorProps {
@@ -1348,8 +1349,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                 <div className="ms-word-group">
                   <div className="ms-word-group-content" style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
-                      <span style={{ fontWeight: 600, minWidth: "95px" }}>Lebar Logo Kop:</span>
-                      {[16, 20, 25, 30].map((w) => (
+                      <span style={{ fontWeight: 600, minWidth: "95px" }}>Lebar Kolom Logo:</span>
+                      {[20, 25, 30, 35, 40].map((w) => (
                         <button
                           key={w}
                           type="button"
@@ -1358,6 +1359,26 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                           title={`Atur proporsi lebar kolom logo kop ke ${w}%`}
                         >
                           {w}%
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
+                      <span style={{ fontWeight: 600, minWidth: "95px" }}>Skala Logo:</span>
+                      {[
+                        { val: 1.0, label: "100%" },
+                        { val: 1.25, label: "125% (Besar)" },
+                        { val: 1.5, label: "150% (Sangat Besar)" },
+                        { val: 1.75, label: "175% (Maksimal)" },
+                      ].map((ls) => (
+                        <button
+                          key={ls.val}
+                          type="button"
+                          onClick={() => onUpdateKopSetting && onUpdateKopSetting("logoScale", ls.val)}
+                          className={`ms-word-kop-btn-pill ${(kopSettings?.logoScale || 1.25) === ls.val ? "active" : ""}`}
+                          title={`Ubah skala pembesaran logo kop ke ${ls.label}`}
+                        >
+                          {ls.label}
                         </button>
                       ))}
                     </div>

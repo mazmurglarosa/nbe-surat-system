@@ -104,6 +104,8 @@ export const DEFAULT_TEMPLATE_SETTINGS: DocumentTemplateSettings = {
   marginLeftCm: 2.2,
   marginRightCm: 2.0,
   fontFamily: 'Arial, sans-serif',
+  coverLogoWidthInches: 3.2,
+  kopLogoWidthInches: 1.45,
   lastUpdated: new Date().toISOString(),
 };
 

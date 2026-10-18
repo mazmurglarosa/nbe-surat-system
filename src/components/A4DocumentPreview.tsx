@@ -166,10 +166,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       if (saved) return JSON.parse(saved);
     } catch (e) {}
     return {
-      logoWidthPercent: 20,
+      logoWidthPercent: 25,
       paddingY: 6,
       fontSizeScale: 1.0,
       borderWidth: 1.5,
+      logoScale: 1.25,
     };
   });
 
@@ -199,7 +200,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const effectiveCoverLogoDataUrl = coverLogoDataUrl || masterSettings.coverLogoDataUrl || undefined;
   const effectiveKopLogoDataUrl = kopLogoDataUrl || masterSettings.kopLogoDataUrl || undefined;
   const effectiveCoverLogoWidthInches = coverLogoWidthInches || masterSettings.coverLogoWidthInches || 3.2;
-  const effectiveKopLogoWidthInches = kopLogoWidthInches || masterSettings.kopLogoWidthInches || 0.95;
+  const effectiveKopLogoWidthInches = kopLogoWidthInches || masterSettings.kopLogoWidthInches || 1.45;
 
   // Load auto-saved draft on mount or when code changes
   useEffect(() => {
@@ -457,10 +458,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
       ]);
       setKopSettings({
-        logoWidthPercent: 20,
+        logoWidthPercent: 25,
         paddingY: 6,
         fontSizeScale: 1.0,
         borderWidth: 1.5,
+        logoScale: 1.25,
       });
       setAutoSaveStatus('idle');
       setLastSavedTime(null);
@@ -888,7 +890,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         coverLogoBuffer: coverBuffer,
         kopLogoBuffer: kopBuffer,
         coverLogoWidthInches: effectiveCoverLogoWidthInches || 3.2,
-        kopLogoWidthInches: effectiveKopLogoWidthInches || 0.95,
+        kopLogoWidthInches: (effectiveKopLogoWidthInches || 1.45) * (kopSettings.logoScale || 1.25),
         tocList: editableTocItems,
         bodyPages: effectiveBodyPages,
         isProcedureOrSop: isProceduralDoc,
@@ -981,8 +983,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           <div className="ms-word-kop-tuner no-print">
             <div className="ms-word-kop-tuner-group">
               <span style={{ fontWeight: 700 }}>⚙️ Ukuran Kop:</span>
-              <span style={{ color: '#0369a1' }}>Lebar Logo:</span>
-              {[16, 20, 25, 30].map((w) => (
+              <span style={{ color: '#0369a1' }}>Lebar Kolom Logo:</span>
+              {[20, 25, 30, 35, 40].map((w) => (
                 <button
                   key={w}
                   type="button"
@@ -991,6 +993,26 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   title={`Ubah lebar kolom logo ke ${w}%`}
                 >
                   {w}%
+                </button>
+              ))}
+            </div>
+
+            <div className="ms-word-kop-tuner-group">
+              <span style={{ color: '#0369a1' }}>Skala Logo:</span>
+              {[
+                { val: 1.0, label: '100%' },
+                { val: 1.25, label: '125%' },
+                { val: 1.5, label: '150%' },
+                { val: 1.75, label: '175%' },
+              ].map((ls) => (
+                <button
+                  key={ls.val}
+                  type="button"
+                  onClick={() => updateKopSetting('logoScale', ls.val)}
+                  className={`ms-word-kop-btn-pill ${(kopSettings.logoScale || 1.25) === ls.val ? 'active' : ''}`}
+                  title={`Ubah perbesaran skala logo ke ${ls.label}`}
+                >
+                  {ls.label}
                 </button>
               ))}
             </div>
@@ -1053,34 +1075,32 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 style={{
                   width: logoColWidth,
                   border: '1px solid #000000',
-                  padding: `${padY} 10px`,
+                  padding: `${padY} 8px`,
                   textAlign: 'center',
                   verticalAlign: 'middle',
                   background: '#FFFFFF',
                 }}
               >
-                {effectiveKopLogoDataUrl ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '80px' }}>
                   <img
-                    src={effectiveKopLogoDataUrl}
-                    alt="Logo Kop NBE"
-                    style={{
-                      width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.35in',
-                      maxHeight: kopSettings.paddingY > 6 ? '70px' : '56px',
-                      objectFit: 'contain',
-                      margin: '0 auto',
-                      display: 'block',
-                    }}
-                  />
-                ) : (
-                  <img
-                    src="/+BG.png"
-                    alt="NBE"
+                    src={effectiveKopLogoDataUrl || '/+BG.png'}
+                    alt="Logo Kop PT Nirwana Bhumi Energy"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).src = '/logo.png';
                     }}
-                    style={{ maxHeight: kopSettings.paddingY > 6 ? '65px' : '52px', maxWidth: '140px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
+                    style={{
+                      width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.45in',
+                      maxWidth: '96%',
+                      maxHeight: `${Math.round(80 * (kopSettings.logoScale || 1.25))}px`,
+                      objectFit: 'contain',
+                      margin: '0 auto',
+                      display: 'block',
+                      transform: kopSettings.logoScale && kopSettings.logoScale !== 1.0 ? `scale(${kopSettings.logoScale})` : undefined,
+                      transformOrigin: 'center center',
+                      transition: 'all 0.15s ease',
+                    }}
                   />
-                )}
+                </div>
               </td>
 
               {/* Baris 1 Sisi Kanan: Integrated Management Systems (colSpan=3) */}
@@ -1355,32 +1375,21 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             textAlign: 'center',
           }}
         >
-          {effectiveCoverLogoDataUrl ? (
-            <img
-              src={effectiveCoverLogoDataUrl}
-              alt="Logo Cover NBE"
-              style={{
-                width: effectiveCoverLogoWidthInches ? `${effectiveCoverLogoWidthInches}in` : '3.2in',
-                maxHeight: '130px',
-                objectFit: 'contain',
-                marginBottom: '1rem',
-              }}
-            />
-          ) : (
-            <img
-              src="/+BG.png"
-              alt="PT Nirwana Bhumi Energy"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src = '/logo.png';
-              }}
-              style={{
-                width: '4.7cm',
-                height: 'auto',
-                objectFit: 'contain',
-                marginBottom: '1rem',
-              }}
-            />
-          )}
+          <img
+            src={effectiveCoverLogoDataUrl || '/+BG.png'}
+            alt="Logo Cover PT Nirwana Bhumi Energy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+            }}
+            style={{
+              width: `${effectiveCoverLogoWidthInches || 3.2}in`,
+              maxWidth: '92%',
+              maxHeight: `${Math.round((effectiveCoverLogoWidthInches || 3.2) * 48)}px`,
+              height: 'auto',
+              objectFit: 'contain',
+              marginBottom: '1rem',
+            }}
+          />
           <div
             contentEditable={isEditing}
             suppressContentEditableWarning

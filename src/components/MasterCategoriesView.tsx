@@ -1646,22 +1646,22 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                       Ukuran Lebar Logo Kop:
                     </label>
                     <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0d9488' }}>
-                      {(templateSettings.kopLogoWidthInches || 0.95).toFixed(2)} in ({((templateSettings.kopLogoWidthInches || 0.95) * 2.54).toFixed(1)} cm)
+                      {(templateSettings.kopLogoWidthInches || 1.45).toFixed(2)} in ({((templateSettings.kopLogoWidthInches || 1.45) * 2.54).toFixed(1)} cm)
                     </span>
                   </div>
                   <input
                     type="range"
-                    min="0.5"
-                    max="2.5"
+                    min="0.8"
+                    max="3.5"
                     step="0.05"
-                    value={templateSettings.kopLogoWidthInches || 0.95}
+                    value={templateSettings.kopLogoWidthInches || 1.45}
                     onChange={(e) => handleKopLogoWidthChange(parseFloat(e.target.value))}
                     style={{ width: '100%', accentColor: '#0d9488' }}
                   />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    <span>0.50 in (Ringkas)</span>
-                    <span>0.95 in (Standar Baku NBE)</span>
-                    <span>2.50 in (Besar)</span>
+                    <span>0.80 in (Ringkas)</span>
+                    <span>1.45 in (Standar Baku NBE)</span>
+                    <span>3.50 in (Ekstra Besar)</span>
                   </div>
                 </div>
               </div>
