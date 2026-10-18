@@ -926,57 +926,70 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
       <div style={{ flex: 1, minHeight: '1.5rem' }} />
 
-      {/* Tabel Otorisasi Cover (Terjaga Sistem / contentEditable=false) */}
+      {/* Otorisasi Cover Standar Baku (Tanpa Box/Border, Format List Vertikal Titik Dua Sejajar) */}
       <div
         contentEditable={false}
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '0.75rem',
-          border: '1px solid #BFBFBF',
-          background: '#FAFBFD',
-          padding: '0.75rem 1rem',
-          borderRadius: '4px',
-          marginBottom: '1rem',
-          textAlign: 'center',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          width: '100%',
+          marginBottom: '2rem',
+          paddingRight: '1rem',
         }}
         className="select-none"
       >
-        <div style={{ marginBottom: '0.35rem' }}>
-          <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
-            {language === 'en' ? 'Approved by:' : 'Approved by (Disetujui):'}
-          </div>
-          <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
-            {effectiveApprovedBy}
-          </div>
-          <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
-            President Director (CEO)
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '0.35rem' }}>
-          <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
-            {language === 'en' ? 'Verified by:' : 'Verified by (Diverifikasi):'}
-          </div>
-          <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
-            {effectiveVerifiedBy}
-          </div>
-          <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
-            Technical Director (CTO)
-          </div>
-        </div>
-
-        <div>
-          <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
-            {language === 'en' ? 'Prepared by:' : 'Prepared by (Disiapkan):'}
-          </div>
-          <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
-            {effectivePreparedBy}
-          </div>
-          <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
-            Lead Document Controller & Finance Director
-          </div>
-        </div>
+        <table
+          style={{
+            borderCollapse: 'collapse',
+            fontSize: '9.5pt',
+            fontFamily: 'Arial, sans-serif',
+            color: '#000000',
+            lineHeight: 1.4,
+          }}
+        >
+          <tbody>
+            <tr>
+              <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem', whiteSpace: 'nowrap' }}>
+                Approved By
+              </td>
+              <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem' }}>
+                :
+              </td>
+              <td style={{ verticalAlign: 'top', paddingBottom: '0.5rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#000000' }}>{effectiveApprovedBy}</div>
+                <div style={{ color: '#000000', fontSize: '9pt' }}>(President Director / CEO)</div>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem', whiteSpace: 'nowrap' }}>
+                Verified By
+              </td>
+              <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem' }}>
+                :
+              </td>
+              <td style={{ verticalAlign: 'top', paddingBottom: '0.5rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#000000' }}>{effectiveVerifiedBy}</div>
+                <div style={{ color: '#000000', fontSize: '9pt' }}>
+                  (Director of Operations &amp; Technology / CTO)
+                </div>
+              </td>
+            </tr>
+            <tr>
+              <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', whiteSpace: 'nowrap' }}>
+                Created By
+              </td>
+              <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem' }}>
+                :
+              </td>
+              <td style={{ verticalAlign: 'top' }}>
+                <div style={{ fontWeight: 'bold', color: '#000000' }}>{effectivePreparedBy}</div>
+                <div style={{ color: '#000000', fontSize: '9pt' }}>
+                  (Lead Document Controller &amp; Finance Director)
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {/* Page Footer */}
