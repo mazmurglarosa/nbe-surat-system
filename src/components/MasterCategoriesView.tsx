@@ -94,6 +94,21 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
   const [isSavingTemplate, setIsSavingTemplate] = useState<boolean>(false);
   const txtInputRef = useRef<HTMLInputElement>(null);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const coverLogoInputRef = useRef<HTMLInputElement>(null);
+  const kopLogoInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync template settings if updated from external components
+  React.useEffect(() => {
+    const handleSync = (e: any) => {
+      setTemplateSettings(e.detail || loadTemplateSettings());
+    };
+    window.addEventListener('nbe_template_settings_updated', handleSync);
+    window.addEventListener('nbe-template-settings-updated', handleSync);
+    return () => {
+      window.removeEventListener('nbe_template_settings_updated', handleSync);
+      window.removeEventListener('nbe-template-settings-updated', handleSync);
+    };
+  }, []);
 
   // Form modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -201,6 +216,82 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
     a.download = templateSettings.txtGuidelinesName || (isMarkdown ? 'Panduan_Standar_Dokumen_NBE_CSMS.md' : 'Panduan_Standar_Dokumen_NBE_CSMS.txt');
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const handleUploadCoverLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result as string;
+      const updated: DocumentTemplateSettings = {
+        ...templateSettings,
+        coverLogoDataUrl: dataUrl,
+        coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
+      };
+      setTemplateSettings(updated);
+      saveTemplateSettings(updated);
+      showSuccessBanner('Master Logo Cover NBE berhasil diunggah & diterapkan ke seluruh dokumen!');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveCoverLogo = () => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      coverLogoDataUrl: undefined,
+    };
+    setTemplateSettings(updated);
+    saveTemplateSettings(updated);
+    showSuccessBanner('Master Logo Cover dikembalikan ke logo bawaan NBE (+BG.png).');
+  };
+
+  const handleCoverLogoWidthChange = (val: number) => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      coverLogoWidthInches: val,
+    };
+    setTemplateSettings(updated);
+    saveTemplateSettings(updated);
+  };
+
+  const handleUploadKopLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const dataUrl = evt.target?.result as string;
+      const updated: DocumentTemplateSettings = {
+        ...templateSettings,
+        kopLogoDataUrl: dataUrl,
+        kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
+      };
+      setTemplateSettings(updated);
+      saveTemplateSettings(updated);
+      showSuccessBanner('Master Logo Kop Header NBE berhasil diunggah & diterapkan ke seluruh dokumen!');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleRemoveKopLogo = () => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      kopLogoDataUrl: undefined,
+    };
+    setTemplateSettings(updated);
+    saveTemplateSettings(updated);
+    showSuccessBanner('Master Logo Kop Header dikembalikan ke logo bawaan NBE (+BG.png).');
+  };
+
+  const handleKopLogoWidthChange = (val: number) => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      kopLogoWidthInches: val,
+    };
+    setTemplateSettings(updated);
+    saveTemplateSettings(updated);
   };
 
   const handleOpenAdd = () => {
@@ -906,7 +997,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 6
               </div>
               <h3 style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--text-main)' }}>
-                Acuan Template Dokumen
+                Acuan Template & Master Logo
               </h3>
             </div>
             <span
@@ -917,11 +1008,11 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                 fontWeight: 700,
               }}
             >
-              .txt & .pdf
+              .txt, .pdf & Logo
             </span>
           </div>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
-            Acuan teks (.txt) & visual layout (.pdf) standar NBE
+            Acuan panduan (.txt), visual (.pdf), ukuran kertas, dan Master Logo Korporat NBE
           </p>
         </div>
       </div>
@@ -1186,6 +1277,394 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.5 }}>
                 Sesuai alur baku sistem: <strong>File (.txt / .md)</strong> bertindak sebagai <em>acuan dasar utama</em> untuk mengedit keseluruhan isi dan halaman dokumen Word yang telah diunggah. <strong>File (.pdf)</strong> bertindak sebagai <em>acuan dasar kedua</em> untuk tata letak visual, proporsi, margin, dan looks halaman.
               </p>
+            </div>
+          </div>
+
+          {/* ============================================================== */}
+          {/* SECTION: MASTER LOGO KORPORAT NBE (COVER & KOP SURAT)          */}
+          {/* ============================================================== */}
+          <div
+            className="glass-card"
+            style={{
+              padding: '1.5rem',
+              border: '1.5px solid rgba(2, 132, 199, 0.35)',
+              background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.05) 0%, rgba(13, 148, 136, 0.05) 100%)',
+              marginBottom: '1.75rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1.25rem' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: 'linear-gradient(135deg, #0284c7 0%, #0d9488 100%)',
+                      color: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+                    }}
+                  >
+                    <Layers size={20} />
+                  </div>
+                  <div>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      Master Logo Korporat NBE (Logo Cover & Logo Kop Surat)
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0 0' }}>
+                      Logo dan ukuran resmi PT Nirwana Bhumi Energy yang <strong>berlaku otomatis & seragam untuk SEMUA dokumen</strong> yang dibuat di sistem.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <span
+                style={{
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
+                  padding: '0.3rem 0.75rem',
+                  borderRadius: '20px',
+                  background: 'rgba(2, 132, 199, 0.15)',
+                  color: '#0284c7',
+                  border: '1px solid rgba(2, 132, 199, 0.3)',
+                }}
+              >
+                ✓ Berlaku Universal Seluruh Sistem
+              </span>
+            </div>
+
+            {/* Grid 2 Kolom: Master Logo Cover & Master Logo Kop Header */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '1.25rem',
+              }}
+            >
+              {/* Kolom 1: Master Logo Cover (Halaman 1) */}
+              <div
+                style={{
+                  padding: '1.25rem',
+                  border: '1.5px solid rgba(2, 132, 199, 0.25)',
+                  borderRadius: '12px',
+                  background: 'var(--bg-secondary)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: '#0284c7',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      1
+                    </span>
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      Logo Cover Halaman Muka (Halaman 1)
+                    </h4>
+                  </div>
+                  {templateSettings.coverLogoDataUrl ? (
+                    <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>
+                      ✓ Kustom Aktif
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                      ● Bawaan NBE
+                    </span>
+                  )}
+                </div>
+
+                {/* Preview Container */}
+                <div
+                  style={{
+                    height: '110px',
+                    borderRadius: '8px',
+                    background: '#ffffff',
+                    border: '1px solid #cbd5e1',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.5rem',
+                    position: 'relative',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <img
+                    src={templateSettings.coverLogoDataUrl || '/+BG.png'}
+                    alt="Master Logo Cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                    }}
+                    style={{
+                      maxHeight: '75px',
+                      maxWidth: '90%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '8px',
+                      fontSize: '0.65rem',
+                      color: '#64748b',
+                      background: 'rgba(255,255,255,0.9)',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Lebar: {(templateSettings.coverLogoWidthInches || 3.2).toFixed(1)} in ({((templateSettings.coverLogoWidthInches || 3.2) * 2.54).toFixed(1)} cm)
+                  </div>
+                </div>
+
+                {/* Upload & Action Buttons */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    ref={coverLogoInputRef}
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                    onChange={handleUploadCoverLogo}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => coverLogoInputRef.current?.click()}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      fontSize: '0.78rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      flex: 1,
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      color: '#0284c7',
+                      borderColor: 'rgba(2, 132, 199, 0.35)',
+                    }}
+                  >
+                    <Upload size={14} />
+                    <span>Unggah Logo Cover Baru</span>
+                  </button>
+                  {templateSettings.coverLogoDataUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoverLogo}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: '0.75rem', color: '#ef4444' }}
+                      title="Kembalikan ke logo bawaan"
+                    >
+                      <Trash2 size={13} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Width Slider */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                      Ukuran Lebar Logo Cover:
+                    </label>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0284c7' }}>
+                      {(templateSettings.coverLogoWidthInches || 3.2).toFixed(1)} in ({((templateSettings.coverLogoWidthInches || 3.2) * 2.54).toFixed(1)} cm)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1.5"
+                    max="5.0"
+                    step="0.05"
+                    value={templateSettings.coverLogoWidthInches || 3.2}
+                    onChange={(e) => handleCoverLogoWidthChange(parseFloat(e.target.value))}
+                    style={{ width: '100%', accentColor: '#0284c7' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <span>1.5 in (Kecil)</span>
+                    <span>3.2 in (Standar Baku NBE)</span>
+                    <span>5.0 in (Lebar Penuh)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Kolom 2: Master Logo Kop Header (Halaman 2 ke atas) */}
+              <div
+                style={{
+                  padding: '1.25rem',
+                  border: '1.5px solid rgba(13, 148, 136, 0.25)',
+                  borderRadius: '12px',
+                  background: 'var(--bg-secondary)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        background: '#0d9488',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      2
+                    </span>
+                    <h4 style={{ fontSize: '0.92rem', fontWeight: 800, margin: 0, color: 'var(--text-main)' }}>
+                      Logo Kop Surat Header (Halaman 2 dst.)
+                    </h4>
+                  </div>
+                  {templateSettings.kopLogoDataUrl ? (
+                    <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>
+                      ✓ Kustom Aktif
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>
+                      ● Bawaan NBE
+                    </span>
+                  )}
+                </div>
+
+                {/* Preview Container */}
+                <div
+                  style={{
+                    height: '110px',
+                    borderRadius: '8px',
+                    background: '#ffffff',
+                    border: '1.5px solid #000000',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.5rem',
+                    position: 'relative',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.03)',
+                  }}
+                >
+                  <img
+                    src={templateSettings.kopLogoDataUrl || '/+BG.png'}
+                    alt="Master Logo Kop Header"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                    }}
+                    style={{
+                      maxHeight: '52px',
+                      maxWidth: '85%',
+                      objectFit: 'contain',
+                    }}
+                  />
+                  <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#000000', marginTop: '2px' }}>
+                    PT Nirwana Bhumi Energy
+                  </div>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      bottom: '4px',
+                      right: '8px',
+                      fontSize: '0.65rem',
+                      color: '#64748b',
+                      background: 'rgba(255,255,255,0.9)',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      border: '1px solid #e2e8f0',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Lebar: {(templateSettings.kopLogoWidthInches || 0.95).toFixed(2)} in ({((templateSettings.kopLogoWidthInches || 0.95) * 2.54).toFixed(1)} cm)
+                  </div>
+                </div>
+
+                {/* Upload & Action Buttons */}
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    ref={kopLogoInputRef}
+                    accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                    onChange={handleUploadKopLogo}
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => kopLogoInputRef.current?.click()}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                      fontSize: '0.78rem',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      flex: 1,
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      color: '#0d9488',
+                      borderColor: 'rgba(13, 148, 136, 0.35)',
+                    }}
+                  >
+                    <Upload size={14} />
+                    <span>Unggah Logo Kop Baru</span>
+                  </button>
+                  {templateSettings.kopLogoDataUrl && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveKopLogo}
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: '0.75rem', color: '#ef4444' }}
+                      title="Kembalikan ke logo bawaan"
+                    >
+                      <Trash2 size={13} />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Width Slider */}
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                    <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                      Ukuran Lebar Logo Kop:
+                    </label>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0d9488' }}>
+                      {(templateSettings.kopLogoWidthInches || 0.95).toFixed(2)} in ({((templateSettings.kopLogoWidthInches || 0.95) * 2.54).toFixed(1)} cm)
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="2.5"
+                    step="0.05"
+                    value={templateSettings.kopLogoWidthInches || 0.95}
+                    onChange={(e) => handleKopLogoWidthChange(parseFloat(e.target.value))}
+                    style={{ width: '100%', accentColor: '#0d9488' }}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    <span>0.50 in (Ringkas)</span>
+                    <span>0.95 in (Standar Baku NBE)</span>
+                    <span>2.50 in (Besar)</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 

@@ -239,6 +239,26 @@ export const NbeDocumentWorkspace: React.FC<{
     }
   }, [initialDocsQueue]);
 
+  // Sinkronisasi otomatis saat Master Logo / Template Settings diperbarui
+  useEffect(() => {
+    const handleTemplateSync = (e: any) => {
+      const updated = e.detail || loadTemplateSettings();
+      setStyleConfig((prev) => ({
+        ...prev,
+        coverLogoDataUrl: updated.coverLogoDataUrl || null,
+        coverLogoWidthInches: updated.coverLogoWidthInches || 3.2,
+        kopLogoDataUrl: updated.kopLogoDataUrl || null,
+        kopLogoWidthInches: updated.kopLogoWidthInches || 0.95,
+      }));
+    };
+    window.addEventListener('nbe_template_settings_updated', handleTemplateSync);
+    window.addEventListener('nbe-template-settings-updated', handleTemplateSync);
+    return () => {
+      window.removeEventListener('nbe_template_settings_updated', handleTemplateSync);
+      window.removeEventListener('nbe-template-settings-updated', handleTemplateSync);
+    };
+  }, []);
+
   // Poin 1: Handler Upload Logo Cover (Halaman 1)
   const handleUploadCoverLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1447,35 +1467,50 @@ export const NbeDocumentWorkspace: React.FC<{
             padding: `${styleConfig.marginTopCm}cm ${styleConfig.marginRightCm}cm ${styleConfig.marginBottomCm}cm ${styleConfig.marginLeftCm}cm`,
           }}
         >
-          {/* Logo Cover & Entitas */}
-          <div className="text-center pt-6">
-            {styleConfig.coverLogoDataUrl ? (
-              <img
-                src={styleConfig.coverLogoDataUrl}
-                alt="Logo Cover NBE"
-                style={{ width: `${styleConfig.coverLogoWidthInches * 72}px` }}
-                className="mx-auto object-contain mb-3"
-              />
-            ) : (
-              <div className="text-3xl font-extrabold text-blue-900 tracking-wider mb-2">
-                Nirwana Bhumi Energy
+          {/* Top spacer for vertical centering */}
+          <div className="flex-1 min-h-6" />
+
+          {/* Centered Hero Group */}
+          <div className="flex flex-col items-center text-center space-y-6 w-full">
+            {/* Logo Cover & Entitas */}
+            <div className="text-center">
+              {styleConfig.coverLogoDataUrl ? (
+                <img
+                  src={styleConfig.coverLogoDataUrl}
+                  alt="Logo Cover NBE"
+                  style={{ width: `${styleConfig.coverLogoWidthInches * 72}px` }}
+                  className="mx-auto object-contain mb-3"
+                />
+              ) : (
+                <img
+                  src="/+BG.png"
+                  alt="PT Nirwana Bhumi Energy"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                  }}
+                  style={{ width: '4.7cm' }}
+                  className="mx-auto object-contain mb-3"
+                />
+              )}
+              <div className="text-xl font-extrabold text-black uppercase tracking-wide">
+                PT NIRWANA BHUMI ENERGY
               </div>
-            )}
-            <div className="text-lg font-bold text-black uppercase tracking-wide">
-              PT Nirwana Bhumi Energy
+            </div>
+
+            {/* Judul Dokumen Utama */}
+            <div
+              contentEditable={isGoogleDocsEditMode}
+              suppressContentEditableWarning
+              onBlur={(e) => updateActiveDocField("docTitle", e.currentTarget.innerText.trim())}
+              className="text-center font-bold text-black uppercase px-6 leading-relaxed"
+              style={{ fontSize: `${styleConfig.titleFontSizePt}pt` }}
+            >
+              {activeDoc.docTitle}
             </div>
           </div>
 
-          {/* Judul Dokumen Utama */}
-          <div
-            contentEditable={isGoogleDocsEditMode}
-            suppressContentEditableWarning
-            onBlur={(e) => updateActiveDocField("docTitle", e.currentTarget.innerText.trim())}
-            className="text-center font-bold text-black uppercase px-6 leading-relaxed"
-            style={{ fontSize: `${styleConfig.titleFontSizePt}pt` }}
-          >
-            {activeDoc.docTitle}
-          </div>
+          {/* Bottom spacer for vertical centering */}
+          <div className="flex-1 min-h-6" />
 
           {/* Blok Otorisasi 3 Baris Rata Kanan Bawah */}
           <div className="ml-auto w-84 text-xs text-black space-y-2.5 pb-6">

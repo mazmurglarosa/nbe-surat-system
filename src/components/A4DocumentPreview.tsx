@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FileText,
   Copy,
@@ -17,6 +17,7 @@ import { DocumentLanguage, RevisionRecord } from '../types';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocxTableData } from '../utils/docxExtractor';
 import { WordRibbonBar } from './WordRibbonBar';
+import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
 
 export interface DocumentSavePayload {
   title: string;
@@ -109,6 +110,26 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [editableTables, setEditableTables] = useState<DocxTableData[]>(bodyTables || []);
   const editableBodyRef = React.useRef<HTMLDivElement>(null);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  // Global corporate master logo & template settings
+  const [masterSettings, setMasterSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
+
+  useEffect(() => {
+    const handleTemplateSync = (e: any) => {
+      setMasterSettings(e.detail || loadTemplateSettings());
+    };
+    window.addEventListener('nbe_template_settings_updated', handleTemplateSync);
+    window.addEventListener('nbe-template-settings-updated', handleTemplateSync);
+    return () => {
+      window.removeEventListener('nbe_template_settings_updated', handleTemplateSync);
+      window.removeEventListener('nbe-template-settings-updated', handleTemplateSync);
+    };
+  }, []);
+
+  const effectiveCoverLogoDataUrl = coverLogoDataUrl || masterSettings.coverLogoDataUrl || null;
+  const effectiveKopLogoDataUrl = kopLogoDataUrl || masterSettings.kopLogoDataUrl || null;
+  const effectiveCoverLogoWidthInches = coverLogoWidthInches || masterSettings.coverLogoWidthInches || 3.2;
+  const effectiveKopLogoWidthInches = kopLogoWidthInches || masterSettings.kopLogoWidthInches || 0.95;
 
   // Synchronize state when props change and not actively in edit mode
   React.useEffect(() => {
@@ -428,20 +449,20 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     try {
       let coverBuffer: ArrayBuffer | null = null;
       let kopBuffer: ArrayBuffer | null = null;
-      if (coverLogoDataUrl) {
+      if (effectiveCoverLogoDataUrl) {
         try {
-          const res = await fetch(coverLogoDataUrl);
+          const res = await fetch(effectiveCoverLogoDataUrl);
           coverBuffer = await res.arrayBuffer();
         } catch (e) {
-          console.warn('Could not convert coverLogoDataUrl to buffer:', e);
+          console.warn('Could not convert effectiveCoverLogoDataUrl to buffer:', e);
         }
       }
-      if (kopLogoDataUrl) {
+      if (effectiveKopLogoDataUrl) {
         try {
-          const res = await fetch(kopLogoDataUrl);
+          const res = await fetch(effectiveKopLogoDataUrl);
           kopBuffer = await res.arrayBuffer();
         } catch (e) {
-          console.warn('Could not convert kopLogoDataUrl to buffer:', e);
+          console.warn('Could not convert effectiveKopLogoDataUrl to buffer:', e);
         }
       }
 
@@ -463,8 +484,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         language: language,
         coverLogoBuffer: coverBuffer,
         kopLogoBuffer: kopBuffer,
-        coverLogoWidthInches: coverLogoWidthInches || 3.2,
-        kopLogoWidthInches: kopLogoWidthInches || 0.95,
+        coverLogoWidthInches: effectiveCoverLogoWidthInches || 3.2,
+        kopLogoWidthInches: effectiveKopLogoWidthInches || 0.95,
         tocList: effectiveTocList,
         bodyPages: effectiveBodyPages,
         isProcedureOrSop: isProceduralDoc,
@@ -561,12 +582,12 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               verticalAlign: 'middle',
             }}
           >
-            {kopLogoDataUrl ? (
+            {effectiveKopLogoDataUrl ? (
               <img
-                src={kopLogoDataUrl}
+                src={effectiveKopLogoDataUrl}
                 alt="Logo Kop NBE"
                 style={{
-                  width: kopLogoWidthInches ? `${kopLogoWidthInches}in` : '0.95in',
+                  width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '0.95in',
                   maxHeight: '44px',
                   objectFit: 'contain',
                   margin: '0 auto 4px auto',
@@ -1012,162 +1033,176 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           id="nbe-page-1"
           className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(1) ? 'screen-hidden' : ''}`}
         >
-            {/* Header / Logo Center (width: 1.85 inci / 4.7 cm) */}
+            {/* Top spacer to vertically center the main hero block on the page */}
+            <div style={{ flex: 1, minHeight: '1.5rem' }} />
+
+            {/* Centered Main Hero Block (Logo + Company Name + Category + Title + Code) */}
             <div
               style={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 textAlign: 'center',
-                marginTop: '1.5rem',
+                width: '100%',
               }}
             >
-              {coverLogoDataUrl ? (
-                <img
-                  src={coverLogoDataUrl}
-                  alt="Logo Cover NBE"
-                  style={{
-                    width: coverLogoWidthInches ? `${coverLogoWidthInches}in` : '3.2in',
-                    maxHeight: '130px',
-                    objectFit: 'contain',
-                    marginBottom: '1rem',
-                  }}
-                />
-              ) : (
-                <img
-                  src="/+BG.png"
-                  alt="PT Nirwana Bhumi Energy"
-                  onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                  }}
-                  style={{
-                    width: '4.7cm',
-                    height: 'auto',
-                    objectFit: 'contain',
-                    marginBottom: '1rem',
-                  }}
-                />
-              )}
+              {/* Header / Logo Center */}
               <div
                 style={{
-                  fontSize: '20pt',
-                  fontWeight: 'bold',
-                  color: '#000000',
-                  letterSpacing: '0.04em',
-                  fontFamily: 'Arial, sans-serif',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  textAlign: 'center',
                 }}
               >
-                PT NIRWANA BHUMI ENERGY
-              </div>
-            </div>
-
-            {/* Title Block */}
-            <div
-              style={{
-                textAlign: 'center',
-                marginTop: '3.5rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.85rem',
-              }}
-            >
-              {/* Category / Document Type Header */}
-              <div
-                style={{
-                  fontSize: '13pt',
-                  fontWeight: 'bold',
-                  color: '#003366',
-                  letterSpacing: '0.05em',
-                  fontFamily: 'Arial, sans-serif',
-                  textTransform: 'uppercase',
-                }}
-              >
-                {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-                  ? (language === 'en'
-                    ? "BOARD OF DIRECTORS' RESOLUTION"
-                    : language === 'bi'
-                    ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
-                    : 'SURAT KEPUTUSAN DIREKSI')
-                  : typeLabel}
-              </div>
-
-              {isEditing ? (
-                <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>
-                  <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                    EDIT JUDUL DOKUMEN:
-                  </label>
-                  <textarea
-                    value={editableTitle}
-                    onChange={(e) => setEditableTitle(e.target.value.toUpperCase())}
-                    rows={2}
+                {effectiveCoverLogoDataUrl ? (
+                  <img
+                    src={effectiveCoverLogoDataUrl}
+                    alt="Logo Cover NBE"
                     style={{
-                      width: '100%',
-                      fontFamily: 'Arial, sans-serif',
-                      fontSize: '13.5pt',
-                      fontWeight: 'bold',
-                      color: '#000000',
-                      textAlign: 'center',
-                      border: '1.5px dashed #0284c7',
-                      background: '#f0f9ff',
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      boxSizing: 'border-box',
+                      width: effectiveCoverLogoWidthInches ? `${effectiveCoverLogoWidthInches}in` : '3.2in',
+                      maxHeight: '130px',
+                      objectFit: 'contain',
+                      marginBottom: '1rem',
                     }}
                   />
-                </div>
-              ) : (
+                ) : (
+                  <img
+                    src="/+BG.png"
+                    alt="PT Nirwana Bhumi Energy"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                    }}
+                    style={{
+                      width: '4.7cm',
+                      height: 'auto',
+                      objectFit: 'contain',
+                      marginBottom: '1rem',
+                    }}
+                  />
+                )}
                 <div
                   style={{
-                    fontSize: '15pt',
+                    fontSize: '20pt',
                     fontWeight: 'bold',
                     color: '#000000',
-                    padding: '0 1.5rem',
-                    lineHeight: '1.35',
-                    letterSpacing: '0.02em',
+                    letterSpacing: '0.04em',
+                    fontFamily: 'Arial, sans-serif',
+                  }}
+                >
+                  PT NIRWANA BHUMI ENERGY
+                </div>
+              </div>
+
+              {/* Title Block */}
+              <div
+                style={{
+                  textAlign: 'center',
+                  marginTop: '2.5rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.85rem',
+                  width: '100%',
+                }}
+              >
+                {/* Category / Document Type Header */}
+                <div
+                  style={{
+                    fontSize: '13pt',
+                    fontWeight: 'bold',
+                    color: '#003366',
+                    letterSpacing: '0.05em',
+                    fontFamily: 'Arial, sans-serif',
+                    textTransform: 'uppercase',
                   }}
                 >
                   {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-                    ? `${language === 'en' ? 'REGARDING:' : language === 'bi' ? 'TENTANG / REGARDING:' : 'TENTANG:'} ${displayTitle}`
-                    : displayTitle}
+                    ? (language === 'en'
+                      ? "BOARD OF DIRECTORS' RESOLUTION"
+                      : language === 'bi'
+                      ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
+                      : 'SURAT KEPUTUSAN DIREKSI')
+                    : typeLabel}
                 </div>
-              )}
 
-              {isEditing ? (
-                <div style={{ marginTop: '0.4rem', textAlign: 'center' }}>
-                  <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
-                    EDIT NOMOR / KODE DOKUMEN:
-                  </label>
-                  <input
-                    type="text"
-                    value={editableCode}
-                    onChange={(e) => setEditableCode(e.target.value.toUpperCase())}
+                {isEditing ? (
+                  <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>
+                    <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                      EDIT JUDUL DOKUMEN:
+                    </label>
+                    <textarea
+                      value={editableTitle}
+                      onChange={(e) => setEditableTitle(e.target.value.toUpperCase())}
+                      rows={2}
+                      style={{
+                        width: '100%',
+                        fontFamily: 'Arial, sans-serif',
+                        fontSize: '13.5pt',
+                        fontWeight: 'bold',
+                        color: '#000000',
+                        textAlign: 'center',
+                        border: '1.5px dashed #0284c7',
+                        background: '#f0f9ff',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
                     style={{
-                      width: '320px',
-                      fontFamily: 'Arial, sans-serif',
-                      fontSize: '10.5pt',
+                      fontSize: '15pt',
+                      fontWeight: 'bold',
+                      color: '#000000',
+                      padding: '0 1.5rem',
+                      lineHeight: '1.35',
+                      letterSpacing: '0.02em',
+                    }}
+                  >
+                    {categoryCode === 'KB' || effectiveCode.includes('-KB-')
+                      ? `${language === 'en' ? 'REGARDING:' : language === 'bi' ? 'TENTANG / REGARDING:' : 'TENTANG:'} ${displayTitle}`
+                      : displayTitle}
+                  </div>
+                )}
+
+                {isEditing ? (
+                  <div style={{ marginTop: '0.4rem', textAlign: 'center' }}>
+                    <label style={{ fontSize: '8pt', color: '#0284c7', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                      EDIT NOMOR / KODE DOKUMEN:
+                    </label>
+                    <input
+                      type="text"
+                      value={editableCode}
+                      onChange={(e) => setEditableCode(e.target.value.toUpperCase())}
+                      style={{
+                        width: '320px',
+                        fontFamily: 'Arial, sans-serif',
+                        fontSize: '10.5pt',
+                        fontWeight: 'bold',
+                        color: '#003366',
+                        textAlign: 'center',
+                        border: '1.5px dashed #0284c7',
+                        background: '#f0f9ff',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      fontSize: '11pt',
                       fontWeight: 'bold',
                       color: '#003366',
-                      textAlign: 'center',
-                      border: '1.5px dashed #0284c7',
-                      background: '#f0f9ff',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
+                      letterSpacing: '0.06em',
+                      marginTop: '0.5rem',
                     }}
-                  />
-                </div>
-              ) : (
-                <div
-                  style={{
-                    fontSize: '11pt',
-                    fontWeight: 'bold',
-                    color: '#003366',
-                    letterSpacing: '0.06em',
-                    marginTop: '0.5rem',
-                  }}
-                >
-                  {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
-                </div>
-              )}
+                  >
+                    {language === 'en' ? 'NUMBER:' : 'NOMOR:'} {effectiveCode}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Vertical spacer to push authorization block to bottom right */}

@@ -923,67 +923,6 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     }, 50);
   };
 
-  const readImageFileAsDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleUploadCoverLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const dataUrl = await readImageFileAsDataUrl(file);
-      const updated: DocumentTemplateSettings = {
-        ...templateSettings,
-        coverLogoDataUrl: dataUrl,
-        coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
-      };
-      saveTemplateSettings(updated);
-      setTemplateSettings(updated);
-    } catch (err: any) {
-      alert('Gagal mengunggah logo Cover: ' + err.message);
-    }
-  };
-
-  const handleUploadKopLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const dataUrl = await readImageFileAsDataUrl(file);
-      const updated: DocumentTemplateSettings = {
-        ...templateSettings,
-        kopLogoDataUrl: dataUrl,
-        kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
-      };
-      saveTemplateSettings(updated);
-      setTemplateSettings(updated);
-    } catch (err: any) {
-      alert('Gagal mengunggah logo Kop Header: ' + err.message);
-    }
-  };
-
-  const handleCoverLogoWidthChange = (width: number) => {
-    const updated: DocumentTemplateSettings = {
-      ...templateSettings,
-      coverLogoWidthInches: width,
-    };
-    saveTemplateSettings(updated);
-    setTemplateSettings(updated);
-  };
-
-  const handleKopLogoWidthChange = (width: number) => {
-    const updated: DocumentTemplateSettings = {
-      ...templateSettings,
-      kopLogoWidthInches: width,
-    };
-    saveTemplateSettings(updated);
-    setTemplateSettings(updated);
-  };
-
   const handleToggleMasterTemplate = (checked: boolean) => {
     const updated: DocumentTemplateSettings = {
       ...templateSettings,
@@ -2283,148 +2222,78 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       </label>
                     </div>
 
-                    {/* POIN 1 & 2: Kolom Upload Logo Cover & Logo Kop Header */}
+                    {/* INFO MASTER LOGO KORPORAT NBE */}
                     <div
                       style={{
                         gridColumn: '1 / -1',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                        padding: '0.85rem 1.15rem',
+                        borderRadius: '10px',
+                        background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.06) 0%, rgba(13, 148, 136, 0.06) 100%)',
+                        border: '1px solid rgba(2, 132, 199, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                         gap: '1rem',
+                        flexWrap: 'wrap',
                       }}
                     >
-                      {/* Poin 1: Kolom Upload Logo di Cover (Halaman 1) */}
-                      <div
-                        style={{
-                          padding: '1rem',
-                          border: '1.5px dashed rgba(2, 132, 199, 0.4)',
-                          borderRadius: '10px',
-                          background: 'rgba(2, 132, 199, 0.04)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          gap: '0.75rem',
-                        }}
-                      >
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>
-                              1. Upload Logo Cover (Halaman 1)
-                            </span>
-                            {templateSettings.coverLogoDataUrl && (
-                              <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>✓ Terpasang</span>
-                            )}
-                          </div>
-                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                            Mendukung .png, .jpg, .jpeg, .svg, .webp. Tampil centered di Halaman 1 Cover.
-                          </p>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                          <label
-                            className="btn btn-secondary btn-sm"
-                            style={{ cursor: 'pointer', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                          >
-                            <Upload size={13} />
-                            <span>Pilih Gambar Logo Cover</span>
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
-                              onChange={handleUploadCoverLogo}
-                              style={{ display: 'none' }}
-                            />
-                          </label>
-                          {templateSettings.coverLogoDataUrl && (
-                            <img
-                              src={templateSettings.coverLogoDataUrl}
-                              alt="Preview Cover Logo"
-                              style={{ height: '36px', maxWidth: '90px', objectFit: 'contain', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px' }}
-                            />
-                          )}
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Lebar:</span>
-                          <input
-                            type="range"
-                            min="1.5"
-                            max="5.0"
-                            step="0.1"
-                            value={templateSettings.coverLogoWidthInches || 3.2}
-                            onChange={(e) => handleCoverLogoWidthChange(parseFloat(e.target.value))}
-                            style={{ flex: 1, accentColor: '#0284c7' }}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+                        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                          <img
+                            src={templateSettings.coverLogoDataUrl || '/+BG.png'}
+                            alt="Logo Cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                            }}
+                            style={{
+                              height: '32px',
+                              maxWidth: '75px',
+                              objectFit: 'contain',
+                              background: '#fff',
+                              padding: '2px 4px',
+                              borderRadius: '4px',
+                              border: '1px solid #cbd5e1',
+                            }}
                           />
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, minWidth: '45px' }}>
-                            {(templateSettings.coverLogoWidthInches || 3.2).toFixed(1)} in
-                          </span>
+                          <img
+                            src={templateSettings.kopLogoDataUrl || '/+BG.png'}
+                            alt="Logo Kop"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                            }}
+                            style={{
+                              height: '32px',
+                              maxWidth: '55px',
+                              objectFit: 'contain',
+                              background: '#fff',
+                              padding: '2px 4px',
+                              borderRadius: '4px',
+                              border: '1px solid #cbd5e1',
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
+                            Master Logo Korporat NBE Aktif (Cover & Kop Header)
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            Cover: <strong>{(templateSettings.coverLogoWidthInches || 3.2).toFixed(1)} in</strong> | Kop: <strong>{(templateSettings.kopLogoWidthInches || 0.95).toFixed(2)} in</strong> — Dikelola terpusat di Master Kategori untuk seluruh dokumen sistem.
+                          </div>
                         </div>
                       </div>
-
-                      {/* Poin 2: Kolom Upload Logo di Kop Surat (Header Hal 2+) */}
-                      <div
+                      <span
                         style={{
-                          padding: '1rem',
-                          border: '1.5px dashed rgba(13, 148, 136, 0.4)',
-                          borderRadius: '10px',
-                          background: 'rgba(13, 148, 136, 0.04)',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'space-between',
-                          gap: '0.75rem',
+                          fontSize: '0.7rem',
+                          fontWeight: 700,
+                          color: '#0284c7',
+                          background: 'rgba(2, 132, 199, 0.1)',
+                          padding: '0.3rem 0.65rem',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(2, 132, 199, 0.25)',
                         }}
                       >
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase' }}>
-                              2. Upload Logo Kop Header (Halaman 2 dst.)
-                            </span>
-                            {templateSettings.kopLogoDataUrl && (
-                              <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>✓ Terpasang</span>
-                            )}
-                          </div>
-                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                            Logo kotak kiri atas (Rowspan 3) Kop Surat pada Halaman 2, 3, dan seluruh lembar isi.
-                          </p>
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                          <label
-                            className="btn btn-secondary btn-sm"
-                            style={{ cursor: 'pointer', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                          >
-                            <Upload size={13} />
-                            <span>Pilih Gambar Logo Kop</span>
-                            <input
-                              type="file"
-                              accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
-                              onChange={handleUploadKopLogo}
-                              style={{ display: 'none' }}
-                            />
-                          </label>
-                          {templateSettings.kopLogoDataUrl && (
-                            <img
-                              src={templateSettings.kopLogoDataUrl}
-                              alt="Preview Kop Logo"
-                              style={{ height: '36px', maxWidth: '65px', objectFit: 'contain', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px' }}
-                            />
-                          )}
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Lebar:</span>
-                          <input
-                            type="range"
-                            min="0.5"
-                            max="2.0"
-                            step="0.05"
-                            value={templateSettings.kopLogoWidthInches || 0.95}
-                            onChange={(e) => handleKopLogoWidthChange(parseFloat(e.target.value))}
-                            style={{ flex: 1, accentColor: '#0d9488' }}
-                          />
-                          <span style={{ fontSize: '0.72rem', fontWeight: 700, minWidth: '45px' }}>
-                            {(templateSettings.kopLogoWidthInches || 0.95).toFixed(2)} in
-                          </span>
-                        </div>
-                      </div>
+                        ✓ Dikelola di Kelola Master Kategori
+                      </span>
                     </div>
                     <div style={{ gridColumn: '1 / -1' }}>
                       <label className="form-label" style={{ fontSize: '0.8rem' }}>

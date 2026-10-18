@@ -134,6 +134,7 @@ export function saveTemplateSettings(settings: DocumentTemplateSettings): void {
     localStorage.setItem(STORAGE_KEY_TEMPLATE_SETTINGS, JSON.stringify(payload));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('nbe_template_settings_updated', { detail: payload }));
+      window.dispatchEvent(new CustomEvent('nbe-template-settings-updated', { detail: payload }));
     }
 
     // Persist to Supabase Cloud
@@ -298,17 +299,23 @@ export async function syncTemplateSettingsFromSupabase(): Promise<DocumentTempla
       pdfLayoutDataUrl: data.pdf_layout_data_url || '',
       paperSize: data.paper_size || 'A4',
       orientation: data.orientation || 'portrait',
-      marginTopCm: Number(data.margin_top_cm) || 2.54,
-      marginBottomCm: Number(data.margin_bottom_cm) || 2.54,
-      marginLeftCm: Number(data.margin_left_cm) || 2.54,
-      marginRightCm: Number(data.margin_right_cm) || 2.54,
+      marginTopCm: Number(data.margin_top_cm) || 2.0,
+      marginBottomCm: Number(data.margin_bottom_cm) || 2.0,
+      marginLeftCm: Number(data.margin_left_cm) || 2.2,
+      marginRightCm: Number(data.margin_right_cm) || 2.0,
       fontFamily: data.font_family || 'Arial, sans-serif',
+      coverLogoDataUrl: data.cover_logo_data_url || undefined,
+      kopLogoDataUrl: data.kop_logo_data_url || undefined,
+      coverLogoWidthInches: data.cover_logo_width_inches ? Number(data.cover_logo_width_inches) : 3.2,
+      kopLogoWidthInches: data.kop_logo_width_inches ? Number(data.kop_logo_width_inches) : 0.95,
+      useAsMasterTemplate: Boolean(data.use_as_master_template),
       lastUpdated: data.last_updated || new Date().toISOString(),
     };
 
     localStorage.setItem(STORAGE_KEY_TEMPLATE_SETTINGS, JSON.stringify(cloudSettings));
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('nbe_template_settings_updated', { detail: cloudSettings }));
+      window.dispatchEvent(new CustomEvent('nbe-template-settings-updated', { detail: cloudSettings }));
     }
     return cloudSettings;
   } catch (err) {
@@ -322,6 +329,7 @@ export function resetTemplateSettings(): DocumentTemplateSettings {
     localStorage.removeItem(STORAGE_KEY_TEMPLATE_SETTINGS);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('nbe_template_settings_updated', { detail: DEFAULT_TEMPLATE_SETTINGS }));
+      window.dispatchEvent(new CustomEvent('nbe-template-settings-updated', { detail: DEFAULT_TEMPLATE_SETTINGS }));
     }
     if (supabase) {
       saveTemplateSettings(DEFAULT_TEMPLATE_SETTINGS);

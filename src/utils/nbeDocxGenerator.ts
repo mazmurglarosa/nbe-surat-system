@@ -253,7 +253,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   const coverLogoParagraphs = data.coverLogoBuffer
     ? [
         new Paragraph({
-          spacing: { before: 360, after: 120 },
+          spacing: { before: 1800, after: 140 },
           alignment: AlignmentType.CENTER,
           children: [
             new ImageRun({
@@ -269,7 +269,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   const page1Children: Paragraph[] = [
     ...coverLogoParagraphs,
     new Paragraph({
-      spacing: { before: data.coverLogoBuffer ? 0 : 500, after: 200 },
+      spacing: { before: data.coverLogoBuffer ? 0 : 2200, after: 200 },
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: "PT NIRWANA BHUMI ENERGY", font: "Arial", size: 40, bold: true, color: COLOR_BLACK })],
     }),
