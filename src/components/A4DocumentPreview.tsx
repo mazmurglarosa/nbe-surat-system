@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   FileText,
   Copy,
@@ -12,25 +12,38 @@ import {
   Edit3,
   Save,
   X,
+  Plus,
+  Trash2,
+  RotateCcw,
 } from 'lucide-react';
 import { DocumentLanguage, RevisionRecord } from '../types';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocxTableData } from '../utils/docxExtractor';
-import { MsWordRibbonEditor } from './MsWordRibbonEditor';
+import { MsWordRibbonEditor, KopTableSettings } from './MsWordRibbonEditor';
 import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
+
+export type { KopTableSettings };
 
 export interface DocumentSavePayload {
   title: string;
   code: string;
+  companyName?: string;
+  typeLabel?: string;
   issueDate: string;
   revision: number;
   preparedBy: string;
+  preparedRole?: string;
   verifiedBy: string;
+  verifiedRole?: string;
   approvedBy: string;
+  approvedRole?: string;
   revisions?: RevisionRecord[];
+  tocList?: Array<{ num: string; title: string; isSub?: boolean }>;
   bodyContent?: string;
+  bodyPagesHtml?: string[];
   preservedBodyParagraphs?: string[];
   bodyTables?: DocxTableData[];
+  kopSettings?: KopTableSettings;
 }
 
 export interface A4DocumentPreviewProps {
@@ -97,11 +110,16 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
   const [editableCode, setEditableCode] = useState(code || '0001-KB-GNR-CEO-X-2026');
+  const [editableCompanyName, setEditableCompanyName] = useState('PT NIRWANA BHUMI ENERGY');
+  const [editableDocTypeLabel, setEditableDocTypeLabel] = useState(typeLabel || 'Standar Operasional Prosedur (SOP)');
   const [editableIssueDate, setEditableIssueDate] = useState(issueDate || '2026-10-17');
   const [editableRevision, setEditableRevision] = useState(revision ?? 0);
   const [editablePreparedBy, setEditablePreparedBy] = useState(preparedBy || 'Mazmur Gusti Agung Larosa');
+  const [editablePreparedRole, setEditablePreparedRole] = useState('(Lead Document Controller & Finance Director)');
   const [editableVerifiedBy, setEditableVerifiedBy] = useState(verifiedBy || 'Dennis Raditya');
+  const [editableVerifiedRole, setEditableVerifiedRole] = useState('(Director of Operations & Technology / CTO)');
   const [editableApprovedBy, setEditableApprovedBy] = useState(approvedBy || 'Bima Satryo Hartanto');
+  const [editableApprovedRole, setEditableApprovedRole] = useState('(President Director / CEO)');
   const [editableRevisionDesc, setEditableRevisionDesc] = useState(
     revisions?.[0]?.description ||
       `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
@@ -110,6 +128,58 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [editableTables, setEditableTables] = useState<DocxTableData[]>(bodyTables || []);
   const editableBodyRef = React.useRef<HTMLDivElement>(null);
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  // Revisions List State
+  const [editableRevisionsList, setEditableRevisionsList] = useState<RevisionRecord[]>(() => {
+    if (revisions && revisions.length > 0) return revisions;
+    return [
+      {
+        revision: revision ?? 0,
+        date: '17 Oktober 2026',
+        description: `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`,
+        revisedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
+      },
+    ];
+  });
+
+  // Table of Contents State
+  const [editableTocItems, setEditableTocItems] = useState<Array<{ num: string; title: string; isSub?: boolean }>>(() => {
+    if (tocList && tocList.length > 0) return tocList;
+    return [
+      { num: '1.0', title: 'OBJECTIVE' },
+      { num: '2.0', title: 'SCOPE' },
+      { num: '3.0', title: 'RESPONSIBILITY' },
+      { num: '4.0', title: 'DEFINITION' },
+      { num: '5.0', title: 'PROCEDURE DETAILS' },
+      { num: '5.1', title: 'General Provisions', isSub: true },
+      { num: '5.2', title: 'Operational Flow', isSub: true },
+      { num: '6.0', title: 'RELATED DOCUMENTS' },
+      { num: '7.0', title: 'RECORDS' },
+      { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
+    ];
+  });
+
+  // Kop Table Sizing Settings State
+  const [kopSettings, setKopSettings] = useState<KopTableSettings>(() => {
+    try {
+      const saved = localStorage.getItem('nbe_kop_table_settings');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return {
+      logoWidthPercent: 20,
+      paddingY: 6,
+      fontSizeScale: 1.0,
+      borderWidth: 1.5,
+    };
+  });
+
+  // Auto-Save Management State
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'saved' | 'saving' | 'idle'>('idle');
+  const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
+  const isUserModifiedRef = useRef<boolean>(false);
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const docStorageKey = `nbe_doc_autosave_${(code || 'default').trim().toUpperCase()}`;
 
   // Global corporate master logo & template settings
   const [masterSettings, setMasterSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
@@ -131,9 +201,53 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const effectiveCoverLogoWidthInches = coverLogoWidthInches || masterSettings.coverLogoWidthInches || 3.2;
   const effectiveKopLogoWidthInches = kopLogoWidthInches || masterSettings.kopLogoWidthInches || 0.95;
 
-  // Synchronize state when props change and not actively in edit mode
+  // Load auto-saved draft on mount or when code changes
+  useEffect(() => {
+    try {
+      const rawSaved = localStorage.getItem(docStorageKey);
+      if (rawSaved) {
+        const parsed = JSON.parse(rawSaved);
+        if (parsed.title) setEditableTitle(parsed.title);
+        if (parsed.code) setEditableCode(parsed.code);
+        if (parsed.companyName) setEditableCompanyName(parsed.companyName);
+        if (parsed.typeLabel) setEditableDocTypeLabel(parsed.typeLabel);
+        if (parsed.issueDate) setEditableIssueDate(parsed.issueDate);
+        if (typeof parsed.revision === 'number') setEditableRevision(parsed.revision);
+        if (parsed.preparedBy) setEditablePreparedBy(parsed.preparedBy);
+        if (parsed.preparedRole) setEditablePreparedRole(parsed.preparedRole);
+        if (parsed.verifiedBy) setEditableVerifiedBy(parsed.verifiedBy);
+        if (parsed.verifiedRole) setEditableVerifiedRole(parsed.verifiedRole);
+        if (parsed.approvedBy) setEditableApprovedBy(parsed.approvedBy);
+        if (parsed.approvedRole) setEditableApprovedRole(parsed.approvedRole);
+        if (parsed.revisions && Array.isArray(parsed.revisions) && parsed.revisions.length > 0) {
+          setEditableRevisionsList(parsed.revisions);
+        }
+        if (parsed.tocList && Array.isArray(parsed.tocList) && parsed.tocList.length > 0) {
+          setEditableTocItems(parsed.tocList);
+        }
+        if (parsed.preservedBodyParagraphs && Array.isArray(parsed.preservedBodyParagraphs)) {
+          setEditableParagraphs(parsed.preservedBodyParagraphs);
+        }
+        if (parsed.bodyTables && Array.isArray(parsed.bodyTables)) {
+          setEditableTables(parsed.bodyTables);
+        }
+        if (parsed.kopSettings) {
+          setKopSettings(parsed.kopSettings);
+        }
+        if (parsed.lastSavedFormatted) {
+          setLastSavedTime(parsed.lastSavedFormatted);
+        }
+        isUserModifiedRef.current = true;
+        setAutoSaveStatus('saved');
+      }
+    } catch (err) {
+      console.warn('Could not load auto-saved document draft:', err);
+    }
+  }, [docStorageKey]);
+
+  // Synchronize state when props change ONLY IF not modified by user
   React.useEffect(() => {
-    if (!isEditing) {
+    if (!isUserModifiedRef.current && !isEditing) {
       setEditableTitle(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
       setEditableCode(code || '0001-KB-GNR-CEO-X-2026');
       setEditableIssueDate(issueDate || '2026-10-17');
@@ -141,6 +255,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
       setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
       setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
+      setEditableDocTypeLabel(typeLabel || 'Standar Operasional Prosedur (SOP)');
       setEditableRevisionDesc(
         revisions?.[0]?.description ||
           `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
@@ -148,7 +263,288 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setEditableParagraphs(preservedBodyParagraphs || []);
       setEditableTables(bodyTables || []);
     }
-  }, [title, code, issueDate, revision, preparedBy, verifiedBy, approvedBy, revisions, preservedBodyParagraphs, bodyTables, isEditing]);
+  }, [title, code, issueDate, revision, preparedBy, verifiedBy, approvedBy, typeLabel, revisions, preservedBodyParagraphs, bodyTables, isEditing]);
+
+  // Debounced continuous auto-save engine
+  const scheduleAutoSave = useCallback((partial?: Partial<any>) => {
+    isUserModifiedRef.current = true;
+    setAutoSaveStatus('saving');
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      const nowStr = new Date().toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      const snapshot = {
+        title: partial?.title ?? editableTitle,
+        code: partial?.code ?? editableCode,
+        companyName: partial?.companyName ?? editableCompanyName,
+        typeLabel: partial?.typeLabel ?? editableDocTypeLabel,
+        issueDate: partial?.issueDate ?? editableIssueDate,
+        revision: partial?.revision ?? editableRevision,
+        preparedBy: partial?.preparedBy ?? editablePreparedBy,
+        preparedRole: partial?.preparedRole ?? editablePreparedRole,
+        verifiedBy: partial?.verifiedBy ?? editableVerifiedBy,
+        verifiedRole: partial?.verifiedRole ?? editableVerifiedRole,
+        approvedBy: partial?.approvedBy ?? editableApprovedBy,
+        approvedRole: partial?.approvedRole ?? editableApprovedRole,
+        revisions: partial?.revisions ?? editableRevisionsList,
+        tocList: partial?.tocList ?? editableTocItems,
+        bodyPagesHtml: partial?.bodyPagesHtml ?? undefined,
+        preservedBodyParagraphs: partial?.preservedBodyParagraphs ?? editableParagraphs,
+        bodyTables: partial?.bodyTables ?? editableTables,
+        kopSettings: partial?.kopSettings ?? kopSettings,
+        lastSaved: new Date().toISOString(),
+        lastSavedFormatted: nowStr,
+      };
+
+      try {
+        const key = `nbe_doc_autosave_${(snapshot.code || code || 'default').trim().toUpperCase()}`;
+        localStorage.setItem(key, JSON.stringify(snapshot));
+        localStorage.setItem('nbe_doc_autosave_latest', JSON.stringify(snapshot));
+      } catch (e) {
+        console.warn('Auto-save error to localStorage:', e);
+      }
+
+      setAutoSaveStatus('saved');
+      setLastSavedTime(nowStr);
+
+      if (onSaveDocument) {
+        onSaveDocument({
+          title: snapshot.title,
+          code: snapshot.code,
+          companyName: snapshot.companyName,
+          typeLabel: snapshot.typeLabel,
+          issueDate: snapshot.issueDate,
+          revision: snapshot.revision,
+          preparedBy: snapshot.preparedBy,
+          preparedRole: snapshot.preparedRole,
+          verifiedBy: snapshot.verifiedBy,
+          verifiedRole: snapshot.verifiedRole,
+          approvedBy: snapshot.approvedBy,
+          approvedRole: snapshot.approvedRole,
+          revisions: snapshot.revisions,
+          tocList: snapshot.tocList,
+          bodyPagesHtml: snapshot.bodyPagesHtml,
+          preservedBodyParagraphs: snapshot.preservedBodyParagraphs,
+          bodyTables: snapshot.bodyTables,
+          kopSettings: snapshot.kopSettings,
+        });
+      }
+    }, 500);
+  }, [
+    editableTitle,
+    editableCode,
+    editableCompanyName,
+    editableDocTypeLabel,
+    editableIssueDate,
+    editableRevision,
+    editablePreparedBy,
+    editablePreparedRole,
+    editableVerifiedBy,
+    editableVerifiedRole,
+    editableApprovedBy,
+    editableApprovedRole,
+    editableRevisionsList,
+    editableTocItems,
+    editableParagraphs,
+    editableTables,
+    kopSettings,
+    code,
+    onSaveDocument,
+  ]);
+
+  const updateKopSetting = (key: keyof KopTableSettings, val: number) => {
+    isUserModifiedRef.current = true;
+    setKopSettings((prev) => {
+      const next = { ...prev, [key]: val };
+      try {
+        localStorage.setItem('nbe_kop_table_settings', JSON.stringify(next));
+      } catch (e) {}
+      scheduleAutoSave({ kopSettings: next });
+      return next;
+    });
+  };
+
+  const handleCoverChange = (field: string, val: string) => {
+    isUserModifiedRef.current = true;
+    switch (field) {
+      case 'companyName':
+        setEditableCompanyName(val);
+        scheduleAutoSave({ companyName: val });
+        break;
+      case 'typeLabel':
+        setEditableDocTypeLabel(val);
+        scheduleAutoSave({ typeLabel: val });
+        break;
+      case 'title':
+        setEditableTitle(val);
+        scheduleAutoSave({ title: val });
+        break;
+      case 'code':
+        setEditableCode(val);
+        scheduleAutoSave({ code: val });
+        break;
+      case 'approvedBy':
+        setEditableApprovedBy(val);
+        scheduleAutoSave({ approvedBy: val });
+        break;
+      case 'approvedRole':
+        setEditableApprovedRole(val);
+        scheduleAutoSave({ approvedRole: val });
+        break;
+      case 'verifiedBy':
+        setEditableVerifiedBy(val);
+        scheduleAutoSave({ verifiedBy: val });
+        break;
+      case 'verifiedRole':
+        setEditableVerifiedRole(val);
+        scheduleAutoSave({ verifiedRole: val });
+        break;
+      case 'preparedBy':
+        setEditablePreparedBy(val);
+        scheduleAutoSave({ preparedBy: val });
+        break;
+      case 'preparedRole':
+        setEditablePreparedRole(val);
+        scheduleAutoSave({ preparedRole: val });
+        break;
+    }
+  };
+
+  const handleResetToTemplate = () => {
+    if (window.confirm('Apakah Anda yakin ingin mengembalikan isi dokumen ke template awal sistem? Semua editan yang tersimpan otomatis pada dokumen ini akan dihapus.')) {
+      try {
+        const key = `nbe_doc_autosave_${(code || 'default').trim().toUpperCase()}`;
+        localStorage.removeItem(key);
+      } catch (e) {}
+      isUserModifiedRef.current = false;
+      setEditableTitle(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
+      setEditableCode(code || '0001-KB-GNR-CEO-X-2026');
+      setEditableCompanyName('PT NIRWANA BHUMI ENERGY');
+      setEditableDocTypeLabel(typeLabel || 'Standar Operasional Prosedur (SOP)');
+      setEditableIssueDate(issueDate || '2026-10-17');
+      setEditableRevision(revision ?? 0);
+      setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
+      setEditablePreparedRole('(Lead Document Controller & Finance Director)');
+      setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
+      setEditableVerifiedRole('(Director of Operations & Technology / CTO)');
+      setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
+      setEditableApprovedRole('(President Director / CEO)');
+      setEditableParagraphs(preservedBodyParagraphs || []);
+      setEditableTables(bodyTables || []);
+      setEditableRevisionsList(revisions && revisions.length > 0 ? revisions : [
+        {
+          revision: revision ?? 0,
+          date: '17 Oktober 2026',
+          description: `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`,
+          revisedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
+        },
+      ]);
+      setEditableTocItems(tocList && tocList.length > 0 ? tocList : [
+        { num: '1.0', title: 'OBJECTIVE' },
+        { num: '2.0', title: 'SCOPE' },
+        { num: '3.0', title: 'RESPONSIBILITY' },
+        { num: '4.0', title: 'DEFINITION' },
+        { num: '5.0', title: 'PROCEDURE DETAILS' },
+        { num: '5.1', title: 'General Provisions', isSub: true },
+        { num: '5.2', title: 'Operational Flow', isSub: true },
+        { num: '6.0', title: 'RELATED DOCUMENTS' },
+        { num: '7.0', title: 'RECORDS' },
+        { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
+      ]);
+      setKopSettings({
+        logoWidthPercent: 20,
+        paddingY: 6,
+        fontSizeScale: 1.0,
+        borderWidth: 1.5,
+      });
+      setAutoSaveStatus('idle');
+      setLastSavedTime(null);
+      setSaveSuccessNotice('Dokumen berhasil dikembalikan ke template awal.');
+      setTimeout(() => setSaveSuccessNotice(null), 3000);
+    }
+  };
+
+  const handleAddRevisionRow = () => {
+    isUserModifiedRef.current = true;
+    const newRevNum = editableRevisionsList.length > 0
+      ? (editableRevisionsList[editableRevisionsList.length - 1].revision + 1)
+      : 1;
+    const newRow: RevisionRecord = {
+      revision: newRevNum,
+      date: formattedDate,
+      description: `Revisi klausul dan pemutakhiran standar operasional (${effectiveCode})`,
+      revisedBy: effectivePreparedBy,
+    };
+    const updated = [...editableRevisionsList, newRow];
+    setEditableRevisionsList(updated);
+    scheduleAutoSave({ revisions: updated });
+  };
+
+  const handleDeleteRevisionRow = () => {
+    if (editableRevisionsList.length <= 1) return;
+    isUserModifiedRef.current = true;
+    const updated = editableRevisionsList.slice(0, editableRevisionsList.length - 1);
+    setEditableRevisionsList(updated);
+    scheduleAutoSave({ revisions: updated });
+  };
+
+  const handleUpdateRevisionCell = (idx: number, field: keyof RevisionRecord, val: any) => {
+    isUserModifiedRef.current = true;
+    const updated = editableRevisionsList.map((r, rIdx) => {
+      if (rIdx !== idx) return r;
+      return { ...r, [field]: val };
+    });
+    setEditableRevisionsList(updated);
+    scheduleAutoSave({ revisions: updated });
+  };
+
+  const handleAddTocMainClause = () => {
+    isUserModifiedRef.current = true;
+    const nextNum = `${editableTocItems.length + 1}.0`;
+    const newItem = { num: nextNum, title: 'KLAUSUL BARU DOKUMEN', isSub: false };
+    const updated = [...editableTocItems, newItem];
+    setEditableTocItems(updated);
+    scheduleAutoSave({ tocList: updated });
+  };
+
+  const handleAddTocSubClause = () => {
+    isUserModifiedRef.current = true;
+    const parentNum = editableTocItems.length > 0 ? editableTocItems[editableTocItems.length - 1].num.split('.')[0] : '1';
+    const subCount = editableTocItems.filter(i => i.isSub && i.num.startsWith(parentNum + '.')).length + 1;
+    const nextNum = `${parentNum}.${subCount}`;
+    const newItem = { num: nextNum, title: 'Sub-klausul Rincian Teknis', isSub: true };
+    const updated = [...editableTocItems, newItem];
+    setEditableTocItems(updated);
+    scheduleAutoSave({ tocList: updated });
+  };
+
+  const handleDeleteTocItem = () => {
+    if (editableTocItems.length <= 1) return;
+    isUserModifiedRef.current = true;
+    const updated = editableTocItems.slice(0, editableTocItems.length - 1);
+    setEditableTocItems(updated);
+    scheduleAutoSave({ tocList: updated });
+  };
+
+  const handleUpdateTocItem = (idx: number, field: 'num' | 'title', val: string) => {
+    isUserModifiedRef.current = true;
+    const updated = editableTocItems.map((item, i) => {
+      if (i !== idx) return item;
+      return { ...item, [field]: val };
+    });
+    setEditableTocItems(updated);
+    scheduleAutoSave({ tocList: updated });
+  };
+
+  const handleAutoSaveFromRibbon = (updatedHtmlPages: string[]) => {
+    isUserModifiedRef.current = true;
+    scheduleAutoSave({ bodyPagesHtml: updatedHtmlPages });
+  };
 
   const handleCellEdit = (tableIndex: number, rowIndex: number, cellIndex: number, value: string) => {
     setEditableTables((prev) => {
@@ -405,14 +801,21 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       onSaveDocument({
         title: displayTitle,
         code: effectiveCode,
+        companyName: editableCompanyName,
+        typeLabel: editableDocTypeLabel,
         issueDate: effectiveDateStr,
         revision: effectiveRevision,
         preparedBy: effectivePreparedBy,
+        preparedRole: editablePreparedRole,
         verifiedBy: effectiveVerifiedBy,
+        verifiedRole: editableVerifiedRole,
         approvedBy: effectiveApprovedBy,
-        revisions: updatedRevs,
+        approvedRole: editableApprovedRole,
+        revisions: editableRevisionsList,
+        tocList: editableTocItems,
         preservedBodyParagraphs: finalParagraphs,
         bodyTables: editableTables,
+        kopSettings: kopSettings,
       });
     }
 
@@ -470,27 +873,33 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         docCode: effectiveCode,
         titleId: displayTitle,
         titleEn: displayTitle,
-        categoryNameId: typeLabel,
+        categoryNameId: editableDocTypeLabel || typeLabel,
         divisionName: divisionLabel,
         revisionNo: String(effectiveRevision),
         issueDateId: formattedDate,
         issueDateEn: formattedDateEn,
         preparedBy: effectivePreparedBy,
-        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+        preparedRole: editablePreparedRole || 'Lead Document Controller & Finance Director',
         verifiedBy: effectiveVerifiedBy,
-        verifiedRole: 'Director of Operations & Technology / CTO',
+        verifiedRole: editableVerifiedRole || 'Director of Operations & Technology / CTO',
         approvedBy: effectiveApprovedBy,
-        approvedRole: 'President Director / CEO',
+        approvedRole: editableApprovedRole || 'President Director / CEO',
         language: language,
         coverLogoBuffer: coverBuffer,
         kopLogoBuffer: kopBuffer,
         coverLogoWidthInches: effectiveCoverLogoWidthInches || 3.2,
         kopLogoWidthInches: effectiveKopLogoWidthInches || 0.95,
-        tocList: effectiveTocList,
+        tocList: editableTocItems,
         bodyPages: effectiveBodyPages,
         isProcedureOrSop: isProceduralDoc,
         preservedBodyParagraphs: editableParagraphs,
         bodyTables: editableTables,
+        revisionRows: editableRevisionsList.map((r) => ({
+          rev: String(r.revision),
+          date: r.date,
+          description: r.description,
+          revisedBy: r.revisedBy,
+        })),
       });
     } catch (err: any) {
       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
@@ -559,188 +968,284 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     verticalAlign: 'middle',
   };
 
-  const renderSharedKopHeader = () => (
-    <table
-      style={{
-        width: '100%',
-        borderCollapse: 'collapse',
-        border: '1.5px solid #000000',
-        marginBottom: '1.25rem',
-        fontFamily: 'Arial, sans-serif',
-        background: '#FFFFFF',
-      }}
-    >
-      <tbody>
-        <tr>
-          {/* Kolom Kiri: Logo Memiliki Kolom Terpisah Penuh Dari Atas Sampai Bawah (rowSpan=4) */}
-          <td
-            rowSpan={4}
-            style={{
-              width: '20%',
-              border: '1px solid #000000',
-              padding: '8px 10px',
-              textAlign: 'center',
-              verticalAlign: 'middle',
-              background: '#FFFFFF',
-            }}
-          >
-            {effectiveKopLogoDataUrl ? (
-              <img
-                src={effectiveKopLogoDataUrl}
-                alt="Logo Kop NBE"
+  const renderSharedKopHeader = () => {
+    const logoColWidth = `${kopSettings.logoWidthPercent}%`;
+    const padY = `${kopSettings.paddingY}px`;
+    const fontScale = kopSettings.fontSizeScale;
+    const borderThick = `${kopSettings.borderWidth}px`;
+
+    return (
+      <div style={{ width: '100%' }}>
+        {/* Floating Kop Size Tuner Bar when Edit Mode is active */}
+        {isEditing && (
+          <div className="ms-word-kop-tuner no-print">
+            <div className="ms-word-kop-tuner-group">
+              <span style={{ fontWeight: 700 }}>⚙️ Ukuran Kop:</span>
+              <span style={{ color: '#0369a1' }}>Lebar Logo:</span>
+              {[16, 20, 25, 30].map((w) => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => updateKopSetting('logoWidthPercent', w)}
+                  className={`ms-word-kop-btn-pill ${kopSettings.logoWidthPercent === w ? 'active' : ''}`}
+                  title={`Ubah lebar kolom logo ke ${w}%`}
+                >
+                  {w}%
+                </button>
+              ))}
+            </div>
+
+            <div className="ms-word-kop-tuner-group">
+              <span style={{ color: '#0369a1' }}>Tinggi Sel:</span>
+              {[
+                { val: 4, label: 'Padat' },
+                { val: 6, label: 'Standar' },
+                { val: 9, label: 'Lega' },
+              ].map((p) => (
+                <button
+                  key={p.val}
+                  type="button"
+                  onClick={() => updateKopSetting('paddingY', p.val)}
+                  className={`ms-word-kop-btn-pill ${kopSettings.paddingY === p.val ? 'active' : ''}`}
+                  title={`Ubah jarak vertikal sel ke ${p.label}`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="ms-word-kop-tuner-group">
+              <span style={{ color: '#0369a1' }}>Skala Font:</span>
+              {[
+                { val: 0.9, label: '90%' },
+                { val: 1.0, label: '100%' },
+                { val: 1.1, label: '110%' },
+              ].map((s) => (
+                <button
+                  key={s.val}
+                  type="button"
+                  onClick={() => updateKopSetting('fontSizeScale', s.val)}
+                  className={`ms-word-kop-btn-pill ${kopSettings.fontSizeScale === s.val ? 'active' : ''}`}
+                  title={`Ubah skala font teks kop ke ${s.label}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <table
+          style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            border: `${borderThick} solid #000000`,
+            marginBottom: '1.25rem',
+            fontFamily: 'Arial, sans-serif',
+            background: '#FFFFFF',
+          }}
+        >
+          <tbody>
+            <tr>
+              {/* Kolom Kiri: Logo Memiliki Kolom Terpisah Penuh Dari Atas Sampai Bawah (rowSpan=4) */}
+              <td
+                rowSpan={4}
                 style={{
-                  width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.35in',
-                  maxHeight: '60px',
-                  objectFit: 'contain',
-                  margin: '0 auto',
-                  display: 'block',
+                  width: logoColWidth,
+                  border: '1px solid #000000',
+                  padding: `${padY} 10px`,
+                  textAlign: 'center',
+                  verticalAlign: 'middle',
+                  background: '#FFFFFF',
                 }}
-              />
-            ) : (
-              <img
-                src="/+BG.png"
-                alt="NBE"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = '/logo.png';
+              >
+                {effectiveKopLogoDataUrl ? (
+                  <img
+                    src={effectiveKopLogoDataUrl}
+                    alt="Logo Kop NBE"
+                    style={{
+                      width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.35in',
+                      maxHeight: kopSettings.paddingY > 6 ? '70px' : '56px',
+                      objectFit: 'contain',
+                      margin: '0 auto',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <img
+                    src="/+BG.png"
+                    alt="NBE"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                    }}
+                    style={{ maxHeight: kopSettings.paddingY > 6 ? '65px' : '52px', maxWidth: '140px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
+                  />
+                )}
+              </td>
+
+              {/* Baris 1 Sisi Kanan: Integrated Management Systems (colSpan=3) */}
+              <td
+                colSpan={3}
+                style={{
+                  border: '1px solid #000000',
+                  padding: `${padY} 12px`,
+                  textAlign: 'center',
+                  fontSize: `${11 * fontScale}pt`,
+                  fontWeight: 500,
+                  color: '#000000',
+                  background: '#FFFFFF',
+                  letterSpacing: '0.2px',
                 }}
-                style={{ maxHeight: '56px', maxWidth: '140px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
-              />
-            )}
-          </td>
+              >
+                Integrated Management Systems
+              </td>
+            </tr>
 
-          {/* Baris 1 Sisi Kanan: Integrated Management Systems (colSpan=3) */}
-          <td
-            colSpan={3}
-            style={{
-              border: '1px solid #000000',
-              padding: '6px 12px',
-              textAlign: 'center',
-              fontSize: '11pt',
-              fontWeight: 500,
-              color: '#000000',
-              background: '#FFFFFF',
-              letterSpacing: '0.2px',
-            }}
-          >
-            Integrated Management Systems
-          </td>
-        </tr>
+            {/* Baris 2 Sisi Kanan: Procedure / Document Type (colSpan=3) */}
+            <tr>
+              <td
+                colSpan={3}
+                style={{
+                  border: '1px solid #000000',
+                  padding: `${Math.max(3, kopSettings.paddingY - 1)}px 12px`,
+                  textAlign: 'center',
+                  fontSize: `${10.5 * fontScale}pt`,
+                  fontWeight: 400,
+                  color: '#000000',
+                  background: '#FFFFFF',
+                }}
+              >
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('typeLabel', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Kategori di Kop' : undefined}
+                >
+                  {editableDocTypeLabel || typeLabel || 'Procedure'}
+                </span>
+              </td>
+            </tr>
 
-        {/* Baris 2 Sisi Kanan: Procedure / Document Type (colSpan=3) */}
-        <tr>
-          <td
-            colSpan={3}
-            style={{
-              border: '1px solid #000000',
-              padding: '5px 12px',
-              textAlign: 'center',
-              fontSize: '10.5pt',
-              fontWeight: 400,
-              color: '#000000',
-              background: '#FFFFFF',
-            }}
-          >
-            {typeLabel || 'Procedure'}
-          </td>
-        </tr>
+            {/* Baris 3 Sisi Kanan: Document Title Bold Uppercase (colSpan=3) */}
+            <tr>
+              <td
+                colSpan={3}
+                style={{
+                  border: '1px solid #000000',
+                  padding: `${padY} 12px`,
+                  textAlign: 'center',
+                  fontWeight: 'bold',
+                  fontSize: `${11.5 * fontScale}pt`,
+                  color: '#000000',
+                  textTransform: 'uppercase',
+                  background: '#FFFFFF',
+                  letterSpacing: '0.3px',
+                }}
+              >
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('title', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Judul di Kop' : undefined}
+                >
+                  {displayTitle}
+                </span>
+              </td>
+            </tr>
 
-        {/* Baris 3 Sisi Kanan: Document Title Bold Uppercase (colSpan=3) */}
-        <tr>
-          <td
-            colSpan={3}
-            style={{
-              border: '1px solid #000000',
-              padding: '6px 12px',
-              textAlign: 'center',
-              fontWeight: 'bold',
-              fontSize: '11.5pt',
-              color: '#000000',
-              textTransform: 'uppercase',
-              background: '#FFFFFF',
-              letterSpacing: '0.3px',
-            }}
-          >
-            {displayTitle}
-          </td>
-        </tr>
+            {/* Baris 4: Tiga Kolom di Sisi Kanan (Bukan di bawah logo!) */}
+            <tr>
+              {/* Kolom 1 Kanan: Revision */}
+              <td
+                style={{
+                  width: '18%',
+                  border: '1px solid #000000',
+                  padding: `${Math.max(3, kopSettings.paddingY - 2)}px 8px`,
+                  fontSize: `${9 * fontScale}pt`,
+                  textAlign: 'left',
+                  color: '#000000',
+                  background: '#FFFFFF',
+                  verticalAlign: 'middle',
+                }}
+              >
+                {isEditing ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <span>Revision:</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={99}
+                      value={editableRevision}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setEditableRevision(val);
+                        scheduleAutoSave({ revision: val });
+                      }}
+                      style={{
+                        width: '45px',
+                        fontFamily: 'Arial, sans-serif',
+                        fontSize: `${9 * fontScale}pt`,
+                        border: '1px dashed #0284c7',
+                        background: '#f0f9ff',
+                        padding: '2px 4px',
+                        borderRadius: '3px',
+                      }}
+                    />
+                  </span>
+                ) : (
+                  <>Revision: {effectiveRevision}</>
+                )}
+              </td>
 
-        {/* Baris 4: Tiga Kolom di Sisi Kanan (Bukan di bawah logo!) */}
-        <tr>
-          {/* Kolom 1 Kanan: Revision */}
-          <td
-            style={{
-              width: '18%',
-              border: '1px solid #000000',
-              padding: '4px 8px',
-              fontSize: '9pt',
-              textAlign: 'left',
-              color: '#000000',
-              background: '#FFFFFF',
-              verticalAlign: 'middle',
-            }}
-          >
-            {isEditing ? (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <span>Revision:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={99}
-                  value={editableRevision}
-                  onChange={(e) => setEditableRevision(parseInt(e.target.value) || 0)}
-                  style={{
-                    width: '45px',
-                    fontFamily: 'Arial, sans-serif',
-                    fontSize: '9pt',
-                    border: '1px dashed #0284c7',
-                    background: '#f0f9ff',
-                    padding: '2px 4px',
-                    borderRadius: '3px',
-                  }}
-                />
-              </span>
-            ) : (
-              <>Revision: {effectiveRevision}</>
-            )}
-          </td>
+              {/* Kolom 2 Kanan: Nomor Dokumen Resmi */}
+              <td
+                style={{
+                  width: '38%',
+                  border: '1px solid #000000',
+                  padding: `${Math.max(3, kopSettings.paddingY - 2)}px 8px`,
+                  fontSize: `${9.5 * fontScale}pt`,
+                  textAlign: 'center',
+                  color: '#000000',
+                  background: '#FFFFFF',
+                  verticalAlign: 'middle',
+                  fontWeight: 500,
+                }}
+              >
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('code', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Nomor Dokumen di Kop' : undefined}
+                >
+                  {effectiveCode}
+                </span>
+              </td>
 
-          {/* Kolom 2 Kanan: Nomor Dokumen Resmi */}
-          <td
-            style={{
-              width: '38%',
-              border: '1px solid #000000',
-              padding: '4px 8px',
-              fontSize: '9.5pt',
-              textAlign: 'center',
-              color: '#000000',
-              background: '#FFFFFF',
-              verticalAlign: 'middle',
-              fontWeight: 500,
-            }}
-          >
-            {effectiveCode}
-          </td>
-
-          {/* Kolom 3 Kanan: Tanggal Revisi Terbit */}
-          <td
-            style={{
-              width: '24%',
-              border: '1px solid #000000',
-              padding: '4px 8px',
-              fontSize: '9pt',
-              textAlign: 'left',
-              color: '#000000',
-              background: '#FFFFFF',
-              verticalAlign: 'middle',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Revised: {effectiveRevision > 0 ? (language === 'en' ? formattedDateEn : formattedDate) : '-'}
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  );
+              {/* Kolom 3 Kanan: Tanggal Revisi Terbit */}
+              <td
+                style={{
+                  width: '24%',
+                  border: '1px solid #000000',
+                  padding: `${Math.max(3, kopSettings.paddingY - 2)}px 8px`,
+                  fontSize: `${9 * fontScale}pt`,
+                  textAlign: 'left',
+                  color: '#000000',
+                  background: '#FFFFFF',
+                  verticalAlign: 'middle',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                Revised: {effectiveRevision > 0 ? (language === 'en' ? formattedDateEn : formattedDate) : '-'}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    );
+  };
 
   const renderRunningKopHeader = () => renderSharedKopHeader();
 
@@ -877,6 +1382,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             />
           )}
           <div
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onBlur={(e) => handleCoverChange('companyName', e.currentTarget.innerText.trim())}
+            className={isEditing ? 'ms-word-editable-inline' : ''}
+            title={isEditing ? 'Klik untuk mengedit Nama Entitas Perusahaan' : undefined}
             style={{
               fontSize: '20pt',
               fontWeight: 'bold',
@@ -885,7 +1395,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               fontFamily: 'Arial, sans-serif',
             }}
           >
-            PT NIRWANA BHUMI ENERGY
+            {editableCompanyName}
           </div>
         </div>
 
@@ -900,6 +1410,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           }}
         >
           <div
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onBlur={(e) => handleCoverChange('typeLabel', e.currentTarget.innerText.trim())}
+            className={isEditing ? 'ms-word-editable-inline' : ''}
+            title={isEditing ? 'Klik untuk mengedit Jenis/Kategori Dokumen' : undefined}
             style={{
               fontSize: '13pt',
               fontWeight: 'bold',
@@ -909,17 +1424,16 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               textTransform: 'uppercase',
             }}
           >
-            {categoryCode === 'KB' || effectiveCode.includes('-KB-')
-              ? (language === 'en'
-                ? "BOARD OF DIRECTORS' RESOLUTION"
-                : language === 'bi'
-                ? "SURAT KEPUTUSAN DIREKSI / BOARD OF DIRECTORS' RESOLUTION"
-                : 'SURAT KEPUTUSAN DIREKSI')
-              : typeLabel}
+            {editableDocTypeLabel}
           </div>
 
           <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>
             <div
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              onBlur={(e) => handleCoverChange('title', e.currentTarget.innerText.trim())}
+              className={isEditing ? 'ms-word-editable-inline' : ''}
+              title={isEditing ? 'Klik untuk mengedit Judul Dokumen' : undefined}
               style={{
                 fontSize: '15pt',
                 fontWeight: 'bold',
@@ -934,6 +1448,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </div>
 
           <div
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onBlur={(e) => {
+              const val = e.currentTarget.innerText.trim();
+              const cleanVal = val.replace(/^(NOMOR DOKUMEN|DOCUMENT NO):?\s*/i, '');
+              handleCoverChange('code', cleanVal);
+            }}
+            className={isEditing ? 'ms-word-editable-inline' : ''}
+            title={isEditing ? 'Klik untuk mengedit Nomor Dokumen' : undefined}
             style={{
               display: 'inline-block',
               margin: '0.5rem auto 0 auto',
@@ -954,7 +1477,6 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
       {/* Otorisasi Cover Standar Baku (Tanpa Box/Border, Format List Vertikal Titik Dua Sejajar) */}
       <div
-        contentEditable={false}
         style={{
           display: 'flex',
           justifyContent: 'flex-end',
@@ -962,7 +1484,6 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           marginBottom: '2rem',
           paddingRight: '1rem',
         }}
-        className="select-none"
       >
         <table
           style={{
@@ -982,8 +1503,26 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 :
               </td>
               <td style={{ verticalAlign: 'top', paddingBottom: '0.5rem' }}>
-                <div style={{ fontWeight: 'bold', color: '#000000' }}>{effectiveApprovedBy}</div>
-                <div style={{ color: '#000000', fontSize: '9pt' }}>(President Director / CEO)</div>
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('approvedBy', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Nama Penyetuju' : undefined}
+                  style={{ fontWeight: 'bold', color: '#000000' }}
+                >
+                  {effectiveApprovedBy}
+                </div>
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('approvedRole', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Jabatan Penyetuju' : undefined}
+                  style={{ color: '#000000', fontSize: '9pt' }}
+                >
+                  {editableApprovedRole}
+                </div>
               </td>
             </tr>
             <tr>
@@ -994,9 +1533,25 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 :
               </td>
               <td style={{ verticalAlign: 'top', paddingBottom: '0.5rem' }}>
-                <div style={{ fontWeight: 'bold', color: '#000000' }}>{effectiveVerifiedBy}</div>
-                <div style={{ color: '#000000', fontSize: '9pt' }}>
-                  (Director of Operations &amp; Technology / CTO)
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('verifiedBy', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Nama Verifikator' : undefined}
+                  style={{ fontWeight: 'bold', color: '#000000' }}
+                >
+                  {effectiveVerifiedBy}
+                </div>
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('verifiedRole', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Jabatan Verifikator' : undefined}
+                  style={{ color: '#000000', fontSize: '9pt' }}
+                >
+                  {editableVerifiedRole}
                 </div>
               </td>
             </tr>
@@ -1008,9 +1563,25 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 :
               </td>
               <td style={{ verticalAlign: 'top' }}>
-                <div style={{ fontWeight: 'bold', color: '#000000' }}>{effectivePreparedBy}</div>
-                <div style={{ color: '#000000', fontSize: '9pt' }}>
-                  (Lead Document Controller &amp; Finance Director)
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('preparedBy', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Nama Penyusun' : undefined}
+                  style={{ fontWeight: 'bold', color: '#000000' }}
+                >
+                  {effectivePreparedBy}
+                </div>
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('preparedRole', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Jabatan Penyusun' : undefined}
+                  style={{ color: '#000000', fontSize: '9pt' }}
+                >
+                  {editablePreparedRole}
                 </div>
               </td>
             </tr>
@@ -1046,6 +1617,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       {renderSharedKopHeader()}
 
       <div
+        contentEditable={isEditing}
+        suppressContentEditableWarning
+        className={isEditing ? 'ms-word-editable-inline' : ''}
         style={{
           textAlign: 'center',
           margin: '18pt 0 12pt 0',
@@ -1058,15 +1632,59 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         {language === 'en' ? 'REVISION INDEX' : 'TABEL INDEKS REVISI / REVISION INDEX'}
       </div>
 
+      {/* Action Buttons for Revision Rows in Edit Mode */}
+      {isEditing && (
+        <div className="no-print" style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            onClick={handleAddRevisionRow}
+            className="btn btn-sm"
+            style={{
+              background: '#f0fdf4',
+              borderColor: '#86efac',
+              color: '#166534',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.3rem 0.65rem',
+            }}
+          >
+            <Plus size={14} />
+            <span>Tambah Baris Revisi</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleDeleteRevisionRow}
+            disabled={editableRevisionsList.length <= 1}
+            className="btn btn-sm"
+            style={{
+              background: '#fef2f2',
+              borderColor: '#fca5a5',
+              color: '#991b1b',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              padding: '0.3rem 0.65rem',
+              opacity: editableRevisionsList.length <= 1 ? 0.5 : 1,
+            }}
+          >
+            <Trash2 size={14} />
+            <span>Hapus Baris Terakhir</span>
+          </button>
+        </div>
+      )}
+
       <table
-        contentEditable={false}
         style={{
           width: '100%',
           borderCollapse: 'collapse',
           border: '1px solid #BFBFBF',
           marginBottom: '2rem',
         }}
-        className="select-none"
       >
         <thead>
           <tr>
@@ -1085,19 +1703,53 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </tr>
         </thead>
         <tbody>
-          {effectiveRevisions.map((rev, idx) => (
+          {editableRevisionsList.map((rev, idx) => (
             <tr
               key={idx}
               style={{
                 background: idx % 2 === 0 ? '#FFFFFF' : '#F9FBFD',
               }}
             >
-              <td style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}>
+              <td
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={(e) => handleUpdateRevisionCell(idx, 'revision', parseInt(e.currentTarget.innerText) || 0)}
+                className={isEditing ? 'ms-word-editable-inline' : ''}
+                title={isEditing ? 'Klik untuk mengedit No. Revisi' : undefined}
+                style={{ ...tableCellStyle, textAlign: 'center', fontWeight: 'bold' }}
+              >
                 {rev.revision}
               </td>
-              <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.date}</td>
-              <td style={tableCellStyle}>{rev.description}</td>
-              <td style={{ ...tableCellStyle, textAlign: 'center' }}>{rev.revisedBy}</td>
+              <td
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={(e) => handleUpdateRevisionCell(idx, 'date', e.currentTarget.innerText.trim())}
+                className={isEditing ? 'ms-word-editable-inline' : ''}
+                title={isEditing ? 'Klik untuk mengedit Tanggal Revisi' : undefined}
+                style={{ ...tableCellStyle, textAlign: 'center' }}
+              >
+                {rev.date}
+              </td>
+              <td
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={(e) => handleUpdateRevisionCell(idx, 'description', e.currentTarget.innerText.trim())}
+                className={isEditing ? 'ms-word-editable-inline' : ''}
+                title={isEditing ? 'Klik untuk mengedit Deskripsi Perubahan' : undefined}
+                style={tableCellStyle}
+              >
+                {rev.description}
+              </td>
+              <td
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                onBlur={(e) => handleUpdateRevisionCell(idx, 'revisedBy', e.currentTarget.innerText.trim())}
+                className={isEditing ? 'ms-word-editable-inline' : ''}
+                title={isEditing ? 'Klik untuk mengedit Penyusun Revisi' : undefined}
+                style={{ ...tableCellStyle, textAlign: 'center' }}
+              >
+                {rev.revisedBy}
+              </td>
             </tr>
           ))}
           <tr style={{ background: '#FFFFFF' }}>
@@ -1144,21 +1796,89 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           {renderSharedKopHeader()}
 
           <div style={{ textAlign: 'center', margin: '1.25rem 0' }}>
-            <h4 style={{ fontSize: '13pt', fontWeight: 'bold', color: '#000000', margin: 0, textTransform: 'uppercase' }}>
+            <h4
+              contentEditable={isEditing}
+              suppressContentEditableWarning
+              className={isEditing ? 'ms-word-editable-inline' : ''}
+              style={{ fontSize: '13pt', fontWeight: 'bold', color: '#000000', margin: 0, textTransform: 'uppercase' }}
+            >
               TABLE OF CONTENTS
             </h4>
           </div>
 
+          {/* Action Buttons for TOC Items in Edit Mode */}
+          {isEditing && (
+            <div className="no-print" style={{ display: 'flex', gap: '0.45rem', marginBottom: '0.85rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleAddTocMainClause}
+                className="btn btn-sm"
+                style={{
+                  background: '#f0fdf4',
+                  borderColor: '#86efac',
+                  color: '#166534',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.3rem 0.65rem',
+                }}
+              >
+                <Plus size={14} />
+                <span>Tambah Bab Utama (e.g. 9.0)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAddTocSubClause}
+                className="btn btn-sm"
+                style={{
+                  background: '#eff6ff',
+                  borderColor: '#bfdbfe',
+                  color: '#1d4ed8',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.3rem 0.65rem',
+                }}
+              >
+                <Plus size={14} />
+                <span>Tambah Sub-bab (e.g. 5.3)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTocItem}
+                disabled={editableTocItems.length <= 1}
+                className="btn btn-sm"
+                style={{
+                  background: '#fef2f2',
+                  borderColor: '#fca5a5',
+                  color: '#991b1b',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.3rem 0.65rem',
+                  opacity: editableTocItems.length <= 1 ? 0.5 : 1,
+                }}
+              >
+                <Trash2 size={14} />
+                <span>Hapus Butir Terakhir</span>
+              </button>
+            </div>
+          )}
+
           <div
-            contentEditable={false}
             style={{
               marginTop: '1.5rem',
               marginBottom: '2rem',
               padding: '0.5rem 0',
             }}
-            className="select-none"
           >
-            {effectiveTocList.map((item, idx) => (
+            {editableTocItems.map((item, idx) => (
               <div
                 key={idx}
                 style={{
@@ -1171,10 +1891,26 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   fontSize: '10.5pt',
                 }}
               >
-                <span style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}>
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleUpdateTocItem(idx, 'num', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Nomor Bab' : undefined}
+                  style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}
+                >
                   {item.num}
                 </span>
-                <span>{item.title}</span>
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleUpdateTocItem(idx, 'title', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Judul Bab' : undefined}
+                  style={{ flex: 1 }}
+                >
+                  {item.title}
+                </span>
               </div>
             ))}
           </div>
@@ -1208,7 +1944,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       >
         {renderSharedKopHeader()}
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '12pt', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase' }}>
+          <div
+            contentEditable={isEditing}
+            suppressContentEditableWarning
+            onBlur={(e) => handleCoverChange('title', e.currentTarget.innerText.trim())}
+            className={isEditing ? 'ms-word-editable-inline' : ''}
+            style={{ fontSize: '12pt', fontWeight: 'bold', color: '#000000', textTransform: 'uppercase' }}
+          >
             {categoryCode === 'KB' || effectiveCode.includes('-KB-')
               ? (language === 'en'
                 ? "BOARD OF DIRECTORS' RESOLUTION OF PT NIRWANA BHUMI ENERGY"
@@ -1331,6 +2073,43 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
         {/* Action Buttons */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Live Auto-Save Status Badge */}
+          {isEditing && (
+            <div
+              className={`ms-word-autosave-badge ${autoSaveStatus === 'saving' ? 'saving' : ''}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                padding: '0.3rem 0.65rem',
+                borderRadius: '9999px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                background: autoSaveStatus === 'saving' ? '#fffbeb' : '#f0fdf4',
+                color: autoSaveStatus === 'saving' ? '#b45309' : '#15803d',
+                border: `1px solid ${autoSaveStatus === 'saving' ? '#fde68a' : '#bbf7d0'}`,
+              }}
+            >
+              <span
+                className={`ms-word-autosave-dot ${autoSaveStatus === 'saving' ? 'saving' : ''}`}
+                style={{
+                  width: '7px',
+                  height: '7px',
+                  borderRadius: '50%',
+                  background: autoSaveStatus === 'saving' ? '#f59e0b' : '#22c55e',
+                  display: 'inline-block',
+                }}
+              />
+              <span>
+                {autoSaveStatus === 'saving'
+                  ? 'Menyimpan...'
+                  : lastSavedTime
+                  ? `Tersimpan ${lastSavedTime}`
+                  : 'Auto-save aktif'}
+              </span>
+            </div>
+          )}
+
           {/* Edit / Save Document Buttons */}
           {!isEditing ? (
             <button
@@ -1370,6 +2149,25 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               >
                 <X size={14} />
                 <span>Batal Edit</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetToTemplate}
+                className="btn btn-secondary btn-sm"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  background: '#ffffff',
+                  borderColor: '#cbd5e1',
+                  color: '#475569',
+                  fontWeight: 600,
+                }}
+                title="Kembalikan semua teks dan tabel ke template awal sistem"
+              >
+                <RotateCcw size={14} />
+                <span>Reset Template</span>
               </button>
 
               <button
@@ -1535,6 +2333,12 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         isEditing={isEditing}
         onToggleEdit={() => setIsEditing(!isEditing)}
         onSaveDocument={handleSaveFromRibbonEditor}
+        onAutoSaveBodyPages={handleAutoSaveFromRibbon}
+        autoSaveStatus={autoSaveStatus}
+        lastSavedTime={lastSavedTime}
+        onResetToTemplate={handleResetToTemplate}
+        kopSettings={kopSettings}
+        onUpdateKopSetting={updateKopSetting}
         initialHtmlPages={initialHtmlPages}
         renderSystemCoverPage={renderSystemCoverPage}
         renderSystemRevisionPage={renderSystemRevisionPage}

@@ -78,37 +78,73 @@ const a4PageStyle: React.CSSProperties = {
   transition: "transform 0.2s ease, box-shadow 0.2s ease",
 };
 
+export interface KopTableSettings {
+  logoWidthPercent: number;
+  paddingY: number;
+  fontSizeScale: number;
+  borderWidth: number;
+}
+
 export interface MsWordEditorProps {
   isEditing: boolean;
   onToggleEdit: () => void;
   onSaveDocument: (updatedHtmlPages: string[]) => void;
+  onAutoSaveBodyPages?: (updatedHtmlPages: string[]) => void;
   initialHtmlPages: string[];
   renderSystemCoverPage: () => React.ReactNode;
   renderSystemRevisionPage: (totalPages: number) => React.ReactNode;
   renderSystemTocPage: (totalPages: number) => React.ReactNode;
   renderRunningKopHeader: () => React.ReactNode;
   activePageTab?: "all" | number;
+  autoSaveStatus?: 'saved' | 'saving' | 'idle';
+  lastSavedTime?: string | null;
+  onResetToTemplate?: () => void;
+  kopSettings?: KopTableSettings;
+  onUpdateKopSetting?: (key: keyof KopTableSettings, val: number) => void;
 }
 
 export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   isEditing,
   onToggleEdit,
   onSaveDocument,
+  onAutoSaveBodyPages,
   initialHtmlPages,
   renderSystemCoverPage,
   renderSystemRevisionPage,
   renderSystemTocPage,
   renderRunningKopHeader,
   activePageTab = "all",
+  autoSaveStatus = "idle",
+  lastSavedTime = null,
+  onResetToTemplate,
+  kopSettings,
+  onUpdateKopSetting,
 }) => {
-  // Setiap elemen array mewakili HTML isi dari 1 halaman body (mulai Halaman 4 dst.)
-  const [bodyPagesHtml, setBodyPagesHtml] = useState<string[]>(
-    initialHtmlPages && initialHtmlPages.length > 0
-      ? initialHtmlPages
-      : ["<p style='text-align: justify; font-size: 10.5pt; font-family: Arial;'>1.0\tOBJECTIVE</p>"]
-  );
+  const hasUserEditedRef = useRef<boolean>(false);
+  const autoSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Setiap elemen array mewakili HTML isi dari 1 halaman body (mulai Halaman 4 dst.)
+  const [bodyPagesHtml, setBodyPagesHtml] = useState<string[]>(() => {
+    // Try to load any previously auto-saved body pages from localStorage
+    try {
+      const draft = localStorage.getItem("nbe_doc_autosave_latest");
+      if (draft) {
+        const parsed = JSON.parse(draft);
+        if (parsed.bodyPagesHtml && Array.isArray(parsed.bodyPagesHtml) && parsed.bodyPagesHtml.length > 0) {
+          hasUserEditedRef.current = true;
+          return parsed.bodyPagesHtml;
+        }
+      }
+    } catch (e) {}
+
+    return initialHtmlPages && initialHtmlPages.length > 0
+      ? initialHtmlPages
+      : ["<p style='text-align: justify; font-size: 10.5pt; font-family: Arial;'>1.0\tOBJECTIVE</p>"];
+  });
+
+  // Only sync initialHtmlPages if user has NOT yet made any edits
   useEffect(() => {
+    if (hasUserEditedRef.current) return;
     if (initialHtmlPages && initialHtmlPages.length > 0) {
       setBodyPagesHtml(initialHtmlPages);
     }
@@ -237,8 +273,25 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
 
     if (domChanged) {
       setBodyPagesHtml(currentContainers.map((el) => el.innerHTML));
+      notifyAutoSaveBody();
     }
   }, []);
+
+  const notifyAutoSaveBody = useCallback(() => {
+    hasUserEditedRef.current = true;
+    if (autoSaveDebounceRef.current) clearTimeout(autoSaveDebounceRef.current);
+    autoSaveDebounceRef.current = setTimeout(() => {
+      const currentSnapshots = pageRefs.current
+        .filter((el): el is HTMLDivElement => el !== null)
+        .map((el) => el.innerHTML);
+      if (currentSnapshots.length > 0) {
+        setBodyPagesHtml(currentSnapshots);
+        if (onAutoSaveBodyPages) {
+          onAutoSaveBodyPages(currentSnapshots);
+        }
+      }
+    }, 400);
+  }, [onAutoSaveBodyPages]);
 
   // Format Actions
   const applyAlignment = (alignment: "left" | "center" | "right" | "justify") => {
@@ -608,6 +661,45 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
               </button>
 
               <span style={{ opacity: 0.35, margin: "0 0.25rem" }}>|</span>
+
+              {/* LIVE AUTO-SAVE STATUS INDICATOR */}
+              <div
+                className="ms-word-autosave-badge"
+                title={lastSavedTime ? `Tersimpan otomatis pada ${lastSavedTime}` : "Sistem auto-save aktif"}
+              >
+                <div
+                  className="ms-word-autosave-dot"
+                  style={
+                    autoSaveStatus === "saving"
+                      ? { backgroundColor: "#facc15", boxShadow: "0 0 6px #eab308" }
+                      : undefined
+                  }
+                />
+                <span>
+                  {autoSaveStatus === "saving"
+                    ? "Menyimpan..."
+                    : lastSavedTime
+                    ? `Tersimpan otomatis (${lastSavedTime})`
+                    : "Tersimpan otomatis"}
+                </span>
+              </div>
+
+              {onResetToTemplate && (
+                <button
+                  type="button"
+                  onClick={onResetToTemplate}
+                  title="Kembalikan isi dokumen ke template awal sistem"
+                  className="ms-word-quick-btn"
+                  style={{
+                    background: "rgba(239, 68, 68, 0.18)",
+                    borderColor: "rgba(239, 68, 68, 0.35)",
+                    color: "#fecaca",
+                  }}
+                >
+                  <RotateCcw size={13} />
+                  <span>Reset Dokumen</span>
+                </button>
+              )}
 
               <div className="ms-word-status-badge">
                 <Sparkles size={13} color="#38bdf8" />
@@ -1252,6 +1344,65 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
             {/* ================= TAB TATA LETAK (LAYOUT) ================= */}
             {activeTab === "Layout" && (
               <>
+                {/* KONTROL UKURAN TABEL KOP SURAT */}
+                <div className="ms-word-group">
+                  <div className="ms-word-group-content" style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
+                      <span style={{ fontWeight: 600, minWidth: "95px" }}>Lebar Logo Kop:</span>
+                      {[16, 20, 25, 30].map((w) => (
+                        <button
+                          key={w}
+                          type="button"
+                          onClick={() => onUpdateKopSetting && onUpdateKopSetting("logoWidthPercent", w)}
+                          className={`ms-word-kop-btn-pill ${kopSettings?.logoWidthPercent === w ? "active" : ""}`}
+                          title={`Atur proporsi lebar kolom logo kop ke ${w}%`}
+                        >
+                          {w}%
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
+                      <span style={{ fontWeight: 600, minWidth: "95px" }}>Tinggi Sel Kop:</span>
+                      {[
+                        { val: 4, label: "Padat (4px)" },
+                        { val: 6, label: "Standar (6px)" },
+                        { val: 9, label: "Lega (9px)" },
+                      ].map((p) => (
+                        <button
+                          key={p.val}
+                          type="button"
+                          onClick={() => onUpdateKopSetting && onUpdateKopSetting("paddingY", p.val)}
+                          className={`ms-word-kop-btn-pill ${kopSettings?.paddingY === p.val ? "active" : ""}`}
+                          title={`Tinggi baris padding sel kop: ${p.label}`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
+                      <span style={{ fontWeight: 600, minWidth: "95px" }}>Skala Font Kop:</span>
+                      {[
+                        { val: 0.9, label: "90% (Kecil)" },
+                        { val: 1.0, label: "100% (Normal)" },
+                        { val: 1.1, label: "110% (Besar)" },
+                      ].map((s) => (
+                        <button
+                          key={s.val}
+                          type="button"
+                          onClick={() => onUpdateKopSetting && onUpdateKopSetting("fontSizeScale", s.val)}
+                          className={`ms-word-kop-btn-pill ${kopSettings?.fontSizeScale === s.val ? "active" : ""}`}
+                          title={`Skala font teks di dalam kop surat: ${s.label}`}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <span className="ms-word-group-label">Ukuran Tabel Kop Surat</span>
+                </div>
+
                 <div className="ms-word-group">
                   <div className="ms-word-group-content">
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.82rem" }}>
@@ -1428,11 +1579,13 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                   onInput={() => {
                     saveCurrentSelection();
                     runAutoPaginationPass();
+                    notifyAutoSaveBody();
                   }}
                   onKeyUp={() => {
                     saveCurrentSelection();
                     handleSelectionChange();
                     runAutoPaginationPass();
+                    notifyAutoSaveBody();
                   }}
                   onKeyDown={(e) => {
                     if (e.ctrlKey && e.key === "Enter") {
