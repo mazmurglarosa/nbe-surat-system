@@ -1171,24 +1171,25 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             </div>
 
             {/* Vertical spacer to push authorization block to bottom right */}
-            <div style={{ flex: 1, minHeight: '12rem' }} />
+            <div style={{ flex: 1, minHeight: '1.5rem' }} />
 
-            {/* Blok Otorisasi Ujung Kanan Bawah (left indent: 3.5 inci) */}
+            {/* Blok Otorisasi Ujung Kanan Bawah (proporsional & kompak) */}
             <div
               style={{
                 alignSelf: 'flex-end',
-                width: '320px',
-                borderLeft: '2px solid #003366',
-                paddingLeft: '1rem',
-                marginBottom: '1.5rem',
-                fontSize: '9.5pt',
+                width: '270px',
+                borderLeft: '1.5px solid #003366',
+                paddingLeft: '0.65rem',
+                marginBottom: '1rem',
+                fontSize: '8pt',
                 color: '#3B3838',
+                lineHeight: 1.25,
               }}
             >
-              <div style={{ marginBottom: '0.65rem' }}>
-                <span style={{ fontWeight: 'bold', color: '#000000' }}>
+              <div style={{ marginBottom: '0.35rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
                   {language === 'en' ? 'Approved by:' : 'Approved by (Disetujui):'}
-                </span>
+                </div>
                 {isEditing ? (
                   <input
                     type="text"
@@ -1197,28 +1198,32 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     style={{
                       width: '100%',
                       fontFamily: 'Arial, sans-serif',
-                      fontSize: '9.5pt',
+                      fontSize: '8.2pt',
                       fontWeight: 'bold',
                       color: '#003366',
                       border: '1px dashed #0284c7',
                       background: '#f0f9ff',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      marginTop: '2px',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      marginTop: '1px',
+                      height: '21px',
+                      boxSizing: 'border-box',
                     }}
                   />
                 ) : (
-                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
                     {effectiveApprovedBy}
                   </div>
                 )}
-                <div style={{ fontSize: '8.5pt', color: '#64748b' }}>President Director (CEO)</div>
+                <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
+                  President Director (CEO)
+                </div>
               </div>
 
-              <div style={{ marginBottom: '0.65rem' }}>
-                <span style={{ fontWeight: 'bold', color: '#000000' }}>
+              <div style={{ marginBottom: '0.35rem' }}>
+                <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
                   {language === 'en' ? 'Verified by:' : 'Verified by (Diverifikasi):'}
-                </span>
+                </div>
                 {isEditing ? (
                   <input
                     type="text"
@@ -1227,28 +1232,32 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     style={{
                       width: '100%',
                       fontFamily: 'Arial, sans-serif',
-                      fontSize: '9.5pt',
+                      fontSize: '8.2pt',
                       fontWeight: 'bold',
                       color: '#003366',
                       border: '1px dashed #0284c7',
                       background: '#f0f9ff',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      marginTop: '2px',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      marginTop: '1px',
+                      height: '21px',
+                      boxSizing: 'border-box',
                     }}
                   />
                 ) : (
-                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
                     {effectiveVerifiedBy}
                   </div>
                 )}
-                <div style={{ fontSize: '8.5pt', color: '#64748b' }}>Technical Director (CTO)</div>
+                <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
+                  Technical Director (CTO)
+                </div>
               </div>
 
               <div>
-                <span style={{ fontWeight: 'bold', color: '#000000' }}>
+                <div style={{ fontWeight: 'bold', color: '#000000', fontSize: '7.8pt' }}>
                   {language === 'en' ? 'Prepared by:' : 'Prepared by (Disiapkan):'}
-                </span>
+                </div>
                 {isEditing ? (
                   <input
                     type="text"
@@ -1257,22 +1266,24 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     style={{
                       width: '100%',
                       fontFamily: 'Arial, sans-serif',
-                      fontSize: '9.5pt',
+                      fontSize: '8.2pt',
                       fontWeight: 'bold',
                       color: '#003366',
                       border: '1px dashed #0284c7',
                       background: '#f0f9ff',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      marginTop: '2px',
+                      padding: '1px 5px',
+                      borderRadius: '3px',
+                      marginTop: '1px',
+                      height: '21px',
+                      boxSizing: 'border-box',
                     }}
                   />
                 ) : (
-                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '10pt' }}>
+                  <div style={{ fontWeight: 'bold', color: '#003366', fontSize: '8.5pt', marginTop: '1px' }}>
                     {effectivePreparedBy}
                   </div>
                 )}
-                <div style={{ fontSize: '8.5pt', color: '#64748b' }}>
+                <div style={{ fontSize: '7.2pt', color: '#64748b', marginTop: '0.5px' }}>
                   Lead Document Controller & Finance Director
                 </div>
               </div>
