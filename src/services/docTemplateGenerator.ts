@@ -272,29 +272,17 @@ export async function generateStandardNbeDocx(
         children: [
           new TableCell({
             rowSpan: 3,
-            width: { size: 2600, type: WidthType.DXA },
+            width: { size: 2400, type: WidthType.DXA },
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { before: 80, after: 40 },
+                spacing: { before: 120, after: 60 },
                 children: [
                   new TextRun({
-                    text: 'PT NIRWANA BHUMI ENERGY',
+                    text: 'NBE',
                     bold: true,
-                    size: 18,
-                    color: '000000',
-                    font: 'Arial',
-                  }),
-                ],
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({
-                    text: 'DOCUMENT CONTROL CENTER',
-                    size: 14,
-                    bold: true,
+                    size: 26,
                     color: '003366',
                     font: 'Arial',
                   }),
@@ -303,22 +291,16 @@ export async function generateStandardNbeDocx(
             ],
           }),
           new TableCell({
-            width: { size: 7200, type: WidthType.DXA },
+            width: { size: 7400, type: WidthType.DXA },
+            columnSpan: 2,
             borders: bordersBoxBlack,
-            shading: { fill: 'F8FAFC' },
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text:
-                      lang === 'en'
-                        ? 'INTEGRATED MANAGEMENT SYSTEMS (IMS)'
-                        : lang === 'bi'
-                        ? 'SISTEM MANAJEMEN TERINTEGRASI / IMS'
-                        : 'SISTEM MANAJEMEN TERINTEGRASI (IMS)',
-                    bold: true,
-                    size: 20,
+                    text: 'Integrated Management Systems',
+                    size: 22,
                     font: 'Arial',
                   }),
                 ],
@@ -330,17 +312,16 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 7200, type: WidthType.DXA },
+            width: { size: 7400, type: WidthType.DXA },
+            columnSpan: 2,
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: docTypeLabel,
-                    size: 18,
-                    bold: true,
-                    color: '003366',
+                    text: docTypeLabel || 'Procedure',
+                    size: 21,
                     font: 'Arial',
                   }),
                 ],
@@ -352,16 +333,17 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 7200, type: WidthType.DXA },
+            width: { size: 7400, type: WidthType.DXA },
+            columnSpan: 2,
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: docTitle,
+                    text: docTitle.toUpperCase(),
                     bold: true,
-                    size: 20,
+                    size: 22,
                     color: '000000',
                     font: 'Arial',
                   }),
@@ -374,17 +356,15 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 2600, type: WidthType.DXA },
+            width: { size: 2400, type: WidthType.DXA },
             borders: bordersBoxBlack,
-            shading: { fill: 'F1F5F9' },
             children: [
               new Paragraph({
-                alignment: AlignmentType.CENTER,
+                alignment: AlignmentType.LEFT,
                 children: [
                   new TextRun({
-                    text: `${lang === 'en' ? 'Revision:' : 'Revisi:'} ${data.revision || 0}`,
-                    bold: true,
-                    size: 16,
+                    text: `Revision: ${data.revision || 0}`,
+                    size: 18,
                     font: 'Arial',
                   }),
                 ],
@@ -392,19 +372,32 @@ export async function generateStandardNbeDocx(
             ],
           }),
           new TableCell({
-            width: { size: 7200, type: WidthType.DXA },
+            width: { size: 5400, type: WidthType.DXA },
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: `${docCode}   |   ${lang === 'en' ? 'Date:' : 'Tanggal:'} ${
-                      lang === 'en' ? dateStrEn : dateStr
-                    }`,
+                    text: `Number: ${docCode}`,
                     bold: true,
-                    size: 16,
-                    color: '003366',
+                    size: 19,
+                    font: 'Arial',
+                  }),
+                ],
+              }),
+            ],
+          }),
+          new TableCell({
+            width: { size: 2000, type: WidthType.DXA },
+            borders: bordersBoxBlack,
+            children: [
+              new Paragraph({
+                alignment: AlignmentType.LEFT,
+                children: [
+                  new TextRun({
+                    text: `Revised: ${data.revision && data.revision > 0 ? (lang === 'en' ? dateStrEn : dateStr) : '-'}`,
+                    size: 18,
                     font: 'Arial',
                   }),
                 ],

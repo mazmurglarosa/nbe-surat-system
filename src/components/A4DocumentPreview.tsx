@@ -572,14 +572,16 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     >
       <tbody>
         <tr>
+          {/* Logo Kop Cell (Spans Rows 1-3) */}
           <td
             rowSpan={3}
             style={{
               width: '24%',
               border: '1px solid #000000',
-              padding: '6px 8px',
+              padding: '6px 10px',
               textAlign: 'center',
               verticalAlign: 'middle',
+              background: '#FFFFFF',
             }}
           >
             {effectiveKopLogoDataUrl ? (
@@ -587,10 +589,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 src={effectiveKopLogoDataUrl}
                 alt="Logo Kop NBE"
                 style={{
-                  width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '0.95in',
-                  maxHeight: '44px',
+                  width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.35in',
+                  maxHeight: '55px',
                   objectFit: 'contain',
-                  margin: '0 auto 4px auto',
+                  margin: '0 auto',
                   display: 'block',
                 }}
               />
@@ -601,75 +603,84 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = '/logo.png';
                 }}
-                style={{ maxHeight: '38px', maxWidth: '110px', objectFit: 'contain', margin: '0 auto' }}
+                style={{ maxHeight: '52px', maxWidth: '140px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
               />
             )}
-            <div style={{ fontSize: '8pt', fontWeight: 'bold', marginTop: '3px', color: '#3B3838' }}>
-              PT Nirwana Bhumi Energy
-            </div>
           </td>
+
+          {/* Row 1: Integrated Management Systems */}
           <td
             colSpan={2}
             style={{
               border: '1px solid #000000',
-              padding: '5px 10px',
+              padding: '6px 12px',
               textAlign: 'center',
-              fontWeight: 'bold',
-              fontSize: '10pt',
-              background: '#f8fafc',
+              fontSize: '11pt',
+              fontWeight: 500,
+              color: '#000000',
+              background: '#FFFFFF',
+              letterSpacing: '0.2px',
             }}
           >
-            {language === 'en'
-              ? 'INTEGRATED MANAGEMENT SYSTEMS'
-              : language === 'bi'
-              ? 'SISTEM MANAJEMEN TERINTEGRASI / IMS'
-              : 'SISTEM MANAJEMEN TERINTEGRASI'}
+            Integrated Management Systems
           </td>
         </tr>
+
+        {/* Row 2: Procedure / Document Type */}
         <tr>
           <td
             colSpan={2}
             style={{
               border: '1px solid #000000',
-              padding: '4px 10px',
+              padding: '5px 12px',
               textAlign: 'center',
-              fontWeight: 'bold',
-              fontSize: '9pt',
-              color: '#003366',
-            }}
-          >
-            {typeLabel}
-          </td>
-        </tr>
-        <tr>
-          <td
-            colSpan={2}
-            style={{
-              border: '1px solid #000000',
-              padding: '5px 10px',
-              textAlign: 'center',
-              fontWeight: 'bold',
               fontSize: '10.5pt',
+              fontWeight: 400,
+              color: '#000000',
+              background: '#FFFFFF',
+            }}
+          >
+            {typeLabel || 'Procedure'}
+          </td>
+        </tr>
+
+        {/* Row 3: Document Title (Bold Uppercase) */}
+        <tr>
+          <td
+            colSpan={2}
+            style={{
+              border: '1px solid #000000',
+              padding: '6px 12px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '11.5pt',
               color: '#000000',
               textTransform: 'uppercase',
+              background: '#FFFFFF',
+              letterSpacing: '0.3px',
             }}
           >
             {displayTitle}
           </td>
         </tr>
+
+        {/* Row 4: Revision (Col 1), Number (Col 2), Revised (Col 3) */}
         <tr>
           <td
             style={{
+              width: '24%',
               border: '1px solid #000000',
               padding: '4px 8px',
-              fontSize: '8.5pt',
-              fontWeight: 'bold',
-              background: '#f1f5f9',
+              fontSize: '9pt',
+              textAlign: 'left',
+              color: '#000000',
+              background: '#FFFFFF',
+              verticalAlign: 'middle',
             }}
           >
             {isEditing ? (
               <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <span>{language === 'en' ? 'Rev:' : 'Revisi:'}</span>
+                <span>Revision:</span>
                 <input
                   type="number"
                   min={0}
@@ -679,37 +690,48 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   style={{
                     width: '45px',
                     fontFamily: 'Arial, sans-serif',
-                    fontSize: '8.5pt',
-                    fontWeight: 'bold',
+                    fontSize: '9pt',
                     border: '1px dashed #0284c7',
                     background: '#f0f9ff',
                     padding: '2px 4px',
-                    borderRadius: '4px',
+                    borderRadius: '3px',
                   }}
                 />
               </span>
             ) : (
-              <>{language === 'en' ? 'Revision:' : 'Revisi:'} {effectiveRevision}</>
+              <>Revision: {effectiveRevision}</>
             )}
           </td>
+
           <td
             style={{
+              width: '56%',
               border: '1px solid #000000',
               padding: '4px 8px',
-              fontSize: '8.5pt',
+              fontSize: '9.5pt',
+              textAlign: 'center',
+              color: '#000000',
+              background: '#FFFFFF',
+              verticalAlign: 'middle',
             }}
           >
-            <strong>{language === 'en' ? 'Number:' : 'Nomor:'}</strong> {effectiveCode}
+            <strong>Number: {effectiveCode}</strong>
           </td>
+
           <td
             style={{
+              width: '20%',
               border: '1px solid #000000',
               padding: '4px 8px',
-              fontSize: '8.5pt',
-              textAlign: 'right',
+              fontSize: '9pt',
+              textAlign: 'left',
+              color: '#000000',
+              background: '#FFFFFF',
+              verticalAlign: 'middle',
+              whiteSpace: 'nowrap',
             }}
           >
-            <strong>{language === 'en' ? 'Date:' : 'Tanggal:'}</strong> {language === 'en' ? formattedDateEn : formattedDate}
+            Revised: {effectiveRevision > 0 ? (language === 'en' ? formattedDateEn : formattedDate) : '-'}
           </td>
         </tr>
       </tbody>
