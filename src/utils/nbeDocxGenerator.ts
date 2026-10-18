@@ -111,8 +111,8 @@ function buildRunningHeader(data: NbeDocumentPayload): Header {
                             new ImageRun({
                               data: data.kopLogoBuffer,
                               transformation: {
-                                width: data.kopLogoWidthInches ? Math.round(data.kopLogoWidthInches * 72) : 65,
-                                height: data.kopLogoWidthInches ? Math.round(data.kopLogoWidthInches * 72 * 0.58) : 38,
+                                width: data.kopLogoWidthInches ? Math.round(data.kopLogoWidthInches * 72) : 105,
+                                height: data.kopLogoWidthInches ? Math.round(data.kopLogoWidthInches * 72 * 0.69) : 72,
                               },
                               type: "png",
                             }),

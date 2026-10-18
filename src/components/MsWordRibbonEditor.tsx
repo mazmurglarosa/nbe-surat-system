@@ -1366,17 +1366,17 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                     <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.78rem" }}>
                       <span style={{ fontWeight: 600, minWidth: "95px" }}>Skala Logo:</span>
                       {[
-                        { val: 1.0, label: "100%" },
-                        { val: 1.25, label: "125% (Besar)" },
-                        { val: 1.5, label: "150% (Sangat Besar)" },
-                        { val: 1.75, label: "175% (Maksimal)" },
+                        { val: 0.7, label: "70%" },
+                        { val: 0.85, label: "85%" },
+                        { val: 0.95, label: "95%" },
+                        { val: 1.0, label: "100% (Penuh Kolom)" },
                       ].map((ls) => (
                         <button
                           key={ls.val}
                           type="button"
                           onClick={() => onUpdateKopSetting && onUpdateKopSetting("logoScale", ls.val)}
-                          className={`ms-word-kop-btn-pill ${(kopSettings?.logoScale || 1.25) === ls.val ? "active" : ""}`}
-                          title={`Ubah skala pembesaran logo kop ke ${ls.label}`}
+                          className={`ms-word-kop-btn-pill ${Math.abs((kopSettings?.logoScale || 1.0) - ls.val) < 0.05 ? "active" : ""}`}
+                          title={ls.val === 1.0 ? "Skala Terbesar: Logo tepat memenuhi seluruh kolom" : `Ubah skala logo ke ${ls.label}`}
                         >
                           {ls.label}
                         </button>

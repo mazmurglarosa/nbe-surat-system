@@ -163,14 +163,18 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [kopSettings, setKopSettings] = useState<KopTableSettings>(() => {
     try {
       const saved = localStorage.getItem('nbe_kop_table_settings');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.logoScale && parsed.logoScale > 1.0) parsed.logoScale = 1.0;
+        return parsed;
+      }
     } catch (e) {}
     return {
       logoWidthPercent: 25,
       paddingY: 6,
       fontSizeScale: 1.0,
       borderWidth: 1.5,
-      logoScale: 1.25,
+      logoScale: 1.0,
     };
   });
 
@@ -233,6 +237,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           setEditableTables(parsed.bodyTables);
         }
         if (parsed.kopSettings) {
+          if (parsed.kopSettings.logoScale && parsed.kopSettings.logoScale > 1.0) {
+            parsed.kopSettings.logoScale = 1.0;
+          }
           setKopSettings(parsed.kopSettings);
         }
         if (parsed.lastSavedFormatted) {
@@ -462,7 +469,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         paddingY: 6,
         fontSizeScale: 1.0,
         borderWidth: 1.5,
-        logoScale: 1.25,
+        logoScale: 1.0,
       });
       setAutoSaveStatus('idle');
       setLastSavedTime(null);
@@ -861,6 +868,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         } catch (e) {
           console.warn('Could not convert effectiveCoverLogoDataUrl to buffer:', e);
         }
+      } else {
+        try {
+          const res = await fetch('/nbe-logo-tight.png');
+          coverBuffer = await res.arrayBuffer();
+        } catch (e) {}
       }
       if (effectiveKopLogoDataUrl) {
         try {
@@ -869,6 +881,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         } catch (e) {
           console.warn('Could not convert effectiveKopLogoDataUrl to buffer:', e);
         }
+      } else {
+        try {
+          const res = await fetch('/nbe-logo-tight.png');
+          kopBuffer = await res.arrayBuffer();
+        } catch (e) {}
       }
 
       await generateAndDownloadNbeDocx({
@@ -1000,17 +1017,17 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             <div className="ms-word-kop-tuner-group">
               <span style={{ color: '#0369a1' }}>Skala Logo:</span>
               {[
-                { val: 1.0, label: '100%' },
-                { val: 1.25, label: '125%' },
-                { val: 1.5, label: '150%' },
-                { val: 1.75, label: '175%' },
+                { val: 0.7, label: '70%' },
+                { val: 0.85, label: '85%' },
+                { val: 0.95, label: '95%' },
+                { val: 1.0, label: '100% (Penuh Kolom)' },
               ].map((ls) => (
                 <button
                   key={ls.val}
                   type="button"
                   onClick={() => updateKopSetting('logoScale', ls.val)}
-                  className={`ms-word-kop-btn-pill ${(kopSettings.logoScale || 1.25) === ls.val ? 'active' : ''}`}
-                  title={`Ubah perbesaran skala logo ke ${ls.label}`}
+                  className={`ms-word-kop-btn-pill ${Math.abs((kopSettings.logoScale || 1.0) - ls.val) < 0.05 ? 'active' : ''}`}
+                  title={ls.val === 1.0 ? 'Skala terbesar: Logo tepat memenuhi seluruh kolom' : `Ubah skala logo ke ${ls.label}`}
                 >
                   {ls.label}
                 </button>
@@ -1075,28 +1092,38 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 style={{
                   width: logoColWidth,
                   border: '1px solid #000000',
-                  padding: `${padY} 8px`,
+                  padding: (kopSettings.logoScale || 1.0) >= 0.98 ? '2px 4px' : `${padY} 6px`,
                   textAlign: 'center',
                   verticalAlign: 'middle',
                   background: '#FFFFFF',
                 }}
               >
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '80px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    height: '100%',
+                    minHeight: '90px',
+                    padding: (kopSettings.logoScale || 1.0) >= 0.98 ? '0' : '2px',
+                    boxSizing: 'border-box',
+                  }}
+                >
                   <img
-                    src={effectiveKopLogoDataUrl || '/+BG.png'}
+                    src={effectiveKopLogoDataUrl || '/nbe-logo-tight.png'}
                     alt="Logo Kop PT Nirwana Bhumi Energy"
                     onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                      (e.currentTarget as HTMLImageElement).src = '/+BG.png';
                     }}
                     style={{
-                      width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.45in',
-                      maxWidth: '96%',
-                      maxHeight: `${Math.round(80 * (kopSettings.logoScale || 1.25))}px`,
+                      width: `${Math.min(100, Math.round((kopSettings.logoScale || 1.0) * 100))}%`,
+                      maxWidth: '100%',
+                      maxHeight: (kopSettings.logoScale || 1.0) >= 0.98 ? '118px' : `${Math.round(95 * (kopSettings.logoScale || 0.9))}px`,
                       objectFit: 'contain',
                       margin: '0 auto',
                       display: 'block',
-                      transform: kopSettings.logoScale && kopSettings.logoScale !== 1.0 ? `scale(${kopSettings.logoScale})` : undefined,
-                      transformOrigin: 'center center',
                       transition: 'all 0.15s ease',
                     }}
                   />
@@ -1376,10 +1403,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           }}
         >
           <img
-            src={effectiveCoverLogoDataUrl || '/+BG.png'}
+            src={effectiveCoverLogoDataUrl || '/nbe-logo-tight.png'}
             alt="Logo Cover PT Nirwana Bhumi Energy"
             onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src = '/logo.png';
+              (e.currentTarget as HTMLImageElement).src = '/+BG.png';
             }}
             style={{
               width: `${effectiveCoverLogoWidthInches || 3.2}in`,
