@@ -572,13 +572,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     >
       <tbody>
         <tr>
-          {/* Logo Kop Cell (Spans Rows 1-3) */}
+          {/* Kolom Kiri: Logo Memiliki Kolom Terpisah Penuh Dari Atas Sampai Bawah (rowSpan=4) */}
           <td
-            rowSpan={3}
+            rowSpan={4}
             style={{
-              width: '24%',
+              width: '20%',
               border: '1px solid #000000',
-              padding: '6px 10px',
+              padding: '8px 10px',
               textAlign: 'center',
               verticalAlign: 'middle',
               background: '#FFFFFF',
@@ -590,7 +590,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 alt="Logo Kop NBE"
                 style={{
                   width: effectiveKopLogoWidthInches ? `${effectiveKopLogoWidthInches}in` : '1.35in',
-                  maxHeight: '55px',
+                  maxHeight: '60px',
                   objectFit: 'contain',
                   margin: '0 auto',
                   display: 'block',
@@ -603,14 +603,14 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 onError={(e) => {
                   (e.currentTarget as HTMLImageElement).src = '/logo.png';
                 }}
-                style={{ maxHeight: '52px', maxWidth: '140px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
+                style={{ maxHeight: '56px', maxWidth: '140px', objectFit: 'contain', margin: '0 auto', display: 'block' }}
               />
             )}
           </td>
 
-          {/* Row 1: Integrated Management Systems */}
+          {/* Baris 1 Sisi Kanan: Integrated Management Systems (colSpan=3) */}
           <td
-            colSpan={2}
+            colSpan={3}
             style={{
               border: '1px solid #000000',
               padding: '6px 12px',
@@ -626,10 +626,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </td>
         </tr>
 
-        {/* Row 2: Procedure / Document Type */}
+        {/* Baris 2 Sisi Kanan: Procedure / Document Type (colSpan=3) */}
         <tr>
           <td
-            colSpan={2}
+            colSpan={3}
             style={{
               border: '1px solid #000000',
               padding: '5px 12px',
@@ -644,10 +644,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </td>
         </tr>
 
-        {/* Row 3: Document Title (Bold Uppercase) */}
+        {/* Baris 3 Sisi Kanan: Document Title Bold Uppercase (colSpan=3) */}
         <tr>
           <td
-            colSpan={2}
+            colSpan={3}
             style={{
               border: '1px solid #000000',
               padding: '6px 12px',
@@ -664,11 +664,12 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           </td>
         </tr>
 
-        {/* Row 4: Revision (Col 1), Number (Col 2), Revised (Col 3) */}
+        {/* Baris 4: Tiga Kolom di Sisi Kanan (Bukan di bawah logo!) */}
         <tr>
+          {/* Kolom 1 Kanan: Revision */}
           <td
             style={{
-              width: '24%',
+              width: '18%',
               border: '1px solid #000000',
               padding: '4px 8px',
               fontSize: '9pt',
@@ -703,9 +704,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             )}
           </td>
 
+          {/* Kolom 2 Kanan: Nomor Dokumen Resmi */}
           <td
             style={{
-              width: '56%',
+              width: '38%',
               border: '1px solid #000000',
               padding: '4px 8px',
               fontSize: '9.5pt',
@@ -713,14 +715,16 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               color: '#000000',
               background: '#FFFFFF',
               verticalAlign: 'middle',
+              fontWeight: 500,
             }}
           >
-            <strong>Number: {effectiveCode}</strong>
+            {effectiveCode}
           </td>
 
+          {/* Kolom 3 Kanan: Tanggal Revisi Terbit */}
           <td
             style={{
-              width: '20%',
+              width: '24%',
               border: '1px solid #000000',
               padding: '4px 8px',
               fontSize: '9pt',

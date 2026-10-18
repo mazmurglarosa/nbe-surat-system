@@ -271,18 +271,18 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            rowSpan: 3,
-            width: { size: 2400, type: WidthType.DXA },
+            rowSpan: 4,
+            width: { size: 2000, type: WidthType.DXA },
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { before: 120, after: 60 },
+                spacing: { before: 180, after: 120 },
                 children: [
                   new TextRun({
                     text: 'NBE',
                     bold: true,
-                    size: 26,
+                    size: 28,
                     color: '003366',
                     font: 'Arial',
                   }),
@@ -291,8 +291,8 @@ export async function generateStandardNbeDocx(
             ],
           }),
           new TableCell({
-            width: { size: 7400, type: WidthType.DXA },
-            columnSpan: 2,
+            width: { size: 7800, type: WidthType.DXA },
+            columnSpan: 3,
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
@@ -312,8 +312,8 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 7400, type: WidthType.DXA },
-            columnSpan: 2,
+            width: { size: 7800, type: WidthType.DXA },
+            columnSpan: 3,
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
@@ -333,8 +333,8 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 7400, type: WidthType.DXA },
-            columnSpan: 2,
+            width: { size: 7800, type: WidthType.DXA },
+            columnSpan: 3,
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
@@ -356,7 +356,7 @@ export async function generateStandardNbeDocx(
       new TableRow({
         children: [
           new TableCell({
-            width: { size: 2400, type: WidthType.DXA },
+            width: { size: 1800, type: WidthType.DXA },
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
@@ -372,15 +372,14 @@ export async function generateStandardNbeDocx(
             ],
           }),
           new TableCell({
-            width: { size: 5400, type: WidthType.DXA },
+            width: { size: 3600, type: WidthType.DXA },
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
                 alignment: AlignmentType.CENTER,
                 children: [
                   new TextRun({
-                    text: `Number: ${docCode}`,
-                    bold: true,
+                    text: docCode,
                     size: 19,
                     font: 'Arial',
                   }),
@@ -389,7 +388,7 @@ export async function generateStandardNbeDocx(
             ],
           }),
           new TableCell({
-            width: { size: 2000, type: WidthType.DXA },
+            width: { size: 2400, type: WidthType.DXA },
             borders: bordersBoxBlack,
             children: [
               new Paragraph({
