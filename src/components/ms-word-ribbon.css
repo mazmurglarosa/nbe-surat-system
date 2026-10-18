@@ -1,0 +1,519 @@
+/* ==============================================================================
+   MS WORD 365 RIBBON BAR & RULER STYLESHEET
+   PT Nirwana Bhumi Energy (NBE) - Clean Modern Corporate Document Editor
+   ============================================================================== */
+
+.ms-word-ribbon-container {
+  width: 100%;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+  margin-bottom: 1.75rem;
+  overflow: visible;
+  position: sticky;
+  top: 12px;
+  z-index: 50;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Inter', sans-serif;
+  color: #1e293b;
+  user-select: none;
+}
+
+/* 1. TOP HEADER & TITLE BAR */
+.ms-word-titlebar {
+  background: linear-gradient(135deg, #002b55 0%, #003366 50%, #0b4f8c 100%);
+  color: #ffffff;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top-left-radius: 11px;
+  border-top-right-radius: 11px;
+  gap: 1rem;
+}
+
+.ms-word-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ms-word-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.ms-word-quick-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: rgba(255, 255, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.ms-word-quick-btn:active {
+  transform: translateY(0);
+}
+
+/* SEARCH FEATURE / SMART FINDER BAR */
+.ms-word-search-wrapper {
+  position: relative;
+  min-width: 260px;
+  max-width: 380px;
+  flex: 1;
+}
+
+.ms-word-search-input {
+  width: 100%;
+  padding: 0.4rem 0.8rem 0.4rem 2.2rem;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  color: #ffffff;
+  font-size: 0.8rem;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.ms-word-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.ms-word-search-input:focus {
+  background: #ffffff;
+  color: #0f172a;
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.35);
+}
+
+.ms-word-search-icon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.8);
+  transition: color 0.2s ease;
+}
+
+.ms-word-search-input:focus ~ .ms-word-search-icon {
+  color: #0284c7;
+}
+
+/* SEARCH RESULTS DROPDOWN */
+.ms-word-search-dropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 100;
+  padding: 0.35rem 0;
+}
+
+.ms-word-search-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.8rem;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+}
+
+.ms-word-search-item:hover {
+  background: #f1f5f9;
+  color: #003366;
+}
+
+.ms-word-search-item-shortcut {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+/* FINISH / SAVE ACTION BUTTON */
+.ms-word-finish-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 1rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.82rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 7px;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.35);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ms-word-finish-btn:hover {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  box-shadow: 0 4px 10px rgba(16, 185, 129, 0.45);
+  transform: translateY(-1px);
+}
+
+/* 2. TAB NAVIGATION BAR */
+.ms-word-tabbar {
+  background: #f1f5f9;
+  display: flex;
+  align-items: center;
+  padding: 0 0.75rem;
+  border-bottom: 1px solid #cbd5e1;
+  gap: 0.25rem;
+}
+
+.ms-word-tab {
+  padding: 0.55rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  outline: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.ms-word-tab:hover {
+  color: #003366;
+  background: rgba(0, 51, 102, 0.04);
+}
+
+.ms-word-tab.active {
+  color: #003366;
+  background: #ffffff;
+  border-bottom-color: #0284c7;
+  font-weight: 700;
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.03);
+}
+
+/* 3. RIBBON CONTENT BODY */
+.ms-word-ribbon-body {
+  background: #ffffff;
+  padding: 0.6rem 0.85rem;
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  overflow-x: auto;
+  border-bottom: 1px solid #cbd5e1;
+  scrollbar-width: thin;
+}
+
+/* TOOL GROUP CONTAINER */
+.ms-word-group {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-right: 0.75rem;
+  border-right: 1px solid #e2e8f0;
+  min-height: 86px;
+  flex-shrink: 0;
+}
+
+.ms-word-group-last {
+  border-right: none;
+  padding-right: 0;
+}
+
+.ms-word-group-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  justify-content: center;
+  flex: 1;
+}
+
+.ms-word-group-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ms-word-group-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+  text-align: center;
+  margin-top: 0.35rem;
+}
+
+/* TOOL BUTTONS */
+.ms-word-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  outline: none;
+  position: relative;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.ms-word-tool-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.ms-word-tool-btn.active {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+  font-weight: 700;
+}
+
+.ms-word-tool-btn:active {
+  transform: translateY(1px);
+}
+
+/* LARGE PRIMARY TOOL BUTTON (e.g. PASTE / PAGE BREAK) */
+.ms-word-large-btn {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.4rem 0.65rem;
+  min-width: 48px;
+  height: 60px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ms-word-large-btn:hover {
+  background: #f8fafc;
+  border-color: #0284c7;
+  color: #003366;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.ms-word-large-btn-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+/* SELECT DROPDOWNS */
+.ms-word-select {
+  height: 28px;
+  padding: 0 0.5rem;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 5px;
+  font-size: 0.78rem;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.ms-word-select:hover {
+  border-color: #94a3b8;
+}
+
+.ms-word-select:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2);
+}
+
+.ms-word-select-font {
+  width: 130px;
+}
+
+.ms-word-select-size {
+  width: 62px;
+  font-weight: 600;
+}
+
+/* COLOR PICKER ITEM */
+.ms-word-color-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.35rem;
+  height: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: #ffffff;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.12s ease;
+}
+
+.ms-word-color-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.ms-word-color-indicator {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.ms-word-color-native-input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  cursor: pointer;
+}
+
+/* QUICK STYLES CHIPS */
+.ms-word-styles-grid {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 480px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.ms-word-style-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  min-width: 68px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.ms-word-style-chip:hover {
+  border-color: #0284c7;
+  background: #f0f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(2, 132, 199, 0.12);
+}
+
+.ms-word-style-preview {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.ms-word-style-name {
+  font-size: 0.65rem;
+  color: #64748b;
+  margin-top: 0.2rem;
+}
+
+/* 4. HORIZONTAL RULER */
+.ms-word-ruler {
+  background: #e2e8f0;
+  padding: 0.35rem 1.5rem;
+  display: flex;
+  justify-content: center;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.ms-word-ruler-track {
+  width: 100%;
+  max-width: 820px;
+  height: 18px;
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.25rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.62rem;
+  color: #64748b;
+  position: relative;
+}
+
+.ms-word-ruler-mark {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.ms-word-ruler-tick {
+  width: 1px;
+  height: 5px;
+  background: #94a3b8;
+  margin-top: 1px;
+}
+
+/* 5. EDITABLE A4 CANVAS ACTIVE FOCUS HIGHLIGHT */
+.ms-word-editable-active {
+  outline: 2px solid rgba(56, 189, 248, 0.65) !important;
+  outline-offset: 4px;
+  border-radius: 4px;
+  box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
+}
+
+/* BADGE STATUS */
+.ms-word-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #e0f2fe;
+}
