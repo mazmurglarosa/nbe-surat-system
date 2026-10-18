@@ -67,8 +67,10 @@ import {
 } from '../services/docTemplateGenerator';
 import {
   loadTemplateSettings,
+  saveTemplateSettings,
   DocumentTemplateSettings,
 } from '../services/templateSettings';
+import { NbeDocumentWorkspace, NbeDocState } from './NbeDocumentWorkspace';
 import {
   getGoogleDocsRegistry,
   saveGoogleDocEntry,
@@ -257,6 +259,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   const [googleDocsRegistry, setGoogleDocsRegistry] = useState<Record<string, SyncedGoogleDoc>>(() => getGoogleDocsRegistry());
   const [isConvertingToDocs, setIsConvertingToDocs] = useState<boolean>(false);
   const [docsModalNotice, setDocsModalNotice] = useState<SyncedGoogleDoc | null>(null);
+  const [showGoogleDocsWorkspace, setShowGoogleDocsWorkspace] = useState<boolean>(false);
 
   useEffect(() => {
     const handleTemplateUpdated = (e: any) => {
@@ -920,6 +923,113 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     }, 50);
   };
 
+  const readImageFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleUploadCoverLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      const updated: DocumentTemplateSettings = {
+        ...templateSettings,
+        coverLogoDataUrl: dataUrl,
+        coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
+      };
+      saveTemplateSettings(updated);
+      setTemplateSettings(updated);
+    } catch (err: any) {
+      alert('Gagal mengunggah logo Cover: ' + err.message);
+    }
+  };
+
+  const handleUploadKopLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readImageFileAsDataUrl(file);
+      const updated: DocumentTemplateSettings = {
+        ...templateSettings,
+        kopLogoDataUrl: dataUrl,
+        kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
+      };
+      saveTemplateSettings(updated);
+      setTemplateSettings(updated);
+    } catch (err: any) {
+      alert('Gagal mengunggah logo Kop Header: ' + err.message);
+    }
+  };
+
+  const handleCoverLogoWidthChange = (width: number) => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      coverLogoWidthInches: width,
+    };
+    saveTemplateSettings(updated);
+    setTemplateSettings(updated);
+  };
+
+  const handleKopLogoWidthChange = (width: number) => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      kopLogoWidthInches: width,
+    };
+    saveTemplateSettings(updated);
+    setTemplateSettings(updated);
+  };
+
+  const handleToggleMasterTemplate = (checked: boolean) => {
+    const updated: DocumentTemplateSettings = {
+      ...templateSettings,
+      useAsMasterTemplate: checked,
+      masterStyleConfig: checked
+        ? {
+            fontFamily: templateSettings.fontFamily || 'Arial',
+            titleFontSizePt: 18,
+            headingFontSizePt: 12,
+            bodyFontSizePt: 10.5,
+            marginLeftCm: templateSettings.marginLeftCm || 2.2,
+            marginRightCm: templateSettings.marginRightCm || 2.0,
+            marginTopCm: templateSettings.marginTopCm || 2.0,
+            marginBottomCm: templateSettings.marginBottomCm || 2.0,
+            tableHeaderHex: 'D9E1F2',
+            tableZebraHex: 'F9FBFD',
+            coverLogoDataUrl: templateSettings.coverLogoDataUrl || null,
+            kopLogoDataUrl: templateSettings.kopLogoDataUrl || null,
+          }
+        : templateSettings.masterStyleConfig,
+    };
+    saveTemplateSettings(updated);
+    setTemplateSettings(updated);
+
+    if (checked) {
+      // Auto-clone pengesahan & profil ke seluruh berkas di antrean tanpa mengubah isi dokumen (Poin 5)
+      setFileCustomizations((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((fId) => {
+          if (fId !== activeWordFile?.id) {
+            next[fId] = {
+              ...next[fId],
+              preparedBy: activeCustomization.preparedBy,
+              verifiedBy: activeCustomization.verifiedBy,
+              approvedBy: activeCustomization.approvedBy,
+            };
+          }
+        });
+        return next;
+      });
+      alert(
+        'Dokumen ini ditetapkan sebagai Master Template! Ukuran huruf, logo Cover & Kop, margin 2.2 cm, arsitektur tabel, dan otorisasi otomatis disinkronkan ke seluruh dokumen.'
+      );
+    }
+  };
+
   // Download physically generated .docx with Cover, Kop & Revision Index
   const handleDownloadDocxPreview = async (fileItem: AnalyzedFileItem) => {
     const custom = fileCustomizations[fileItem.id] || activeCustomization;
@@ -927,6 +1037,26 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     try {
       const typeDef = docTypes.find((t) => t.code.toUpperCase() === custom.typeCode.toUpperCase());
       const divDef = divs.find((d) => d.code.toUpperCase() === custom.divisionCode?.toUpperCase());
+
+      let coverLogoBuf: ArrayBuffer | undefined;
+      let kopLogoBuf: ArrayBuffer | undefined;
+      if (templateSettings.coverLogoDataUrl) {
+        try {
+          const res = await fetch(templateSettings.coverLogoDataUrl);
+          coverLogoBuf = await res.arrayBuffer();
+        } catch (e) {
+          console.warn('Could not buffer cover logo:', e);
+        }
+      }
+      if (templateSettings.kopLogoDataUrl) {
+        try {
+          const res = await fetch(templateSettings.kopLogoDataUrl);
+          kopLogoBuf = await res.arrayBuffer();
+        } catch (e) {
+          console.warn('Could not buffer kop logo:', e);
+        }
+      }
+
       await generateAndDownloadNbeDocx({
         docCode: custom.code,
         titleId: custom.title,
@@ -945,6 +1075,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         language: selectedLang,
         preservedBodyParagraphs: custom.preservedBodyParagraphs,
         bodyTables: custom.preservedBodyTables,
+        coverLogoBuffer: coverLogoBuf,
+        kopLogoBuffer: kopLogoBuf,
+        coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
+        kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
+        isProcedureOrSop: custom.typeCode !== 'KB' && !custom.code.includes('-KB-'),
       });
     } catch (err: any) {
       alert(`Gagal membuat file Word (.docx): ${err.message}`);
@@ -2069,23 +2204,228 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       <FileText size={18} color="var(--primary)" />
                       <h3 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Detail & Data Dokumen</h3>
                     </div>
-                    {activeWordFile && (
-                      <span
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShowGoogleDocsWorkspace(true)}
+                        className="btn btn-secondary btn-xs"
                         style={{
-                          fontSize: '0.75rem',
-                          color: '#38bdf8',
-                          background: 'rgba(2, 132, 199, 0.15)',
-                          padding: '0.2rem 0.55rem',
-                          borderRadius: '6px',
+                          background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                          color: '#ffffff',
                           fontWeight: 700,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          border: 'none',
+                          boxShadow: '0 2px 6px rgba(2, 132, 199, 0.3)',
+                          padding: '0.35rem 0.75rem',
                         }}
                       >
-                        File: {activeWordFile.name}
-                      </span>
-                    )}
+                        <FileText size={13} />
+                        <span>Edit Dokumen (Mode Google Docs MCP)</span>
+                      </button>
+                      {activeWordFile && (
+                        <span
+                          style={{
+                            fontSize: '0.75rem',
+                            color: '#38bdf8',
+                            background: 'rgba(2, 132, 199, 0.15)',
+                            padding: '0.2rem 0.55rem',
+                            borderRadius: '6px',
+                            fontWeight: 700,
+                          }}
+                        >
+                          File: {activeWordFile.name}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                    {/* POIN 4 & 5: Checkbox Menonjol Jadikan Master Template */}
+                    <div
+                      style={{
+                        gridColumn: '1 / -1',
+                        padding: '1rem',
+                        background: templateSettings.useAsMasterTemplate
+                          ? 'rgba(16, 185, 129, 0.1)'
+                          : 'rgba(245, 158, 11, 0.08)',
+                        border: templateSettings.useAsMasterTemplate
+                          ? '1.5px solid rgba(16, 185, 129, 0.5)'
+                          : '1.5px solid rgba(245, 158, 11, 0.4)',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '0.75rem',
+                        transition: 'all 0.2s ease',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        id="use-as-master-template"
+                        checked={templateSettings.useAsMasterTemplate || false}
+                        onChange={(e) => handleToggleMasterTemplate(e.target.checked)}
+                        style={{
+                          marginTop: '0.2rem',
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer',
+                          accentColor: '#10b981',
+                        }}
+                      />
+                      <label htmlFor="use-as-master-template" style={{ cursor: 'pointer', flex: 1 }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.88rem', color: templateSettings.useAsMasterTemplate ? '#059669' : '#b45309', display: 'block' }}>
+                          Jadikan dokumen yang sedang saya edit ini sebagai Master Template untuk dokumen-dokumen selanjutnya
+                        </span>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                          Jika dicentang, seluruh profil gaya (ukuran font, margin 2.2 cm, arsitektur tabel, Logo Cover & Kop, dan otorisasi) otomatis dikloning dan diterapkan ke seluruh dokumen di antrean saat ini dan berkas baru yang diunggah.
+                        </span>
+                      </label>
+                    </div>
+
+                    {/* POIN 1 & 2: Kolom Upload Logo Cover & Logo Kop Header */}
+                    <div
+                      style={{
+                        gridColumn: '1 / -1',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                        gap: '1rem',
+                      }}
+                    >
+                      {/* Poin 1: Kolom Upload Logo di Cover (Halaman 1) */}
+                      <div
+                        style={{
+                          padding: '1rem',
+                          border: '1.5px dashed rgba(2, 132, 199, 0.4)',
+                          borderRadius: '10px',
+                          background: 'rgba(2, 132, 199, 0.04)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0284c7', textTransform: 'uppercase' }}>
+                              1. Upload Logo Cover (Halaman 1)
+                            </span>
+                            {templateSettings.coverLogoDataUrl && (
+                              <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>✓ Terpasang</span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            Mendukung .png, .jpg, .jpeg, .svg, .webp. Tampil centered di Halaman 1 Cover.
+                          </p>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          <label
+                            className="btn btn-secondary btn-sm"
+                            style={{ cursor: 'pointer', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                          >
+                            <Upload size={13} />
+                            <span>Pilih Gambar Logo Cover</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                              onChange={handleUploadCoverLogo}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                          {templateSettings.coverLogoDataUrl && (
+                            <img
+                              src={templateSettings.coverLogoDataUrl}
+                              alt="Preview Cover Logo"
+                              style={{ height: '36px', maxWidth: '90px', objectFit: 'contain', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px' }}
+                            />
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Lebar:</span>
+                          <input
+                            type="range"
+                            min="1.5"
+                            max="5.0"
+                            step="0.1"
+                            value={templateSettings.coverLogoWidthInches || 3.2}
+                            onChange={(e) => handleCoverLogoWidthChange(parseFloat(e.target.value))}
+                            style={{ flex: 1, accentColor: '#0284c7' }}
+                          />
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, minWidth: '45px' }}>
+                            {(templateSettings.coverLogoWidthInches || 3.2).toFixed(1)} in
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Poin 2: Kolom Upload Logo di Kop Surat (Header Hal 2+) */}
+                      <div
+                        style={{
+                          padding: '1rem',
+                          border: '1.5px dashed rgba(13, 148, 136, 0.4)',
+                          borderRadius: '10px',
+                          background: 'rgba(13, 148, 136, 0.04)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          gap: '0.75rem',
+                        }}
+                      >
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0d9488', textTransform: 'uppercase' }}>
+                              2. Upload Logo Kop Header (Halaman 2 dst.)
+                            </span>
+                            {templateSettings.kopLogoDataUrl && (
+                              <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 700 }}>✓ Terpasang</span>
+                            )}
+                          </div>
+                          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
+                            Logo kotak kiri atas (Rowspan 3) Kop Surat pada Halaman 2, 3, dan seluruh lembar isi.
+                          </p>
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                          <label
+                            className="btn btn-secondary btn-sm"
+                            style={{ cursor: 'pointer', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                          >
+                            <Upload size={13} />
+                            <span>Pilih Gambar Logo Kop</span>
+                            <input
+                              type="file"
+                              accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp"
+                              onChange={handleUploadKopLogo}
+                              style={{ display: 'none' }}
+                            />
+                          </label>
+                          {templateSettings.kopLogoDataUrl && (
+                            <img
+                              src={templateSettings.kopLogoDataUrl}
+                              alt="Preview Kop Logo"
+                              style={{ height: '36px', maxWidth: '65px', objectFit: 'contain', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '2px' }}
+                            />
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Lebar:</span>
+                          <input
+                            type="range"
+                            min="0.5"
+                            max="2.0"
+                            step="0.05"
+                            value={templateSettings.kopLogoWidthInches || 0.95}
+                            onChange={(e) => handleKopLogoWidthChange(parseFloat(e.target.value))}
+                            style={{ flex: 1, accentColor: '#0d9488' }}
+                          />
+                          <span style={{ fontSize: '0.72rem', fontWeight: 700, minWidth: '45px' }}>
+                            {(templateSettings.kopLogoWidthInches || 0.95).toFixed(2)} in
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                     <div style={{ gridColumn: '1 / -1' }}>
                       <label className="form-label" style={{ fontSize: '0.8rem' }}>
                         JUDUL DOKUMEN / NAMA PROSEDUR *
@@ -2451,6 +2791,10 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   categoryCode={activeCustomization.typeCode}
                   preservedBodyParagraphs={activeCustomization.preservedBodyParagraphs}
                   bodyTables={activeCustomization.preservedBodyTables}
+                  coverLogoDataUrl={templateSettings.coverLogoDataUrl}
+                  kopLogoDataUrl={templateSettings.kopLogoDataUrl}
+                  coverLogoWidthInches={templateSettings.coverLogoWidthInches || 3.2}
+                  kopLogoWidthInches={templateSettings.kopLogoWidthInches || 0.95}
                   onCopyCode={() => {
                     navigator.clipboard.writeText(activeCustomization.code);
                     alert(`Kode ${activeCustomization.code} berhasil disalin!`);
@@ -2459,6 +2803,26 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     try {
                       const docTypeLabel = docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode;
                       const divisionLabel = divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode;
+
+                      let coverLogoBuf: ArrayBuffer | undefined;
+                      let kopLogoBuf: ArrayBuffer | undefined;
+                      if (templateSettings.coverLogoDataUrl) {
+                        try {
+                          const res = await fetch(templateSettings.coverLogoDataUrl);
+                          coverLogoBuf = await res.arrayBuffer();
+                        } catch (e) {
+                          console.warn('Could not buffer cover logo:', e);
+                        }
+                      }
+                      if (templateSettings.kopLogoDataUrl) {
+                        try {
+                          const res = await fetch(templateSettings.kopLogoDataUrl);
+                          kopLogoBuf = await res.arrayBuffer();
+                        } catch (e) {
+                          console.warn('Could not buffer kop logo:', e);
+                        }
+                      }
+
                       await generateAndDownloadNbeDocx({
                         docCode: activeCustomization.code,
                         titleId: activeCustomization.title,
@@ -2477,6 +2841,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         language: selectedLang,
                         preservedBodyParagraphs: activeCustomization.preservedBodyParagraphs,
                         bodyTables: activeCustomization.preservedBodyTables,
+                        coverLogoBuffer: coverLogoBuf,
+                        kopLogoBuffer: kopLogoBuf,
+                        coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
+                        kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
+                        isProcedureOrSop: activeCustomization.typeCode !== 'KB' && !activeCustomization.code.includes('-KB-'),
                       });
                     } catch (err: any) {
                       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
@@ -2937,6 +3306,143 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                 </>
               )}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL FULL WYSIWYG GOOGLE DOCS WORKSPACE (POIN 3) */}
+      {showGoogleDocsWorkspace && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(15, 23, 42, 0.88)',
+            backdropFilter: 'blur(10px)',
+            overflowY: 'auto',
+            padding: '1.25rem',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '1240px',
+              background: '#ffffff',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              border: '1px solid #cbd5e1',
+              position: 'relative',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: '85vh',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '1rem',
+                borderBottom: '1px solid #e2e8f0',
+                paddingBottom: '0.75rem',
+              }}
+            >
+              <div>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#0f172a', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <FileText size={20} color="#0284c7" />
+                  <span>Google Docs MCP - Workspace Editor Dokumen NBE</span>
+                </h3>
+                <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0.2rem 0 0 0' }}>
+                  Mode Pengeditan WYSIWYG Google Docs dengan Two-Way Sync dan Generator .docx Resmi
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGoogleDocsWorkspace(false)}
+                className="btn btn-secondary btn-sm"
+                style={{ fontWeight: 700, padding: '0.4rem 0.85rem' }}
+              >
+                ✕ Tutup & Kembali
+              </button>
+            </div>
+
+            <NbeDocumentWorkspace
+              initialDocsQueue={
+                wordFiles.length > 0
+                  ? wordFiles.map((wf) => {
+                      const c = fileCustomizations[wf.id] || activeCustomization;
+                      const typeDef = docTypes.find((t) => t.code.toUpperCase() === c.typeCode?.toUpperCase());
+                      return {
+                        id: wf.id,
+                        fileName: wf.name,
+                        docTitle: c.title || wf.name,
+                        docCode: c.code || '0001-SOP-GNR-CEO-X-2026',
+                        categoryLabel: typeDef?.label || 'Standard Operating Procedure (SOP)',
+                        revisionNo: String(c.revision || 0),
+                        issueDate: c.issueDate || '17 Oktober 2026',
+                        approvedBy: c.approvedBy || 'Bima Satryo Hartanto',
+                        approvedRole: 'President Director / CEO',
+                        verifiedBy: c.verifiedBy || 'Dennis Raditya',
+                        verifiedRole: 'Director of Operations & Technology / CTO',
+                        createdBy: c.preparedBy || 'Mazmur Gusti Agung Larosa',
+                        createdRole: 'Director of Finance & Engineering / DCC Lead',
+                        revisions: (c.revisions || []).map((r: any) => ({
+                          rev: String(r.revision ?? r.rev ?? 0),
+                          date: r.date,
+                          description: r.description,
+                          revisedBy: r.revisedBy,
+                        })),
+                        tocList: [
+                          { num: '1.0', title: 'OBJECTIVE' },
+                          { num: '2.0', title: 'SCOPE' },
+                          { num: '3.0', title: 'REFERENCES AND DEFINITIONS' },
+                          { num: '4.0', title: 'RESPONSIBILITIES AND AUTHORITIES' },
+                          { num: '5.0', title: 'PROCEDURE DETAILS AND WORKFLOW' },
+                          { num: '5.1', title: 'Annual Audit Plan and Risk Assessment', isSub: true },
+                          { num: '5.2', title: 'Audit Execution and Evidence Gathering', isSub: true },
+                          { num: '5.3', title: 'Non-Conformance Reporting (CAR)', isSub: true },
+                          { num: '6.0', title: 'RECORDS AND DOCUMENTATION' },
+                          { num: '7.0', title: 'APPENDICES AND FORMS' },
+                          { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
+                        ],
+                        bodyPages: [
+                          [
+                            '1.0 OBJECTIVE',
+                            'Prosedur ini menetapkan tata cara, acuan baku, dan mekanisme pengendalian pelaksanaan Audit Internal Sistem Manajemen Terintegrasi (IMS) dan CSMS di seluruh unit operasi PT Nirwana Bhumi Energy guna memastikan kepatuhan standar dan mitigasi risiko secara terukur.',
+                            '2.0 SCOPE',
+                            'Ruang lingkup prosedur ini mencakup seluruh tahapan perencanaan, pelaksanaan, pelaporan, dan tindak lanjut temuan audit internal untuk seluruh divisi operasional, teknis, dan keuangan di kantor pusat maupun area kerja lapangan.',
+                            '3.0 REFERENCES AND DEFINITIONS',
+                            'Pedoman ini berpedoman pada ISO 9001:2015 Klausul 9.2 (Internal Audit), ISO 14001:2015, ISO 45001:2018, dan kualifikasi CSMS SKK Migas serta PT PLN (Persero). Dokumen terkontrol adalah dokumen resmi yang telah diverifikasi dan disahkan oleh pejabat berwenang.',
+                          ],
+                          [
+                            '4.0 RESPONSIBILITIES AND AUTHORITIES',
+                            'Lead Auditor bertanggung jawab atas penyusunan jadwal audit tahunan dan independensi tim auditor. Auditee berkewajiban menyediakan akses bukti kerja dan dokumen rekaman. Direksi bertanggung jawab meninjau laporan audit dalam Rapat Tinjauan Manajemen (RTM).',
+                            '5.0 PROCEDURE DETAILS AND WORKFLOW',
+                            '5.1 Annual Audit Plan and Risk Assessment',
+                            'Audit tahunan disusun berbasis analisis tingkat risiko proses kerja dan hasil evaluasi audit periode sebelumnya. Jadwal disetujui selambat-lambatnya 30 hari sebelum dimulainya tahun anggaran berjalan.',
+                            '5.2 Audit Execution and Evidence Gathering',
+                            'Auditor mengumpulkan bukti obyektif melalui wawancara, verifikasi sampling dokumen, serta observasi langsung di lapangan. Temuan dicatat secara sistematis pada Formulir Lembar Temuan Audit (FLTA).',
+                            '5.3 Non-Conformance Reporting (CAR)',
+                            'Setiap ketidaksesuaian wajib ditindaklanjuti oleh penanggung jawab proses (Auditee) melalui Corrective Action Request (CAR) dengan batas waktu penyelesaian maksimal 14 hari kalender.',
+                          ],
+                          [
+                            '6.0 RECORDS AND DOCUMENTATION',
+                            'Seluruh dokumen daftar hadir closing meeting, checklist audit terisi, dan form CAR wajib diarsipkan oleh DCC selama minimal 3 (tiga) tahun untuk kepentingan audit eksternal.',
+                            '7.0 APPENDICES AND FORMS',
+                            'Lampiran A: Formulir Rencana Audit Tahunan (FM-IMS-AUD-01)\nLampiran B: Formulir Permintaan Tindakan Korektif (CAR) (FM-IMS-AUD-02)\nLampiran C: Format Laporan Ringkasan Hasil Audit Internal (FM-IMS-AUD-03)',
+                            '8.0 ATTACHMENTS AND EMERGENCY INSTRUCTIONS',
+                            'Segala bentuk eskalasi perselisihan interpretasi klausul audit wajib diselesaikan melalui mediasi Manajemen Representatif (MR) selambat-lambatnya 3 hari kerja.',
+                          ],
+                        ],
+                      };
+                    })
+                  : undefined
+              }
+              onBackToMain={() => setShowGoogleDocsWorkspace(false)}
+            />
           </div>
         </div>
       )}

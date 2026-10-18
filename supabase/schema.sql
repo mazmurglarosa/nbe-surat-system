@@ -224,6 +224,11 @@ CREATE TABLE IF NOT EXISTS public.document_templates (
     margin_left_cm NUMERIC(4, 2) NOT NULL DEFAULT 2.54,
     margin_right_cm NUMERIC(4, 2) NOT NULL DEFAULT 2.54,
     font_family TEXT NOT NULL DEFAULT 'Arial, sans-serif',
+    cover_logo_data_url TEXT,
+    kop_logo_data_url TEXT,
+    cover_logo_width_inches NUMERIC(4, 2) DEFAULT 3.2,
+    kop_logo_width_inches NUMERIC(4, 2) DEFAULT 0.95,
+    use_as_master_template BOOLEAN DEFAULT FALSE,
     last_updated TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );

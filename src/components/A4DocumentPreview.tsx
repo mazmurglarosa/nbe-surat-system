@@ -48,6 +48,12 @@ export interface A4DocumentPreviewProps {
   bodyContent?: string;
   preservedBodyParagraphs?: string[];
   bodyTables?: DocxTableData[];
+  coverLogoDataUrl?: string | null;
+  kopLogoDataUrl?: string | null;
+  coverLogoWidthInches?: number;
+  kopLogoWidthInches?: number;
+  tocList?: Array<{ num: string; title: string; isSub?: boolean }>;
+  bodyPages?: string[][];
   onCopyCode?: () => void;
   onDownloadDocx?: () => void;
   onSaveDocument?: (updated: DocumentSavePayload) => void;
@@ -70,11 +76,17 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   bodyContent,
   preservedBodyParagraphs = [],
   bodyTables = [],
+  coverLogoDataUrl = null,
+  kopLogoDataUrl = null,
+  coverLogoWidthInches = 3.2,
+  kopLogoWidthInches = 0.95,
+  tocList,
+  bodyPages,
   onCopyCode,
   onDownloadDocx,
   onSaveDocument,
 }) => {
-  const [activePageTab, setActivePageTab] = useState<'all' | 1 | 2 | 3 | 4>('all');
+  const [activePageTab, setActivePageTab] = useState<'all' | number>('all');
   const [isCopied, setIsCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDownloadingWord, setIsDownloadingWord] = useState(false);
@@ -197,6 +209,94 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     ];
   }, [revisions, effectiveRevision, formattedDate, language, effectiveCode, effectivePreparedBy, editableRevisionDesc]);
 
+  const isProceduralDoc = React.useMemo(() => {
+    if (categoryCode !== 'KB' && !effectiveCode.includes('-KB-')) return true;
+    if (tocList && tocList.length > 0) return true;
+    if (bodyPages && bodyPages.length > 0) return true;
+    if (
+      editableParagraphs &&
+      editableParagraphs.length > 0 &&
+      !editableParagraphs.some((p) => p.toUpperCase().includes('MENIMBANG'))
+    ) {
+      return true;
+    }
+    return false;
+  }, [categoryCode, effectiveCode, tocList, bodyPages, editableParagraphs]);
+
+  const effectiveTocList = React.useMemo(() => {
+    if (tocList && tocList.length > 0) return tocList;
+    if (editableParagraphs && editableParagraphs.length > 0) {
+      const extracted: Array<{ num: string; title: string; isSub?: boolean }> = [];
+      editableParagraphs.forEach((p) => {
+        const m = p.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
+        if (m) {
+          extracted.push({
+            num: m[1],
+            title: m[2],
+            isSub: !m[1].endsWith('.0'),
+          });
+        }
+      });
+      if (extracted.length > 0) return extracted;
+    }
+    return [
+      { num: '1.0', title: 'OBJECTIVE' },
+      { num: '2.0', title: 'SCOPE' },
+      { num: '3.0', title: 'RESPONSIBILITY' },
+      { num: '4.0', title: 'DEFINITION' },
+      { num: '5.0', title: 'PROCEDURE DETAILS' },
+      { num: '5.1', title: 'General Provisions', isSub: true },
+      { num: '5.2', title: 'Operational Flow', isSub: true },
+      { num: '6.0', title: 'RELATED DOCUMENTS' },
+      { num: '7.0', title: 'RECORDS' },
+      { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
+    ];
+  }, [tocList, editableParagraphs]);
+
+  const effectiveBodyPages: string[][] = React.useMemo(() => {
+    if (bodyPages && bodyPages.length > 0) return bodyPages;
+    if (editableParagraphs && editableParagraphs.length > 0) {
+      const pages: string[][] = [];
+      let currentPage: string[] = [];
+      editableParagraphs.forEach((p, idx) => {
+        currentPage.push(p);
+        if (currentPage.length >= 7 || idx === editableParagraphs.length - 1) {
+          pages.push(currentPage);
+          currentPage = [];
+        }
+      });
+      return pages.length > 0 ? pages : [editableParagraphs];
+    }
+    return [
+      [
+        '1.0 OBJECTIVE',
+        'Menetapkan tata kelola standar operasional pada PT Nirwana Bhumi Energy agar seluruh aktivitas berjalan efisien, aman, dan mematuhi regulasi industri migas serta sistem manajemen mutu ISO 9001/14001/45001.',
+        '2.0 SCOPE',
+        'Prosedur ini mencakup seluruh unit operasional, teknik, pengadaan, dan administrasi korporat di wilayah kerja PT Nirwana Bhumi Energy termasuk operasional darat dan fasilitas pendukung lainnya.',
+        '3.0 RESPONSIBILITY',
+        'Seluruh personel pelaksana wajib memahami dan menerapkan instruksi kerja yang tercantum. Verifikator teknis bertanggung jawab atas kendali mutu dan kepatuhan sistem audit berkala.',
+        '4.0 DEFINITION',
+        'IMS (Integrated Management Systems): Sistem Manajemen Terintegrasi mutu, K3, dan lingkungan yang diadopsi PT Nirwana Bhumi Energy.',
+        'DCC (Document Control Center): Unit pengelola registrasi, distribusi, dan pengarsipan naskah dokumen terkontrol.',
+      ],
+      [
+        '5.0 PROCEDURE DETAILS',
+        '5.1 General Provisions',
+        'Setiap kegiatan wajib diawali dengan penilaian risiko (Job Safety Analysis) dan inspeksi berkala pada peralatan kerja serta verifikasi izin kerja berlaku.',
+        '5.2 Operational Flow',
+        'Pelaksanaan tugas operasional dilaporkan secara harian ke sistem pemantauan terpadu untuk menjamin kontinuitas data dan akurasi riwayat penanganan.',
+        '6.0 RELATED DOCUMENTS',
+        'Manual Sistem Manajemen Terintegrasi NBE-IMS-MAN-2026 dan Formulir Verifikasi Mutu Lapangan.',
+        '7.0 RECORDS',
+        'Seluruh catatan verifikasi, logbook inspeksi, dan berita acara disimpan dalam arsip terkontrol minimal selama 5 (lima) tahun.',
+        '8.0 ATTACHMENTS AND EMERGENCY INSTRUCTIONS',
+        'Instruksi tanggap darurat dan nomor kontak darurat tertera pada lampiran internal operasional.',
+      ],
+    ];
+  }, [bodyPages, editableParagraphs]);
+
+  const totalPages = isProceduralDoc ? 3 + effectiveBodyPages.length : 4;
+
   const handleCopy = () => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(effectiveCode);
@@ -282,6 +382,25 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     }
     setIsDownloadingWord(true);
     try {
+      let coverBuffer: ArrayBuffer | null = null;
+      let kopBuffer: ArrayBuffer | null = null;
+      if (coverLogoDataUrl) {
+        try {
+          const res = await fetch(coverLogoDataUrl);
+          coverBuffer = await res.arrayBuffer();
+        } catch (e) {
+          console.warn('Could not convert coverLogoDataUrl to buffer:', e);
+        }
+      }
+      if (kopLogoDataUrl) {
+        try {
+          const res = await fetch(kopLogoDataUrl);
+          kopBuffer = await res.arrayBuffer();
+        } catch (e) {
+          console.warn('Could not convert kopLogoDataUrl to buffer:', e);
+        }
+      }
+
       await generateAndDownloadNbeDocx({
         docCode: effectiveCode,
         titleId: displayTitle,
@@ -298,6 +417,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         approvedBy: effectiveApprovedBy,
         approvedRole: 'President Director / CEO',
         language: language,
+        coverLogoBuffer: coverBuffer,
+        kopLogoBuffer: kopBuffer,
+        coverLogoWidthInches: coverLogoWidthInches || 3.2,
+        kopLogoWidthInches: kopLogoWidthInches || 0.95,
+        tocList: effectiveTocList,
+        bodyPages: effectiveBodyPages,
+        isProcedureOrSop: isProceduralDoc,
         preservedBodyParagraphs: editableParagraphs,
         bodyTables: editableTables,
       });
@@ -367,6 +493,163 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     fontSize: '9pt',
     verticalAlign: 'middle',
   };
+
+  const renderSharedKopHeader = () => (
+    <table
+      style={{
+        width: '100%',
+        borderCollapse: 'collapse',
+        border: '1.5px solid #000000',
+        marginBottom: '1.25rem',
+        fontFamily: 'Arial, sans-serif',
+        background: '#FFFFFF',
+      }}
+    >
+      <tbody>
+        <tr>
+          <td
+            rowSpan={3}
+            style={{
+              width: '24%',
+              border: '1px solid #000000',
+              padding: '6px 8px',
+              textAlign: 'center',
+              verticalAlign: 'middle',
+            }}
+          >
+            {kopLogoDataUrl ? (
+              <img
+                src={kopLogoDataUrl}
+                alt="Logo Kop NBE"
+                style={{
+                  width: kopLogoWidthInches ? `${kopLogoWidthInches}in` : '0.95in',
+                  maxHeight: '44px',
+                  objectFit: 'contain',
+                  margin: '0 auto 4px auto',
+                  display: 'block',
+                }}
+              />
+            ) : (
+              <img
+                src="/+BG.png"
+                alt="NBE"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                }}
+                style={{ maxHeight: '38px', maxWidth: '110px', objectFit: 'contain', margin: '0 auto' }}
+              />
+            )}
+            <div style={{ fontSize: '8pt', fontWeight: 'bold', marginTop: '3px', color: '#3B3838' }}>
+              PT Nirwana Bhumi Energy
+            </div>
+          </td>
+          <td
+            colSpan={2}
+            style={{
+              border: '1px solid #000000',
+              padding: '5px 10px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '10pt',
+              background: '#f8fafc',
+            }}
+          >
+            {language === 'en'
+              ? 'INTEGRATED MANAGEMENT SYSTEMS'
+              : language === 'bi'
+              ? 'SISTEM MANAJEMEN TERINTEGRASI / IMS'
+              : 'SISTEM MANAJEMEN TERINTEGRASI'}
+          </td>
+        </tr>
+        <tr>
+          <td
+            colSpan={2}
+            style={{
+              border: '1px solid #000000',
+              padding: '4px 10px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '9pt',
+              color: '#003366',
+            }}
+          >
+            {typeLabel}
+          </td>
+        </tr>
+        <tr>
+          <td
+            colSpan={2}
+            style={{
+              border: '1px solid #000000',
+              padding: '5px 10px',
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '10.5pt',
+              color: '#000000',
+              textTransform: 'uppercase',
+            }}
+          >
+            {displayTitle}
+          </td>
+        </tr>
+        <tr>
+          <td
+            style={{
+              border: '1px solid #000000',
+              padding: '4px 8px',
+              fontSize: '8.5pt',
+              fontWeight: 'bold',
+              background: '#f1f5f9',
+            }}
+          >
+            {isEditing ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <span>{language === 'en' ? 'Rev:' : 'Revisi:'}</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={99}
+                  value={editableRevision}
+                  onChange={(e) => setEditableRevision(parseInt(e.target.value) || 0)}
+                  style={{
+                    width: '45px',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '8.5pt',
+                    fontWeight: 'bold',
+                    border: '1px dashed #0284c7',
+                    background: '#f0f9ff',
+                    padding: '2px 4px',
+                    borderRadius: '4px',
+                  }}
+                />
+              </span>
+            ) : (
+              <>{language === 'en' ? 'Revision:' : 'Revisi:'} {effectiveRevision}</>
+            )}
+          </td>
+          <td
+            style={{
+              border: '1px solid #000000',
+              padding: '4px 8px',
+              fontSize: '8.5pt',
+            }}
+          >
+            <strong>{language === 'en' ? 'Number:' : 'Nomor:'}</strong> {effectiveCode}
+          </td>
+          <td
+            style={{
+              border: '1px solid #000000',
+              padding: '4px 8px',
+              fontSize: '8.5pt',
+              textAlign: 'right',
+            }}
+          >
+            <strong>{language === 'en' ? 'Date:' : 'Tanggal:'}</strong> {language === 'en' ? formattedDateEn : formattedDate}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
 
   return (
     <div
@@ -664,11 +947,21 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           Halaman:
         </span>
         {[
-          { id: 'all', label: 'Semua 4 Halaman' },
+          { id: 'all', label: `Semua (${totalPages} Halaman)` },
           { id: 1, label: 'Hal 1: Cover Page' },
           { id: 2, label: 'Hal 2: Revision Index' },
-          { id: 3, label: 'Hal 3: Permulaan Surat' },
-          { id: 4, label: 'Hal 4: DCC & Tanda Tangan' },
+          ...(isProceduralDoc
+            ? [
+                { id: 3, label: 'Hal 3: Table of Contents' },
+                ...effectiveBodyPages.map((_, idx) => ({
+                  id: 4 + idx,
+                  label: `Hal ${4 + idx}: Isi Dokumen (Bag. ${idx + 1})`,
+                })),
+              ]
+            : [
+                { id: 3, label: 'Hal 3: Konsiderans SK' },
+                { id: 4, label: 'Hal 4: DCC & Tanda Tangan' },
+              ]),
         ].map((tab) => (
           <button
             key={String(tab.id)}
@@ -721,19 +1014,32 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 marginTop: '1.5rem',
               }}
             >
-              <img
-                src="/+BG.png"
-                alt="PT Nirwana Bhumi Energy"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                }}
-                style={{
-                  width: '4.7cm',
-                  height: 'auto',
-                  objectFit: 'contain',
-                  marginBottom: '1rem',
-                }}
-              />
+              {coverLogoDataUrl ? (
+                <img
+                  src={coverLogoDataUrl}
+                  alt="Logo Cover NBE"
+                  style={{
+                    width: coverLogoWidthInches ? `${coverLogoWidthInches}in` : '3.2in',
+                    maxHeight: '130px',
+                    objectFit: 'contain',
+                    marginBottom: '1rem',
+                  }}
+                />
+              ) : (
+                <img
+                  src="/+BG.png"
+                  alt="PT Nirwana Bhumi Energy"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = '/logo.png';
+                  }}
+                  style={{
+                    width: '4.7cm',
+                    height: 'auto',
+                    objectFit: 'contain',
+                    marginBottom: '1rem',
+                  }}
+                />
+              )}
               <div
                 style={{
                   fontSize: '20pt',
@@ -976,7 +1282,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               }}
             >
               <span>PT Nirwana Bhumi Energy | Corporate Document Management System</span>
-              <span>Page 1 of 4</span>
+              <span>Page 1 of {totalPages}</span>
             </div>
           </div>
 
@@ -988,156 +1294,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           id="nbe-page-2"
           className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(2) ? 'screen-hidden' : ''}`}
         >
-            {/* Header Kop Resmi NBE: 4 Baris Sel */}
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                border: '1.5px solid #000000',
-                marginBottom: '1.5rem',
-              }}
-            >
-              <tbody>
-                <tr>
-                  <td
-                    rowSpan={3}
-                    style={{
-                      width: '26%',
-                      border: '1px solid #000000',
-                      padding: '8px',
-                      textAlign: 'center',
-                      verticalAlign: 'middle',
-                    }}
-                  >
-                    <img
-                      src="/+BG.png"
-                      alt="NBE"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/logo.png';
-                      }}
-                      style={{ maxHeight: '38px', maxWidth: '110px', objectFit: 'contain' }}
-                    />
-                    <div style={{ fontSize: '8.5pt', fontWeight: 'bold', marginTop: '4px' }}>
-                      PT Nirwana Bhumi Energy
-                    </div>
-                  </td>
-                  <td
-                    style={{
-                      border: '1px solid #000000',
-                      padding: '6px 12px',
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '11pt',
-                      background: '#f8fafc',
-                    }}
-                  >
-                    {language === 'en'
-                      ? 'INTEGRATED MANAGEMENT SYSTEMS'
-                      : language === 'bi'
-                      ? 'SISTEM MANAJEMEN TERINTEGRASI / IMS'
-                      : 'SISTEM MANAJEMEN TERINTEGRASI'}
-                  </td>
-                </tr>
-                <tr>
-                  <td
-                    style={{
-                      border: '1px solid #000000',
-                      padding: '5px 12px',
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '9.5pt',
-                      color: '#003366',
-                    }}
-                  >
-                    {typeLabel}
-                  </td>
-                </tr>
-                <tr>
-                  <td
-                    style={{
-                      border: '1px solid #000000',
-                      padding: '6px 12px',
-                      textAlign: 'center',
-                      fontWeight: 'bold',
-                      fontSize: '11.5pt',
-                      color: '#000000',
-                    }}
-                  >
-                    {displayTitle}
-                  </td>
-                </tr>
-                <tr>
-                  <td
-                    style={{
-                      border: '1px solid #000000',
-                      padding: '5px 8px',
-                      fontSize: '8.5pt',
-                      fontWeight: 'bold',
-                      background: '#f1f5f9',
-                    }}
-                  >
-                    {isEditing ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <span>{language === 'en' ? 'Rev:' : 'Revisi:'}</span>
-                        <input
-                          type="number"
-                          min={0}
-                          max={99}
-                          value={editableRevision}
-                          onChange={(e) => setEditableRevision(parseInt(e.target.value) || 0)}
-                          style={{
-                            width: '45px',
-                            fontFamily: 'Arial, sans-serif',
-                            fontSize: '8.5pt',
-                            fontWeight: 'bold',
-                            border: '1px dashed #0284c7',
-                            background: '#f0f9ff',
-                            padding: '2px 4px',
-                            borderRadius: '4px',
-                          }}
-                        />
-                      </span>
-                    ) : (
-                      <>{language === 'en' ? 'Revision:' : 'Revisi:'} {effectiveRevision}</>
-                    )}
-                  </td>
-                  <td
-                    style={{
-                      border: '1px solid #000000',
-                      padding: '5px 12px',
-                      fontSize: '8.5pt',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                    }}
-                  >
-                    <span>
-                      <strong>{language === 'en' ? 'Number:' : 'Nomor:'}</strong> {effectiveCode}
-                    </span>
-                    <span>
-                      <strong>{language === 'en' ? 'Date:' : 'Tanggal:'}</strong>{' '}
-                      {isEditing ? (
-                        <input
-                          type="date"
-                          value={editableIssueDate}
-                          onChange={(e) => setEditableIssueDate(e.target.value)}
-                          style={{
-                            fontFamily: 'Arial, sans-serif',
-                            fontSize: '8pt',
-                            border: '1px dashed #0284c7',
-                            background: '#f0f9ff',
-                            padding: '2px 4px',
-                            borderRadius: '4px',
-                          }}
-                        />
-                      ) : (
-                        language === 'en' ? formattedDateEn : formattedDate
-                      )}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
+            {renderSharedKopHeader()}
 
             {/* Judul REVISION INDEX Ditebalkan (Arial 12 pt Bold Centered) */}
             <div
@@ -1253,36 +1411,158 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               }}
             >
               <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-              <span>Page 2 of 4</span>
+              <span>Page 2 of {totalPages}</span>
             </div>
           </div>
 
-        {/* ============================================================== */}
-        {/* HALAMAN 3: PERMULAAN ISI SURAT (LETTER BODY & KESATU)          */}
-        {/* ============================================================== */}
-        <div
-          style={a4PageStyle}
-          id="nbe-page-3"
-          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
-        >
-            {/* Kop Mini Running Header */}
+        {isProceduralDoc ? (
+          <>
+            {/* ============================================================== */}
+            {/* HALAMAN 3: TABLE OF CONTENTS (KHUSUS 1 HALAMAN TERSENDIRI - POIN 8) */}
+            {/* ============================================================== */}
             <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '2px solid #003366',
-                paddingBottom: '0.5rem',
-                marginBottom: '1.5rem',
-              }}
+              style={a4PageStyle}
+              id="nbe-page-3"
+              className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
             >
-              <span style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000000' }}>
-                PT NIRWANA BHUMI ENERGY
-              </span>
-              <span style={{ fontSize: '8.5pt', color: '#003366', fontWeight: 'bold' }}>
-                {effectiveCode}
-              </span>
+              {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
+              {renderSharedKopHeader()}
+
+              <div style={{ textAlign: 'center', margin: '1.25rem 0' }}>
+                <h4 style={{ fontSize: '13pt', fontWeight: 'bold', color: '#000000', margin: 0, textTransform: 'uppercase' }}>
+                  TABLE OF CONTENTS
+                </h4>
+              </div>
+
+              <div style={{ marginTop: '1.5rem', marginBottom: '2rem' }}>
+                {effectiveTocList.map((item, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      paddingLeft: item.isSub ? '0.5in' : '0',
+                      fontWeight: item.isSub ? 'normal' : 'bold',
+                      color: item.isSub ? '#3B3838' : '#000000',
+                      marginBottom: '0.45rem',
+                      fontSize: '10.5pt',
+                    }}
+                  >
+                    {/* Tab Stop 0.5 inci agar nomor dan judul bab tidak menempel (Poin 8) */}
+                    <span style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}>
+                      {item.num}
+                    </span>
+                    <span>{item.title}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ flex: 1 }} />
+
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  borderTop: '1px solid #e2e8f0',
+                  paddingTop: '0.5rem',
+                  fontSize: '8pt',
+                  color: '#94a3b8',
+                }}
+              >
+                <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+                <span>Page 3 of {totalPages}</span>
+              </div>
             </div>
+
+            {/* ============================================================== */}
+            {/* HALAMAN 4+: ISI DOKUMEN PROSEDUR (POIN 6: TANPA LEMBAR VALIDASI) */}
+            {/* ============================================================== */}
+            {effectiveBodyPages.map((pageLines, pageIdx) => {
+              const pageNum = 4 + pageIdx;
+              return (
+                <div
+                  key={pageIdx}
+                  style={a4PageStyle}
+                  id={`nbe-page-${pageNum}`}
+                  className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(pageNum) ? 'screen-hidden' : ''}`}
+                >
+                  {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
+                  {renderSharedKopHeader()}
+
+                  <div style={{ marginTop: '0.5rem', fontSize: '10pt', color: '#3B3838' }}>
+                    {pageLines.map((line, lIdx) => {
+                      const matchH = line.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
+                      if (matchH) {
+                        const [, numPart, titlePart] = matchH;
+                        const isMainH = numPart.endsWith('.0');
+                        return (
+                          <div
+                            key={lIdx}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'baseline',
+                              fontWeight: 'bold',
+                              color: '#000000',
+                              paddingTop: isMainH ? '0.75rem' : '0.4rem',
+                              marginBottom: '0.3rem',
+                              fontSize: isMainH ? '11pt' : '10.5pt',
+                            }}
+                          >
+                            <span style={{ display: 'inline-block', width: '0.5in', flexShrink: 0 }}>
+                              {numPart}
+                            </span>
+                            <span>{titlePart}</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <p
+                          key={lIdx}
+                          style={{
+                            paddingLeft: '0.5in',
+                            textAlign: 'justify',
+                            lineHeight: 1.6,
+                            marginBottom: '0.5rem',
+                          }}
+                        >
+                          {line}
+                        </p>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ flex: 1 }} />
+
+                  {/* Catatan Poin 6: DOKUMEN LANGSUNG SELESAI, TANPA LEMBAR OTORISASI & VALIDASI AKHIR! */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      borderTop: '1px solid #e2e8f0',
+                      paddingTop: '0.5rem',
+                      fontSize: '8pt',
+                      color: '#94a3b8',
+                    }}
+                  >
+                    <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
+                    <span>Page {pageNum} of {totalPages}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        ) : (
+          <>
+            {/* ============================================================== */}
+            {/* HALAMAN 3: PERMULAAN ISI SURAT (LETTER BODY & KESATU)          */}
+            {/* ============================================================== */}
+            <div
+              style={a4PageStyle}
+              id="nbe-page-3"
+              className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
+            >
+            {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
+            {renderSharedKopHeader()}
 
             {/* Judul Resmi Dokumen */}
             <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
@@ -1659,24 +1939,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           id="nbe-page-4"
           className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(4) ? 'screen-hidden' : ''}`}
         >
-            {/* Kop Mini Running Header */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                borderBottom: '2px solid #003366',
-                paddingBottom: '0.5rem',
-                marginBottom: '1rem',
-              }}
-            >
-              <span style={{ fontSize: '9pt', fontWeight: 'bold', color: '#000000' }}>
-                PT NIRWANA BHUMI ENERGY
-              </span>
-              <span style={{ fontSize: '8.5pt', color: '#003366', fontWeight: 'bold' }}>
-                {effectiveCode}
-              </span>
-            </div>
+            {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
+            {renderSharedKopHeader()}
 
             {/* Jika SK Direksi Murni: tampilkan Diktum KEDUA, Tabel Tim DCC, Diktum KETIGA-KELIMA */}
             {(categoryCode === 'KB' || effectiveCode.includes('-KB-')) && (!editableTables || editableTables.length === 0) && (!editableParagraphs || editableParagraphs.length === 0) ? (
@@ -2084,9 +2348,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               }}
             >
               <span>{effectiveCode} | PT Nirwana Bhumi Energy</span>
-              <span>Page 4 of 4</span>
+              <span>Page 4 of {totalPages}</span>
             </div>
           </div>
+          </>
+        )}
       </div>
     </div>
   );

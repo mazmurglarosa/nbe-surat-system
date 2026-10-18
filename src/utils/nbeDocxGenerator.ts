@@ -3,6 +3,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   Table,
   TableRow,
   TableCell,
@@ -39,6 +40,13 @@ export interface NbeDocumentPayload {
   approvedBy: string;
   approvedRole: string;
   language: LanguageMode;
+  coverLogoBuffer?: ArrayBuffer | null;
+  kopLogoBuffer?: ArrayBuffer | null;
+  coverLogoWidthInches?: number;
+  kopLogoWidthInches?: number;
+  tocList?: Array<{ num: string; title: string; isSub?: boolean }>;
+  bodyPages?: string[][];
+  isProcedureOrSop?: boolean;
   preservedBodyParagraphs?: string[];
   bodyTables?: DocxTableData[];
   revisionRows?: Array<{ rev: string; date: string; description: string; revisedBy: string }>;
@@ -95,6 +103,23 @@ function buildRunningHeader(data: NbeDocumentPayload): Header {
                 width: { size: 22, type: WidthType.PERCENTAGE },
                 verticalAlign: VerticalAlign.CENTER,
                 children: [
+                  ...(data.kopLogoBuffer
+                    ? [
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new ImageRun({
+                              data: data.kopLogoBuffer,
+                              transformation: {
+                                width: data.kopLogoWidthInches ? Math.round(data.kopLogoWidthInches * 72) : 65,
+                                height: data.kopLogoWidthInches ? Math.round(data.kopLogoWidthInches * 72 * 0.58) : 38,
+                              },
+                              type: "png",
+                            }),
+                          ],
+                        }),
+                      ]
+                    : []),
                   new Paragraph({
                     alignment: AlignmentType.CENTER,
                     children: [new TextRun({ text: "PT NIRWANA BHUMI ENERGY", font: "Arial", size: 16, bold: true, color: COLOR_NAVY })],
@@ -222,14 +247,34 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       : `Revision ${data.revisionNo} – Updated Controlled Document`;
 
   // HALAMAN 1: COVER PAGE
+  const coverWidthPt = data.coverLogoWidthInches ? Math.round(data.coverLogoWidthInches * 72) : 220;
+  const coverHeightPt = Math.round(coverWidthPt * 0.35);
+
+  const coverLogoParagraphs = data.coverLogoBuffer
+    ? [
+        new Paragraph({
+          spacing: { before: 360, after: 120 },
+          alignment: AlignmentType.CENTER,
+          children: [
+            new ImageRun({
+              data: data.coverLogoBuffer,
+              transformation: { width: coverWidthPt, height: coverHeightPt },
+              type: "png",
+            }),
+          ],
+        }),
+      ]
+    : [];
+
   const page1Children: Paragraph[] = [
+    ...coverLogoParagraphs,
     new Paragraph({
-      spacing: { before: 600, after: 200 },
+      spacing: { before: data.coverLogoBuffer ? 0 : 500, after: 200 },
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: "PT NIRWANA BHUMI ENERGY", font: "Arial", size: 40, bold: true, color: COLOR_BLACK })],
     }),
     new Paragraph({
-      spacing: { before: 300, after: 160 },
+      spacing: { before: 240, after: 140 },
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: coverDocType, font: "Arial", size: 31, bold: true, color: COLOR_BLACK })],
     }),
@@ -239,7 +284,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       children: [new TextRun({ text: coverSubject, font: "Arial", size: 23, bold: true, color: COLOR_BODY })],
     }),
     new Paragraph({
-      spacing: { before: 100, after: 400 },
+      spacing: { before: 100, after: 360 },
       alignment: AlignmentType.CENTER,
       children: [
         new TextRun({
@@ -251,7 +296,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
         }),
       ],
     }),
-    new Paragraph({ spacing: { before: 1800, after: 1800 } }),
+    new Paragraph({ spacing: { before: 1400, after: 1400 } }),
     new Paragraph({
       indent: { left: convertInchesToTwip(3.45) },
       spacing: { after: 60 },
@@ -279,7 +324,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
     new Paragraph({ children: [new PageBreak()] }),
   ];
 
-  // HALAMAN 2: REVISION INDEX (Otomatis dari Kartu 2: Tabel Index Revisi Dokumen)
+  // HALAMAN 2: REVISION INDEX (Otomatis dari Tabel Index Revisi Dokumen)
   const revisionTableRows = [
     new TableRow({
       cantSplit: true,
@@ -350,30 +395,190 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
     new Paragraph({ children: [new PageBreak()] }),
   ];
 
-  // HALAMAN 3+: JIKA DOKUMEN MEMILIKI ISI ASLI / TABEL ASLI / EDITAN PREVIEW YANG DIPERTAHANKAN
+  // POIN 8: HALAMAN 3 KHUSUS DAFTAR ISI (TABLE OF CONTENTS) DALAM 1 HALAMAN TERSENDIRI
+  const effectiveTocList = (data.tocList && data.tocList.length > 0)
+    ? data.tocList
+    : (!isKB
+      ? [
+          { num: "1.0", title: "OBJECTIVE" },
+          { num: "2.0", title: "SCOPE" },
+          { num: "3.0", title: "REFERENCES AND DEFINITIONS" },
+          { num: "4.0", title: "RESPONSIBILITIES AND AUTHORITIES" },
+          { num: "5.0", title: "PROCEDURE DETAILS AND WORKFLOW" },
+          { num: "5.1", title: "Annual Audit Plan and Risk Assessment", isSub: true },
+          { num: "5.2", title: "Audit Execution and Evidence Gathering", isSub: true },
+          { num: "5.3", title: "Non-Conformance Reporting (CAR)", isSub: true },
+          { num: "6.0", title: "RECORDS AND DOCUMENTATION" },
+          { num: "7.0", title: "APPENDICES AND FORMS" },
+          { num: "8.0", title: "ATTACHMENTS AND EMERGENCY INSTRUCTIONS" },
+        ]
+      : null);
+
+  const page3TocChildren: Paragraph[] = [];
+  if (effectiveTocList) {
+    page3TocChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 120, after: 300 },
+        children: [new TextRun({ text: "TABLE OF CONTENTS", font: "Arial", size: 26, bold: true, color: COLOR_BLACK })],
+      }),
+      ...effectiveTocList.map((item) =>
+        new Paragraph({
+          indent: { left: item.isSub ? 720 : 0 },
+          tabStops: [{ type: TabStopType.LEFT, position: item.isSub ? 1440 : 720 }],
+          spacing: { before: item.isSub ? 30 : 60, after: item.isSub ? 30 : 60, line: 260 },
+          children: [
+            // Memisahkan nomor bab dan judul bab dengan tab (\t) agar rapi dan tidak pernah menempel (1.0    OBJECTIVE)
+            new TextRun({
+              text: `${item.num}\t${item.title}`,
+              font: "Arial",
+              size: 21,
+              bold: !item.isSub,
+              color: item.isSub ? COLOR_BODY : COLOR_BLACK,
+            }),
+          ],
+        })
+      ),
+      new Paragraph({ children: [new PageBreak()] })
+    );
+  }
+
+  // HALAMAN 4+: JIKA DOKUMEN MEMILIKI BODY PAGES / ISI ASLI / TABEL ASLI / DOKUMEN PROSEDUR
   const hasPreservedParagraphs = data.preservedBodyParagraphs && data.preservedBodyParagraphs.length > 0;
   const hasPreservedTables = data.bodyTables && data.bodyTables.length > 0;
+  const hasBodyPages = data.bodyPages && data.bodyPages.length > 0;
 
-  if (hasPreservedParagraphs || hasPreservedTables) {
-    const preservedBodyChildren: (Paragraph | Table)[] = [];
+  if (hasBodyPages || hasPreservedParagraphs || hasPreservedTables || !isKB) {
+    const proceduralBodyChildren: (Paragraph | Table)[] = [];
 
-    // Tambahkan paragraf body asli jika ada
-    if (hasPreservedParagraphs && data.preservedBodyParagraphs) {
+    // Jika memiliki bodyPages array
+    if (hasBodyPages && data.bodyPages) {
+      data.bodyPages.forEach((pageParagraphs, pIdx) => {
+        pageParagraphs.forEach((rawLine) => {
+          const matchHeading = rawLine.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
+          if (matchHeading) {
+            const [, numPart, titlePart] = matchHeading;
+            const isMainHeading = numPart.endsWith(".0");
+            proceduralBodyChildren.push(
+              new Paragraph({
+                tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+                spacing: { before: isMainHeading ? 220 : 140, after: 80, line: 276 },
+                children: [
+                  new TextRun({
+                    text: `${numPart}\t${titlePart}`,
+                    font: "Arial",
+                    size: isMainHeading ? 24 : 22,
+                    bold: true,
+                    color: COLOR_BLACK,
+                  }),
+                ],
+              })
+            );
+          } else {
+            proceduralBodyChildren.push(
+              new Paragraph({
+                alignment: AlignmentType.JUSTIFIED,
+                indent: { left: 720 },
+                spacing: { before: 0, after: 100, line: 276 },
+                children: [
+                  new TextRun({
+                    text: rawLine,
+                    font: "Arial",
+                    size: 21,
+                    color: COLOR_BODY,
+                  }),
+                ],
+              })
+            );
+          }
+        });
+        if (pIdx < data.bodyPages!.length - 1) {
+          proceduralBodyChildren.push(new Paragraph({ children: [new PageBreak()] }));
+        }
+      });
+    } else if (hasPreservedParagraphs && data.preservedBodyParagraphs) {
+      // Tambahkan paragraf body asli jika ada
       data.preservedBodyParagraphs.forEach((paraText) => {
-        const isHeading = /^[0-9]+\.[0-9]+/.test(paraText.trim()) || /^[A-Z0-9\s:/-]{4,}$/.test(paraText.trim());
-        preservedBodyChildren.push(
+        const matchHeading = paraText.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
+        if (matchHeading) {
+          const [, numPart, titlePart] = matchHeading;
+          const isMainHeading = numPart.endsWith(".0");
+          proceduralBodyChildren.push(
+            new Paragraph({
+              tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+              spacing: { before: isMainHeading ? 220 : 140, after: 80, line: 276 },
+              children: [
+                new TextRun({
+                  text: `${numPart}\t${titlePart}`,
+                  font: "Arial",
+                  size: isMainHeading ? 24 : 22,
+                  bold: true,
+                  color: COLOR_BLACK,
+                }),
+              ],
+            })
+          );
+        } else {
+          const isCapsHeading = /^[A-Z0-9\s:/-]{4,}$/.test(paraText.trim());
+          proceduralBodyChildren.push(
+            new Paragraph({
+              alignment: isCapsHeading ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
+              indent: { left: isCapsHeading ? 0 : 720 },
+              tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+              spacing: { before: isCapsHeading ? 240 : 80, after: isCapsHeading ? 100 : 80, line: 276 },
+              children: [
+                new TextRun({
+                  text: paraText,
+                  font: "Arial",
+                  size: isCapsHeading ? 22 : 21,
+                  bold: isCapsHeading,
+                  color: isCapsHeading ? COLOR_BLACK : COLOR_BODY,
+                }),
+              ],
+            })
+          );
+        }
+      });
+    } else if (!isKB) {
+      // Fallback standar bab 1 - 8 untuk prosedur/SOP tanpa isian
+      const defaultChapters = [
+        ["1.0 OBJECTIVE", "Prosedur ini menetapkan tata cara, acuan baku, dan mekanisme pengendalian pelaksanaan prosedur di lingkungan PT Nirwana Bhumi Energy guna menjamin mutu, akurasi, serta kepatuhan keselamatan kerja."],
+        ["2.0 SCOPE", "Prosedur ini berlaku secara menyeluruh bagi seluruh departemen, proyek operasional, dan personel terkait di lingkungan PT Nirwana Bhumi Energy."],
+        ["3.0 REFERENCES AND DEFINITIONS", "Pedoman Sistem Manajemen Terintegrasi PT Nirwana Bhumi Energy, ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, dan kualifikasi CSMS SKK Migas serta PT PLN (Persero)."],
+        ["4.0 RESPONSIBILITIES AND AUTHORITIES", "Pembuat dokumen bertanggung jawab menyusun draf materi teknis. Verifikator memeriksa kesesuaian risiko. Pejabat berwenang mengesahkan dokumen."],
+        ["5.0 PROCEDURE DETAILS AND WORKFLOW", "Pelaksanaan teknis alur kerja sesuai dengan instruksi kerja dan matriks tanggung jawab yang telah ditetapkan."],
+        ["6.0 RECORDS AND DOCUMENTATION", "Seluruh rekaman, daftar periksa, formulir isian, dan bukti verifikasi diarsipkan secara digital dalam Google Drive Korporat."],
+        ["7.0 APPENDICES AND FORMS", "Lampiran formulir teknis, checklist audit, dan lembar catatan mutu."],
+        ["8.0 ATTACHMENTS AND EMERGENCY INSTRUCTIONS", "Instruksi khusus dan penanganan darurat ketidaksesuaian operasional."],
+      ];
+
+      defaultChapters.forEach(([chTitle, chDesc], idx) => {
+        const [numPart, ...titleParts] = chTitle.split(" ");
+        const titlePart = titleParts.join(" ");
+        proceduralBodyChildren.push(
           new Paragraph({
-            alignment: isHeading ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
-            indent: { left: isHeading ? 0 : 720 },
             tabStops: [{ type: TabStopType.LEFT, position: 720 }],
-            spacing: { before: isHeading ? 240 : 80, after: isHeading ? 100 : 80, line: 276 },
+            spacing: { before: 200, after: 60, line: 276 },
             children: [
               new TextRun({
-                text: paraText,
+                text: `${numPart}\t${titlePart}`,
                 font: "Arial",
-                size: isHeading ? 22 : 20,
-                bold: isHeading,
-                color: isHeading ? COLOR_BLACK : COLOR_BODY,
+                size: 24,
+                bold: true,
+                color: COLOR_BLACK,
+              }),
+            ],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.JUSTIFIED,
+            indent: { left: 720 },
+            spacing: { before: 0, after: 120, line: 276 },
+            children: [
+              new TextRun({
+                text: chDesc,
+                font: "Arial",
+                size: 21,
+                color: COLOR_BODY,
               }),
             ],
           })
@@ -381,7 +586,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       });
     }
 
-    // Tambahkan tabel asli dari berkas pengguna
+    // Tambahkan tabel asli dari berkas pengguna jika ada
     if (hasPreservedTables && data.bodyTables) {
       data.bodyTables.forEach((tblData) => {
         if (!tblData.rows || tblData.rows.length === 0) return;
@@ -420,7 +625,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
           });
         });
 
-        preservedBodyChildren.push(
+        proceduralBodyChildren.push(
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             borders: tableBorders,
@@ -431,6 +636,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       });
     }
 
+    // Poin 6: DOKUMEN PROSEDUR LANGSUNG BERAKHIR BERSIH TANPA LEMBAR VALIDASI AKHIR!
     return new Document({
       sections: [
         {
@@ -461,7 +667,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
               ],
             }),
           },
-          children: [...page1Children, ...page2Children, ...preservedBodyChildren],
+          children: [...page1Children, ...page2Children, ...page3TocChildren, ...proceduralBodyChildren],
         },
       ],
     });

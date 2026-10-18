@@ -10,6 +10,12 @@ export interface DocumentTemplateSettings {
   marginLeftCm: number;
   marginRightCm: number;
   fontFamily: string;
+  coverLogoDataUrl?: string;
+  coverLogoWidthInches?: number;
+  kopLogoDataUrl?: string;
+  kopLogoWidthInches?: number;
+  useAsMasterTemplate?: boolean;
+  masterStyleConfig?: any;
   lastUpdated?: string;
 }
 
@@ -149,6 +155,11 @@ export function saveTemplateSettings(settings: DocumentTemplateSettings): void {
               margin_left_cm: settings.marginLeftCm,
               margin_right_cm: settings.marginRightCm,
               font_family: settings.fontFamily,
+              cover_logo_data_url: settings.coverLogoDataUrl || null,
+              kop_logo_data_url: settings.kopLogoDataUrl || null,
+              cover_logo_width_inches: settings.coverLogoWidthInches || 3.2,
+              kop_logo_width_inches: settings.kopLogoWidthInches || 0.95,
+              use_as_master_template: settings.useAsMasterTemplate || false,
               last_updated: payload.lastUpdated,
             });
           if (error) {
