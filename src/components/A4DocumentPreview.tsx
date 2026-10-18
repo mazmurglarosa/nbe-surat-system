@@ -16,6 +16,7 @@ import {
 import { DocumentLanguage, RevisionRecord } from '../types';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocxTableData } from '../utils/docxExtractor';
+import { WordRibbonBar } from './WordRibbonBar';
 
 export interface DocumentSavePayload {
   title: string;
@@ -140,6 +141,49 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         });
         return { ...t, rows: newRows };
       });
+      return copy;
+    });
+  };
+
+  const handleInsertTable = () => {
+    const newTable: DocxTableData = {
+      rows: [
+        ['No', 'Item / Klausul', 'Deskripsi Pelaksanaan', 'Status Verifikasi'],
+        ['1', '1.0 Pemeriksaan Dokumen', 'Pemeriksaan kelengkapan berkas SOP', 'Memenuhi Syarat'],
+        ['2', '2.0 Bukti Implementasi', 'Sampling rekaman kerja dan absensi', 'Sesuai Standar'],
+      ],
+    };
+    setEditableTables((prev) => [...prev, newTable]);
+  };
+
+  const handleAddRow = () => {
+    if (editableTables.length === 0) {
+      handleInsertTable();
+      return;
+    }
+    setEditableTables((prev) => {
+      const copy = [...prev];
+      const lastTbl = copy[copy.length - 1];
+      const colCount = lastTbl.rows[0]?.length || 4;
+      const newRow = Array(colCount).fill('Teks baris baru');
+      copy[copy.length - 1] = {
+        ...lastTbl,
+        rows: [...lastTbl.rows, newRow],
+      };
+      return copy;
+    });
+  };
+
+  const handleDeleteRow = () => {
+    if (editableTables.length === 0) return;
+    setEditableTables((prev) => {
+      const copy = [...prev];
+      const lastTbl = copy[copy.length - 1];
+      if (lastTbl.rows.length <= 1) return prev;
+      copy[copy.length - 1] = {
+        ...lastTbl,
+        rows: lastTbl.rows.slice(0, lastTbl.rows.length - 1),
+      };
       return copy;
     });
   };
@@ -875,51 +919,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         </div>
       )}
 
-      {/* Mode Edit Banner */}
+      {/* MICROSOFT WORD RIBBON BAR (SESUAI FOTO MS WORD PENGGUNA) */}
       {isEditing && (
-        <div
-          className="no-print"
-          style={{
-            padding: '0.65rem 1.25rem',
-            background: '#eff6ff',
-            color: '#1e40af',
-            borderBottom: '1px solid #bfdbfe',
-            fontSize: '0.83rem',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '0.75rem',
-            flexWrap: 'wrap',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Edit3 size={16} color="#2563eb" />
-            <span>
-              <strong>Mode Edit Langsung Aktif:</strong> Anda dapat mengedit Judul, Kode, Tanggal, Pengesah (Disiapkan, Diverifikasi, Disetujui), dan Catatan Revisi langsung di lembar dokumen di bawah.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={handleSave}
-            style={{
-              padding: '0.35rem 0.85rem',
-              borderRadius: '6px',
-              background: '#059669',
-              color: '#ffffff',
-              fontWeight: 800,
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              fontSize: '0.8rem',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <Save size={14} />
-            <span>Simpan Sekarang</span>
-          </button>
-        </div>
+        <WordRibbonBar
+          onSave={handleSave}
+          onCancel={handleCancelEdit}
+          onInsertTable={handleInsertTable}
+          onAddRow={handleAddRow}
+          onDeleteRow={handleDeleteRow}
+        />
       )}
 
       {/* Page Selector Tabs (Hidden during print) */}
@@ -1434,7 +1442,18 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 </h4>
               </div>
 
-              <div style={{ marginTop: '1.5rem', marginBottom: '2rem' }}>
+              <div
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                style={{
+                  marginTop: '1.5rem',
+                  marginBottom: '2rem',
+                  outline: isEditing ? '1px dashed #0284c7' : 'none',
+                  padding: isEditing ? '0.5rem' : '0',
+                  borderRadius: '4px',
+                  background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
+                }}
+              >
                 {effectiveTocList.map((item, idx) => (
                   <div
                     key={idx}
@@ -1489,7 +1508,20 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   {/* Header Kop Resmi NBE via Shared Kop Header (Poin 7) */}
                   {renderSharedKopHeader()}
 
-                  <div style={{ marginTop: '0.5rem', fontSize: '10pt', color: '#3B3838' }}>
+                  <div
+                    contentEditable={isEditing}
+                    suppressContentEditableWarning
+                    style={{
+                      marginTop: '0.5rem',
+                      fontSize: '10pt',
+                      color: '#3B3838',
+                      outline: isEditing ? '1px dashed #0284c7' : 'none',
+                      background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
+                      padding: isEditing ? '0.5rem' : '0',
+                      borderRadius: '4px',
+                      minHeight: '200px',
+                    }}
+                  >
                     {pageLines.map((line, lIdx) => {
                       const matchH = line.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
                       if (matchH) {
@@ -1727,12 +1759,18 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             ) : (categoryCode === 'KB' || effectiveCode.includes('-KB-')) ? (
               language === 'bi' ? (
                 <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '1fr 1fr',
                     gap: '1.25rem',
                     fontSize: '8pt',
                     lineHeight: '1.45',
+                    outline: isEditing ? '1px dashed #0284c7' : 'none',
+                    background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
+                    padding: isEditing ? '0.5rem' : '0',
+                    borderRadius: '4px',
                   }}
                 >
                   {/* Kolom Kiri: Bahasa Indonesia */}
@@ -1816,7 +1854,19 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: '9pt', lineHeight: '1.5', color: '#3B3838' }}>
+                <div
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  style={{
+                    fontSize: '9pt',
+                    lineHeight: '1.5',
+                    color: '#3B3838',
+                    outline: isEditing ? '1px dashed #0284c7' : 'none',
+                    background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
+                    padding: isEditing ? '0.5rem' : '0',
+                    borderRadius: '4px',
+                  }}
+                >
                   <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.25rem' }}>
                     {language === 'en' ? 'Having Considered:' : 'Menimbang:'}
                   </div>
@@ -1898,7 +1948,19 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 </div>
               )
             ) : (
-              <div style={{ fontSize: '9pt', lineHeight: '1.5', color: '#3B3838' }}>
+              <div
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                style={{
+                  fontSize: '9pt',
+                  lineHeight: '1.5',
+                  color: '#3B3838',
+                  outline: isEditing ? '1px dashed #0284c7' : 'none',
+                  background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
+                  padding: isEditing ? '0.5rem' : '0',
+                  borderRadius: '4px',
+                }}
+              >
                 <div style={{ fontWeight: 'bold', color: '#003366', marginBottom: '0.4rem' }}>
                   1.0 TUJUAN & RUANG LINGKUP
                 </div>
@@ -1944,7 +2006,19 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
             {/* Jika SK Direksi Murni: tampilkan Diktum KEDUA, Tabel Tim DCC, Diktum KETIGA-KELIMA */}
             {(categoryCode === 'KB' || effectiveCode.includes('-KB-')) && (!editableTables || editableTables.length === 0) && (!editableParagraphs || editableParagraphs.length === 0) ? (
-              <div style={{ fontSize: '9pt', lineHeight: '1.45', color: '#3B3838' }}>
+              <div
+                contentEditable={isEditing}
+                suppressContentEditableWarning
+                style={{
+                  fontSize: '9pt',
+                  lineHeight: '1.45',
+                  color: '#3B3838',
+                  outline: isEditing ? '1px dashed #0284c7' : 'none',
+                  background: isEditing ? 'rgba(2, 132, 199, 0.02)' : 'transparent',
+                  padding: isEditing ? '0.5rem' : '0',
+                  borderRadius: '4px',
+                }}
+              >
                 {language === 'bi' ? (
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '0.5rem' }}>
                     <div>

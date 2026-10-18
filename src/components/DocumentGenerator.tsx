@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Copy,
   Check,
@@ -56,6 +56,7 @@ import { pushAllLocalDataToCloud } from '../services/cloudSync';
 import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
+import { DocumentTemplateSettings, loadTemplateSettings } from '../services/templateSettings';
 
 function generateDocumentId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -141,6 +142,19 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [manualCode, setManualCode] = useState<string>('');
   const [customSequence, setCustomSequence] = useState<number | ''>('');
   const [legacyNotes, setLegacyNotes] = useState<string>('');
+
+  // Template Logo and Kop Settings
+  const [templateSettings, setTemplateSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
+
+  useEffect(() => {
+    const handleTemplateUpdate = (e: any) => {
+      setTemplateSettings(e.detail || loadTemplateSettings());
+    };
+    window.addEventListener('nbe-template-settings-updated', handleTemplateUpdate);
+    return () => {
+      window.removeEventListener('nbe-template-settings-updated', handleTemplateUpdate);
+    };
+  }, []);
 
   // Metadata
   const [title, setTitle] = useState<string>('');
@@ -2437,6 +2451,10 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         typeLabel={docTypes.find((d) => d.code === selectedType)?.label || selectedType}
         divisionLabel={divs.find((d) => d.code === selectedDivision)?.label || selectedDivision}
         approverLabel={apprvs.find((a) => a.code === selectedApprover)?.label || selectedApprover}
+        coverLogoDataUrl={templateSettings.coverLogoDataUrl}
+        kopLogoDataUrl={templateSettings.kopLogoDataUrl}
+        coverLogoWidthInches={templateSettings.coverLogoWidthInches || 3.2}
+        kopLogoWidthInches={templateSettings.kopLogoWidthInches || 0.95}
         onCopyCode={() => {
           navigator.clipboard.writeText(activeCode);
           setCopied(true);
