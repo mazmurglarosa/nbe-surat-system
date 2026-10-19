@@ -574,6 +574,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         approvedBy: approvedBy || 'Bima Satryo Hartanto',
         approvedRole: approvedRole || 'President Director / CEO',
         language: selectedLang,
+        paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
       });
     } catch (err: any) {
       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
@@ -2513,6 +2514,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         kopLogoDataUrl={templateSettings.kopLogoDataUrl}
         coverLogoWidthInches={templateSettings.coverLogoWidthInches || 3.2}
         kopLogoWidthInches={templateSettings.kopLogoWidthInches || 0.95}
+        initialPaperSize={templateSettings.paperSize === 'F4' ? 'F4' : 'A4'}
         onCopyCode={() => {
           navigator.clipboard.writeText(activeCode);
           setCopied(true);

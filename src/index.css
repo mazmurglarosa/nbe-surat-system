@@ -707,7 +707,14 @@ textarea:focus-visible {
     z-index: 999999 !important;
   }
 
-  /* 5. Force all 4 pages to display in sequence with exact A4 dimensions */
+  /* Support for F4 Folio printing on canvas container */
+  #nbe-single-a4-preview-canvas.paper-size-f4,
+  #nbe-isolated-document-canvas.paper-size-f4,
+  .a4-print-container.paper-size-f4 {
+    width: 215mm !important;
+  }
+
+  /* 5. Force all 4 pages to display in sequence with exact dimensions */
   .a4-page-preview,
   .a4-print-page {
     display: flex !important;
@@ -731,6 +738,17 @@ textarea:focus-visible {
     overflow: hidden !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+  }
+
+  /* F4 Folio (215mm x 330mm) page dimensions */
+  .a4-page-preview.paper-size-f4,
+  .a4-print-page.paper-size-f4,
+  .paper-size-f4 .a4-page-preview,
+  .paper-size-f4 .a4-print-page {
+    width: 215mm !important;
+    min-height: 330mm !important;
+    max-height: 330mm !important;
+    height: 330mm !important;
   }
 
   .a4-page-preview:last-child,

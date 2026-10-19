@@ -76,6 +76,9 @@ export interface A4DocumentPreviewProps {
   onCopyCode?: () => void;
   onDownloadDocx?: () => void;
   onSaveDocument?: (updated: DocumentSavePayload) => void;
+  initialPaperSize?: 'A4' | 'F4';
+  paperSize?: 'A4' | 'F4';
+  onPaperSizeChange?: (size: 'A4' | 'F4') => void;
 }
 
 export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
@@ -107,11 +110,72 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   onCopyCode,
   onDownloadDocx,
   onSaveDocument,
+  initialPaperSize = 'A4',
+  paperSize: propPaperSize,
+  onPaperSizeChange,
 }) => {
   const [activePageTab, setActivePageTab] = useState<'all' | number>('all');
   const [isCopied, setIsCopied] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isDownloadingWord, setIsDownloadingWord] = useState(false);
+  const [paperSize, setPaperSize] = useState<'A4' | 'F4'>(propPaperSize || initialPaperSize || 'A4');
+  const [showPrintModal, setShowPrintModal] = useState(false);
+
+  // Sync state if prop changes from outside
+  useEffect(() => {
+    if (propPaperSize && propPaperSize !== paperSize) {
+      setPaperSize(propPaperSize);
+    }
+  }, [propPaperSize]);
+
+  // Dynamic @page style injection for print & PDF export
+  useEffect(() => {
+    let styleTag = document.getElementById('nbe-dynamic-paper-size') as HTMLStyleElement | null;
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = 'nbe-dynamic-paper-size';
+      document.head.appendChild(styleTag);
+    }
+
+    const isF4Size = paperSize === 'F4';
+    const paperWidth = isF4Size ? '215mm' : '210mm';
+    const paperHeight = isF4Size ? '330mm' : '297mm';
+    const paperPageSize = isF4Size ? '215mm 330mm' : 'A4';
+
+    styleTag.textContent = `
+      @media print {
+        @page {
+          size: ${paperPageSize} portrait !important;
+          margin: 0 !important;
+        }
+        html, body {
+          width: ${paperWidth} !important;
+          min-height: ${paperHeight} !important;
+          height: auto !important;
+        }
+        #nbe-single-a4-preview-canvas,
+        #nbe-isolated-document-canvas,
+        .a4-print-container {
+          width: ${paperWidth} !important;
+        }
+        .a4-page-preview,
+        .a4-print-page {
+          width: ${paperWidth} !important;
+          min-height: ${paperHeight} !important;
+          max-height: ${paperHeight} !important;
+          height: ${paperHeight} !important;
+          padding: 20mm 20mm 20mm 22mm !important;
+        }
+      }
+    `;
+
+    return () => {
+      const el = document.getElementById('nbe-dynamic-paper-size');
+      if (el) {
+        el.remove();
+      }
+    };
+  }, [paperSize]);
 
   // Direct in-preview interactive editing states
   const [isEditing, setIsEditing] = useState(false);
@@ -1178,6 +1242,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           description: r.description,
           revisedBy: r.revisedBy,
         })),
+        paperSize: paperSize,
       });
     } catch (err: any) {
       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
@@ -1186,9 +1251,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     }
   };
 
-  const handlePrint = () => {
+  const executePrint = (targetSize?: 'A4' | 'F4') => {
+    const sizeToPrint = targetSize || paperSize;
+    if (targetSize && targetSize !== paperSize) {
+      setPaperSize(targetSize);
+      onPaperSizeChange?.(targetSize);
+    }
+
     const originalTitle = document.title;
-    const cleanDocTitle = `${effectiveCode} - ${displayTitle}`;
+    const cleanDocTitle = `${effectiveCode} - ${displayTitle} (${sizeToPrint})`;
     document.title = cleanDocTitle;
 
     const restoreTitle = () => {
@@ -1197,23 +1268,31 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     };
     window.addEventListener('afterprint', restoreTitle);
 
-    window.print();
+    // Timeout ensures browser reflows with the new @page stylesheet
+    setTimeout(() => {
+      window.print();
+    }, 150);
 
     // Fallback timer if afterprint doesn't trigger
     setTimeout(() => {
       document.title = originalTitle;
-    }, 2000);
+    }, 3000);
+  };
+
+  const handlePrint = () => {
+    setShowPrintModal(true);
   };
 
   const isPageVisibleOnScreen = (pageNum: number) => {
     return activePageTab === 'all' || activePageTab === pageNum;
   };
 
-  // Reusable page frame styling (Exact A4 ratio: 210mm x 297mm)
+  // Reusable page frame styling (Exact A4 / F4 ratio)
+  const isF4 = paperSize === 'F4';
   const a4PageStyle: React.CSSProperties = {
     width: '100%',
-    maxWidth: '820px',
-    minHeight: '1160px',
+    maxWidth: isF4 ? '840px' : '820px',
+    minHeight: isF4 ? '1288px' : '1160px',
     margin: '0 auto 2.5rem auto',
     background: '#ffffff',
     color: '#3B3838',
@@ -1226,6 +1305,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     flexDirection: 'column',
     position: 'relative',
     border: '1px solid #e2e8f0',
+    transition: 'min-height 0.25s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
   };
 
   const tableHeaderStyle: React.CSSProperties = {
@@ -1659,7 +1739,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     <div
       style={a4PageStyle}
       id="nbe-page-1"
-      className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(1) ? 'screen-hidden' : ''}`}
+      className={`a4-page-preview a4-print-page ${isF4 ? 'paper-size-f4' : 'paper-size-a4'} ${!isPageVisibleOnScreen(1) ? 'screen-hidden' : ''}`}
     >
       <div style={{ flex: 1, minHeight: '1.5rem' }} />
 
@@ -1926,7 +2006,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     <div
       style={a4PageStyle}
       id="nbe-page-2"
-      className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(2) ? 'screen-hidden' : ''}`}
+      className={`a4-page-preview a4-print-page ${isF4 ? 'paper-size-f4' : 'paper-size-a4'} ${!isPageVisibleOnScreen(2) ? 'screen-hidden' : ''}`}
     >
       {renderSharedKopHeader()}
 
@@ -2105,7 +2185,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         <div
           style={a4PageStyle}
           id="nbe-page-3"
-          className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
+          className={`a4-page-preview a4-print-page ${isF4 ? 'paper-size-f4' : 'paper-size-a4'} ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
         >
           {renderSharedKopHeader()}
 
@@ -2254,7 +2334,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       <div
         style={a4PageStyle}
         id="nbe-page-3"
-        className={`a4-page-preview a4-print-page ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
+        className={`a4-page-preview a4-print-page ${isF4 ? 'paper-size-f4' : 'paper-size-a4'} ${!isPageVisibleOnScreen(3) ? 'screen-hidden' : ''}`}
       >
         {renderSharedKopHeader()}
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
@@ -2514,6 +2594,78 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             <span>{isCopied ? 'Tersalin!' : 'Salin Kode'}</span>
           </button>
 
+          {/* Paper Size Quick Selector (A4 vs F4) */}
+          <div
+            className="no-print"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: '#f1f5f9',
+              padding: '2px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              gap: '2px',
+            }}
+            title="Pilih ukuran kertas dokumen (A4 / F4)"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setPaperSize('A4');
+                onPaperSizeChange?.('A4');
+                setSaveSuccessNotice('📐 Ukuran kertas disesuaikan ke A4 (210 × 297 mm)');
+                setTimeout(() => setSaveSuccessNotice(null), 2500);
+              }}
+              style={{
+                padding: '0.28rem 0.65rem',
+                fontSize: '0.78rem',
+                fontWeight: paperSize === 'A4' ? 700 : 500,
+                background: paperSize === 'A4' ? '#003366' : 'transparent',
+                color: paperSize === 'A4' ? '#ffffff' : '#475569',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                transition: 'all 0.15s ease',
+                boxShadow: paperSize === 'A4' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
+              }}
+              title="Ganti ukuran halaman ke A4 (210 × 297 mm)"
+            >
+              <span>A4</span>
+              <span style={{ fontSize: '0.68rem', opacity: paperSize === 'A4' ? 0.9 : 0.7 }}>210×297</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPaperSize('F4');
+                onPaperSizeChange?.('F4');
+                setSaveSuccessNotice('📐 Ukuran kertas disesuaikan ke F4 / Folio (215 × 330 mm)');
+                setTimeout(() => setSaveSuccessNotice(null), 2500);
+              }}
+              style={{
+                padding: '0.28rem 0.65rem',
+                fontSize: '0.78rem',
+                fontWeight: paperSize === 'F4' ? 700 : 500,
+                background: paperSize === 'F4' ? '#003366' : 'transparent',
+                color: paperSize === 'F4' ? '#ffffff' : '#475569',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                transition: 'all 0.15s ease',
+                boxShadow: paperSize === 'F4' ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
+              }}
+              title="Ganti ukuran halaman ke F4 Folio (215 × 330 mm)"
+            >
+              <span>F4</span>
+              <span style={{ fontSize: '0.68rem', opacity: paperSize === 'F4' ? 0.9 : 0.7 }}>215×330</span>
+            </button>
+          </div>
+
           {/* Download DOCX */}
           <button
             type="button"
@@ -2526,10 +2678,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               gap: '0.35rem',
               background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
             }}
-            title="Unduh Dokumen Word 4 Halaman Resmi"
+            title={`Unduh Dokumen Word (${paperSize}) Resmi`}
           >
             <Download size={14} />
-            <span>{isDownloadingWord ? 'Menyusun .docx...' : 'Unduh Word (.docx)'}</span>
+            <span>{isDownloadingWord ? 'Menyusun .docx...' : `Unduh Word (${paperSize})`}</span>
           </button>
 
           {/* Print / Save PDF */}
@@ -2537,11 +2689,31 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             type="button"
             onClick={handlePrint}
             className="btn btn-secondary btn-sm"
-            style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-            title="Cetak atau Simpan PDF format A4"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              background: '#ffffff',
+              color: '#003366',
+              borderColor: '#003366',
+              fontWeight: 600,
+            }}
+            title="Pilih ukuran kertas dan Cetak ke PDF (A4 / F4)"
           >
-            <Printer size={14} />
+            <Printer size={15} />
             <span>Cetak / PDF</span>
+            <span
+              style={{
+                background: '#003366',
+                color: '#ffffff',
+                fontSize: '0.68rem',
+                padding: '1px 5px',
+                borderRadius: '3px',
+                fontWeight: 700,
+              }}
+            >
+              {paperSize}
+            </span>
           </button>
         </div>
       </div>
@@ -2650,7 +2822,449 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         activePageTab={activePageTab}
         documentYear={documentYear}
         language={language}
+        paperSize={paperSize}
       />
+
+      {/* MODAL PILIHAN UKURAN KERTAS CETAK PDF (A4 VS F4) */}
+      {showPrintModal && (
+        <div
+          className="no-print"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(6px)',
+            padding: '1rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowPrintModal(false);
+          }}
+        >
+          <div
+            style={{
+              background: '#ffffff',
+              borderRadius: '16px',
+              maxWidth: '680px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+              overflow: 'hidden',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                padding: '1.25rem 1.5rem',
+                borderBottom: '1px solid #e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'linear-gradient(to right, #f8fafc, #ffffff)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, #003366 0%, #004080 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ffffff',
+                    boxShadow: '0 4px 10px rgba(0, 51, 102, 0.25)',
+                  }}
+                >
+                  <Printer size={20} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+                    Cetak Dokumen ke PDF
+                  </h3>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                    Pilih ukuran kertas cetak. Sistem langsung menyesuaikan tata letak dokumen secara otomatis.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(false)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                title="Tutup"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body: Cards Pilihan Ukuran Kertas */}
+            <div style={{ padding: '1.5rem' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '1.25rem',
+                  marginBottom: '1.25rem',
+                }}
+              >
+                {/* CARD 1: A4 */}
+                <div
+                  onClick={() => {
+                    setPaperSize('A4');
+                    onPaperSizeChange?.('A4');
+                  }}
+                  style={{
+                    border: paperSize === 'A4' ? '2.5px solid #003366' : '1.5px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '1.25rem',
+                    cursor: 'pointer',
+                    background: paperSize === 'A4' ? '#f0f7ff' : '#ffffff',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: paperSize === 'A4' ? '0 8px 20px rgba(0, 51, 102, 0.12)' : 'none',
+                  }}
+                >
+                  {paperSize === 'A4' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        background: '#003366',
+                        color: '#ffffff',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Check size={11} /> Aktif
+                    </div>
+                  )}
+
+                  <div>
+                    {/* Visual Ratio Box for A4 (Ratio 210 x 297 = 1:1.414) */}
+                    <div
+                      style={{
+                        width: '70px',
+                        height: '99px',
+                        margin: '0 auto 1rem auto',
+                        background: '#ffffff',
+                        border: paperSize === 'A4' ? '1.5px solid #003366' : '1px solid #cbd5e1',
+                        borderRadius: '3px',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.06)',
+                        padding: '6px 5px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      <div style={{ height: '10px', border: '1px solid #94a3b8', borderRadius: '1px' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '90%' }} />
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '75%' }} />
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '85%' }} />
+                      </div>
+                      <div style={{ height: '2px', background: '#cbd5e1', width: '100%' }} />
+                    </div>
+
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#003366', letterSpacing: '0.02em' }}>
+                        A4
+                      </div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginTop: '2px' }}>
+                        210 × 297 mm
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                        8.27 × 11.69 inci
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: '#475569', margin: '0.65rem 0 0 0', lineHeight: 1.4 }}>
+                        Standar Internasional ISO 216. Format baku untuk SK Direksi, SOP, & korespondensi umum.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        executePrint('A4');
+                        setShowPrintModal(false);
+                      }}
+                      className="btn btn-sm"
+                      style={{
+                        background: '#003366',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        padding: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Printer size={14} />
+                      <span>Cetak Sekarang (A4)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPaperSize('A4');
+                        onPaperSizeChange?.('A4');
+                        setSaveSuccessNotice('📐 Ukuran kertas disesuaikan ke A4 (210 × 297 mm)');
+                        setTimeout(() => setSaveSuccessNotice(null), 2500);
+                        setShowPrintModal(false);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        color: '#475569',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      Terapkan ke Layar
+                    </button>
+                  </div>
+                </div>
+
+                {/* CARD 2: F4 / FOLIO */}
+                <div
+                  onClick={() => {
+                    setPaperSize('F4');
+                    onPaperSizeChange?.('F4');
+                  }}
+                  style={{
+                    border: paperSize === 'F4' ? '2.5px solid #003366' : '1.5px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '1.25rem',
+                    cursor: 'pointer',
+                    background: paperSize === 'F4' ? '#f0f7ff' : '#ffffff',
+                    transition: 'all 0.2s ease',
+                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: paperSize === 'F4' ? '0 8px 20px rgba(0, 51, 102, 0.12)' : 'none',
+                  }}
+                >
+                  {paperSize === 'F4' && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        right: '10px',
+                        background: '#003366',
+                        color: '#ffffff',
+                        fontSize: '0.68rem',
+                        fontWeight: 700,
+                        padding: '2px 8px',
+                        borderRadius: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                      }}
+                    >
+                      <Check size={11} /> Aktif
+                    </div>
+                  )}
+
+                  <div>
+                    {/* Visual Ratio Box for F4 (Ratio 215 x 330 = 1:1.535 - visibly taller) */}
+                    <div
+                      style={{
+                        width: '70px',
+                        height: '107px',
+                        margin: '0 auto 0.6rem auto',
+                        background: '#ffffff',
+                        border: paperSize === 'F4' ? '1.5px solid #003366' : '1px solid #cbd5e1',
+                        borderRadius: '3px',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.06)',
+                        padding: '6px 5px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        boxSizing: 'border-box',
+                      }}
+                    >
+                      <div style={{ height: '10px', border: '1px solid #94a3b8', borderRadius: '1px' }} />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '90%' }} />
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '75%' }} />
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '85%' }} />
+                        <div style={{ height: '3px', background: '#e2e8f0', width: '80%' }} />
+                      </div>
+                      <div style={{ height: '2px', background: '#cbd5e1', width: '100%' }} />
+                    </div>
+
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#003366', letterSpacing: '0.02em' }}>
+                        F4 / Folio
+                      </div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#334155', marginTop: '2px' }}>
+                        215 × 330 mm
+                      </div>
+                      <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                        8.46 × 12.99 inci (HVS Panjang)
+                      </div>
+                      <p style={{ fontSize: '0.75rem', color: '#475569', margin: '0.65rem 0 0 0', lineHeight: 1.4 }}>
+                        Standar Folio Indonesia. Ruang vertikal ekstra (+33 mm), ideal untuk prosedur dengan tabel panjang.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        executePrint('F4');
+                        setShowPrintModal(false);
+                      }}
+                      className="btn btn-sm"
+                      style={{
+                        background: '#003366',
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        padding: '0.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <Printer size={14} />
+                      <span>Cetak Sekarang (F4)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPaperSize('F4');
+                        onPaperSizeChange?.('F4');
+                        setSaveSuccessNotice('📐 Ukuran kertas disesuaikan ke F4 / Folio (215 × 330 mm)');
+                        setTimeout(() => setSaveSuccessNotice(null), 2500);
+                        setShowPrintModal(false);
+                      }}
+                      style={{
+                        background: 'transparent',
+                        color: '#475569',
+                        fontSize: '0.74rem',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        textAlign: 'center',
+                      }}
+                    >
+                      Terapkan ke Layar
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Informative Help Box */}
+              <div
+                style={{
+                  background: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  padding: '0.85rem 1rem',
+                  fontSize: '0.78rem',
+                  color: '#475569',
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>💡 Petunjuk Pengaturan Cetak Browser (Save as PDF):</span>
+                </div>
+                <ul style={{ margin: '0 0 0 1rem', padding: 0 }}>
+                  <li><strong>Destination:</strong> Pilih <em>"Save as PDF"</em> atau printer yang sesuai.</li>
+                  <li><strong>Paper size:</strong> Pilih <strong>A4</strong> atau <strong>Folio / F4</strong> (jika tidak ada opsi F4 di driver browser/printer, pilih <em>Legal</em> atau <em>8.5 × 13 in</em>).</li>
+                  <li><strong>Margins:</strong> Pilih <strong>"None"</strong> atau <strong>"Default"</strong> (margin standar 2.0cm / 2.2cm telah tertanam otomatis).</li>
+                  <li><strong>Options:</strong> Centang <strong>"Background graphics"</strong> agar warna tabel & logo tercetak sempurna.</li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                padding: '1rem 1.5rem',
+                borderTop: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: '0.75rem',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setShowPrintModal(false)}
+                className="btn btn-secondary btn-sm"
+                style={{ padding: '0.45rem 1rem', fontSize: '0.82rem' }}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  executePrint(paperSize);
+                  setShowPrintModal(false);
+                }}
+                className="btn btn-primary btn-sm"
+                style={{
+                  padding: '0.45rem 1.25rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  background: '#003366',
+                }}
+              >
+                <Printer size={15} />
+                <span>Cetak ({paperSize})</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

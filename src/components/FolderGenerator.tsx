@@ -2789,6 +2789,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   kopLogoDataUrl={templateSettings.kopLogoDataUrl}
                   coverLogoWidthInches={templateSettings.coverLogoWidthInches || 3.2}
                   kopLogoWidthInches={templateSettings.kopLogoWidthInches || 0.95}
+                  initialPaperSize={templateSettings.paperSize === 'F4' ? 'F4' : 'A4'}
                   onCopyCode={() => {
                     navigator.clipboard.writeText(activeCustomization.code);
                     alert(`Kode ${activeCustomization.code} berhasil disalin!`);
@@ -2846,6 +2847,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
                         kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
                         isProcedureOrSop: activeCustomization.typeCode !== 'KB' && !activeCustomization.code.includes('-KB-'),
+                        paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
                       });
                     } catch (err: any) {
                       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);

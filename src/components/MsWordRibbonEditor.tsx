@@ -106,6 +106,7 @@ export interface MsWordEditorProps {
   onUpdateKopSetting?: (key: keyof KopTableSettings, val: number) => void;
   documentYear?: string;
   language?: DocumentLanguage;
+  paperSize?: "A4" | "F4";
 }
 
 export function repairCorruptedEditorHtml(html: string): string {
@@ -144,7 +145,17 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   onUpdateKopSetting,
   documentYear = "2026",
   language = "id",
+  paperSize = "A4",
 }) => {
+  const isF4 = paperSize === "F4";
+  const maxBodyHeightPx = isF4 ? 845 : 720;
+  const dynamicPageStyle: React.CSSProperties = {
+    ...a4PageStyle,
+    maxWidth: isF4 ? "840px" : "820px",
+    minHeight: isF4 ? "1288px" : "1160px",
+    transition: "min-height 0.25s cubic-bezier(0.16, 1, 0.3, 1), max-width 0.25s cubic-bezier(0.16, 1, 0.3, 1)",
+  };
+
   const hasUserEditedRef = useRef<boolean>(false);
   const autoSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastLanguageRef = useRef<DocumentLanguage>(language);
@@ -410,9 +421,9 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     // A. Overflow check
     for (let i = 0; i < currentContainers.length; i++) {
       const container = currentContainers[i];
-      if (container.scrollHeight > MAX_BODY_HEIGHT_PX && container.children.length > 1) {
+      if (container.scrollHeight > maxBodyHeightPx && container.children.length > 1) {
         const overflowingNodes: string[] = [];
-        while (container.scrollHeight > MAX_BODY_HEIGHT_PX && container.children.length > 1) {
+        while (container.scrollHeight > maxBodyHeightPx && container.children.length > 1) {
           const lastChild = container.lastElementChild;
           if (!lastChild) break;
           overflowingNodes.unshift(lastChild.outerHTML);
@@ -1872,7 +1883,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
          ======================================================================== */}
       <div
         id="nbe-single-a4-preview-canvas"
-        className="a4-print-container"
+        className={`a4-print-container ${isF4 ? "paper-size-f4" : "paper-size-a4"}`}
         style={{
           padding: "2rem 1rem",
           background: "var(--bg-tertiary, #e2e8f0)",
@@ -1909,9 +1920,9 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
           return (
             <div
               key={idx}
-              style={a4PageStyle}
+              style={dynamicPageStyle}
               id={`nbe-page-${pageNum}`}
-              className={`a4-page-preview a4-print-page ${!isPageVisible ? "screen-hidden" : ""}`}
+              className={`a4-page-preview a4-print-page ${isF4 ? "paper-size-f4" : "paper-size-a4"} ${!isPageVisible ? "screen-hidden" : ""}`}
             >
               <div>
                 {/* Kop Header Otomatis (Terkunci Sistem) */}
@@ -1977,7 +1988,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                     }
                   }}
                   style={{
-                    minHeight: `${MAX_BODY_HEIGHT_PX}px`,
+                    minHeight: `${maxBodyHeightPx}px`,
                     fontFamily: currentFontFamily,
                     outline: "none",
                     color: "#3B3838",

@@ -50,6 +50,7 @@ export interface NbeDocumentPayload {
   preservedBodyParagraphs?: string[];
   bodyTables?: DocxTableData[];
   revisionRows?: Array<{ rev: string; date: string; description: string; revisedBy: string }>;
+  paperSize?: "A4" | "F4";
 }
 
 const COLOR_BLACK = "000000";
@@ -670,7 +671,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
           properties: {
             titlePage: true,
             page: {
-              size: { width: 11906, height: 16838 },
+              size: data.paperSize === "F4" ? { width: 12189, height: 18709 } : { width: 11906, height: 16838 },
               margin: { left: 1247, right: 1134, top: 1134, bottom: 1134 },
             },
           },
@@ -1080,7 +1081,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
         properties: {
           titlePage: true,
           page: {
-            size: { width: 11906, height: 16838 },
+            size: data.paperSize === "F4" ? { width: 12189, height: 18709 } : { width: 11906, height: 16838 },
             margin: { left: 1247, right: 1134, top: 1134, bottom: 1134 },
           },
         },
