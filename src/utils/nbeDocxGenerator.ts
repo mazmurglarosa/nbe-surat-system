@@ -21,6 +21,7 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { DocxTableData } from "./docxExtractor";
+import { formatNbeStandardDate } from "./dateFormatter";
 
 export type LanguageMode = "id" | "en" | "bi";
 
@@ -88,7 +89,8 @@ function buildRunningHeader(data: NbeDocumentPayload): Header {
       : `SURAT KEPUTUSAN DIREKSI: ${data.titleId.toUpperCase()}`)
     : `${(data.categoryNameId || "STANDAR OPERASIONAL PROSEDUR").toUpperCase()}: ${data.titleId.toUpperCase()}`;
 
-  const dateStr = data.language === "en" ? data.issueDateEn : data.issueDateId;
+  const rawDate = data.language === "en" ? data.issueDateEn : data.issueDateId;
+  const dateStr = formatNbeStandardDate(rawDate, data.language === "en" ? "en" : "id");
 
   return new Header({
     children: [
@@ -354,7 +356,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       ? data.revisionRows.map((r, rIdx) =>
           new TableRow({
             cantSplit: true,
-            children: [r.rev, r.date, r.description, r.revisedBy].map((val, idx) =>
+            children: [r.rev, formatNbeStandardDate(r.date, isEn ? "en" : "id"), r.description, r.revisedBy].map((val, idx) =>
               new TableCell({
                 verticalAlign: VerticalAlign.CENTER,
                 shading: { fill: rIdx % 2 === 0 ? COLOR_ALT_ROW : "FFFFFF", type: ShadingType.CLEAR },
@@ -931,7 +933,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
             ),
             biRow(
               `Ditetapkan di : Semarang / Tuban\nPada tanggal : ${data.issueDateId}`,
-              `Enacted in : Semarang / Tuban\nOn date : ${data.issueDateEn}`,
+              `Enacted in : Semarang / Tuban\nOn date : ${formatNbeStandardDate(data.issueDateEn || data.issueDateId, isEn ? "en" : "id")}`,
               true
             ),
           ],
@@ -1063,7 +1065,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
           children: [
             new TextRun({
               text: isEn
-                ? `Enacted in\t: Semarang / Tuban\nOn date\t\t: ${data.issueDateEn}\nBOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY`
+                ? `Enacted in\t: Semarang / Tuban\nOn date\t\t: ${formatNbeStandardDate(data.issueDateEn || data.issueDateId, isEn ? "en" : "id")}\nBOARD OF DIRECTORS OF PT NIRWANA BHUMI ENERGY`
                 : `Ditetapkan di\t: Semarang / Tuban\nPada tanggal\t: ${data.issueDateId}\nDIREKSI PT NIRWANA BHUMI ENERGY`,
               font: "Arial",
               size: 19,

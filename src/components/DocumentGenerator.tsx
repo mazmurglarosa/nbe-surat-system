@@ -57,6 +57,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocumentTemplateSettings, loadTemplateSettings } from '../services/templateSettings';
+import { formatNbeStandardDate } from '../utils/dateFormatter';
 
 function generateDocumentId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -66,12 +67,8 @@ function getNowIsoString(): string {
   return new Date().toISOString();
 }
 
-function formatIssueDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+function formatIssueDate(dateStr: string, lang: 'id' | 'en' | 'bi' = 'id'): string {
+  return formatNbeStandardDate(dateStr, lang);
 }
 
 interface DocumentGeneratorProps {
@@ -565,8 +562,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         categoryNameId: typeDef?.label || selectedType,
         divisionName: divDef?.label || selectedDivision,
         revisionNo: String(revision),
-        issueDateId: formatIssueDate(issueDate),
-        issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        issueDateId: formatIssueDate(issueDate, 'id'),
+        issueDateEn: formatIssueDate(issueDate, 'en'),
         preparedBy: createdBy.trim() || 'Mazmur Gusti Agung Larosa',
         preparedRole: preparedRole || 'Lead Document Controller & Finance Director',
         verifiedBy: verifiedBy || 'Dennis Raditya',

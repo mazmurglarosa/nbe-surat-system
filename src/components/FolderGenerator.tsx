@@ -81,6 +81,7 @@ import { LanguageSelector } from './LanguageSelector';
 import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx, generateNbeDocxBlob, NbeDocumentPayload } from '../utils/nbeDocxGenerator';
 import { extractDocxData, extractDocxParagraphs, DEFAULT_NBE_BODY_PARAGRAPHS, DocxTableData } from '../utils/docxExtractor';
+import { formatNbeStandardDate } from '../utils/dateFormatter';
 
 function generateDocumentId(): string {
   return `doc-folder-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -90,12 +91,8 @@ function getNowIsoString(): string {
   return new Date().toISOString();
 }
 
-function formatIssueDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
+function formatIssueDate(dateStr: string, lang: 'id' | 'en' | 'bi' = 'id'): string {
+  return formatNbeStandardDate(dateStr, lang);
 }
 
 function formatBytes(bytes: number): string {
@@ -561,8 +558,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             categoryNameId: docTypes.find((d) => d.code === selectedType)?.label || 'KEBIJAKAN PERUSAHAAN (KB)',
             divisionName: divs.find((d) => d.code === selectedDivision)?.label || 'GENERAL & MANAGEMENT (GNR)',
             revisionNo: '0',
-            issueDateId: formatIssueDate(issueDate),
-            issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+            issueDateId: formatIssueDate(issueDate, 'id'),
+            issueDateEn: formatIssueDate(issueDate, 'en'),
             preparedBy: preparedBy,
             preparedRole: preparedRole,
             verifiedBy: verifiedBy,
@@ -681,8 +678,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             categoryNameId: typeDef?.label || (docTypeCode === 'KB' ? 'KEBIJAKAN PERUSAHAAN (KB)' : docTypeCode),
             divisionName: divDef?.label || (divCode === 'GNR' ? 'GENERAL & MANAGEMENT (GNR)' : divCode),
             revisionNo: '0',
-            issueDateId: formatIssueDate(issueDate),
-            issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+            issueDateId: formatIssueDate(issueDate, 'id'),
+            issueDateEn: formatIssueDate(issueDate, 'en'),
             preparedBy: preparedBy,
             preparedRole: preparedRole,
             verifiedBy: verifiedBy,
@@ -770,7 +767,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
       updatedRevs[0] = {
         ...updatedRevs[0],
-        date: formatIssueDate(newD),
+        date: formatIssueDate(newD, selectedLang === 'en' ? 'en' : 'id'),
         description: `Initial Edition: ${current.title} (${newCode})`,
       };
     }
@@ -1102,8 +1099,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         categoryNameId: typeDef?.label || custom.typeCode,
         divisionName: divDef?.label || custom.divisionCode || 'General & Management (GNR)',
         revisionNo: String(custom.revision || 0),
-        issueDateId: formatIssueDate(custom.issueDate),
-        issueDateEn: new Date(custom.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+        issueDateId: formatIssueDate(custom.issueDate, 'id'),
+        issueDateEn: formatIssueDate(custom.issueDate, 'en'),
         preparedBy: custom.preparedBy || 'Mazmur Gusti Agung Larosa',
         preparedRole: custom.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
         verifiedBy: custom.verifiedBy || 'Dennis Raditya',
@@ -1217,8 +1214,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           categoryNameId: typeDef?.label || custom.typeCode,
           divisionName: divDef?.label || custom.divisionCode || 'General & Management (GNR)',
           revisionNo: String(custom.revision || 0),
-          issueDateId: formatIssueDate(custom.issueDate),
-          issueDateEn: new Date(custom.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+          issueDateId: formatIssueDate(custom.issueDate, 'id'),
+          issueDateEn: formatIssueDate(custom.issueDate, 'en'),
           preparedBy: custom.preparedBy || 'Mazmur Gusti Agung Larosa',
           preparedRole: custom.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
           verifiedBy: custom.verifiedBy || 'Dennis Raditya',
@@ -2825,8 +2822,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         categoryNameId: docTypeLabel,
                         divisionName: divisionLabel,
                         revisionNo: String(activeCustomization.revision),
-                        issueDateId: formatIssueDate(activeCustomization.issueDate),
-                        issueDateEn: new Date(activeCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+                        issueDateId: formatIssueDate(activeCustomization.issueDate, 'id'),
+                        issueDateEn: formatIssueDate(activeCustomization.issueDate, 'en'),
                         preparedBy: activeCustomization.preparedBy,
                         preparedRole: activeCustomization.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
                         verifiedBy: activeCustomization.verifiedBy,

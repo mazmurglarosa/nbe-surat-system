@@ -13,6 +13,7 @@ import {
   HeightRule,
 } from 'docx';
 import { RevisionRecord, DocumentLanguage } from '../types';
+import { formatNbeStandardDate } from '../utils/dateFormatter';
 
 export interface DocumentTemplateData {
   title: string;
@@ -82,8 +83,8 @@ export async function generateStandardNbeDocx(
   const docTitle = (data.title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN').trim().toUpperCase();
   const docCode = (data.code || '0001-KB-GNR-CEO-X-2026').trim().toUpperCase();
   const docTypeLabel = data.docTypeLabel || 'Standar Operasional Prosedur (SOP)';
-  const dateStr = data.issueDateFormatted || '17 Oktober 2026';
-  const dateStrEn = data.issueDateFormattedEn || '17 October 2026';
+  const dateStr = formatNbeStandardDate(data.issueDateFormatted, 'id');
+  const dateStrEn = formatNbeStandardDate(data.issueDateFormattedEn || data.issueDateFormatted, 'en');
 
   // -------------------------------------------------------------
   // HALAMAN 2: REVISION ROWS TABLE
@@ -395,7 +396,7 @@ export async function generateStandardNbeDocx(
                 alignment: AlignmentType.LEFT,
                 children: [
                   new TextRun({
-                    text: `Revised: ${data.revision && data.revision > 0 ? (lang === 'en' ? dateStrEn : dateStr) : '-'}`,
+                    text: `Revised: ${lang === 'en' ? dateStrEn : dateStr}`,
                     size: 18,
                     font: 'Arial',
                   }),

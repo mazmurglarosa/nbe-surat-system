@@ -22,6 +22,7 @@ import { DocxTableData } from '../utils/docxExtractor';
 import { MsWordRibbonEditor, KopTableSettings } from './MsWordRibbonEditor';
 import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
 import { translateTocList, translateTextLine, translateHtmlContent } from '../utils/translationService';
+import { formatNbeStandardDate, parseDateParts } from '../utils/dateFormatter';
 
 export type { KopTableSettings };
 
@@ -206,7 +207,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     return [
       {
         revision: revision ?? 0,
-        date: '17 Oktober 2026',
+        date: formatNbeStandardDate(issueDate, language === 'en' ? 'en' : 'id'),
         description: `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`,
         revisedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
       },
@@ -393,6 +394,18 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     }
     if (issueDate && issueDate !== prev.issueDate) {
       setEditableIssueDate(issueDate);
+      setEditableRevisionsList((prevList) => {
+        if (prevList.length > 0 && prevList[0].revision === 0) {
+          return [
+            {
+              ...prevList[0],
+              date: formatNbeStandardDate(issueDate, targetLang),
+            },
+            ...prevList.slice(1),
+          ];
+        }
+        return prevList;
+      });
     }
     if (typeof revision === 'number' && revision !== prev.revision) {
       setEditableRevision(revision);
@@ -662,7 +675,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setEditableRevisionsList(revisions && revisions.length > 0 ? revisions : [
         {
           revision: revision ?? 0,
-          date: '17 Oktober 2026',
+          date: formatNbeStandardDate(issueDate, language === 'en' ? 'en' : 'id'),
           description: `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`,
           revisedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
         },
@@ -860,42 +873,12 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     return translateTextLine(raw, language === 'en' ? 'en' : 'id');
   }, [isEditing, editableDocTypeLabel, typeLabel, language]);
 
-  const parseAnyDate = (str?: string) => {
-    if (!str) return new Date();
-    if (str.includes('/')) {
-      const parts = str.split('/');
-      if (parts.length === 3) {
-        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-      }
-    }
-    const d = new Date(str);
-    return isNaN(d.getTime()) ? new Date() : d;
-  };
-
   const formattedDate = React.useMemo(() => {
-    try {
-      const d = parseAnyDate(effectiveDateStr);
-      return d.toLocaleDateString('id-ID', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      }).replace('.', '');
-    } catch {
-      return '19 Okt 2026';
-    }
+    return formatNbeStandardDate(effectiveDateStr, 'id');
   }, [effectiveDateStr]);
 
   const formattedDateEn = React.useMemo(() => {
-    try {
-      const d = parseAnyDate(effectiveDateStr);
-      return d.toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
-      });
-    } catch {
-      return '19 Oct 2026';
-    }
+    return formatNbeStandardDate(effectiveDateStr, 'en');
   }, [effectiveDateStr]);
 
   const activeRevRecord = React.useMemo(() => {
@@ -905,9 +888,12 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     return list.find((r) => r.revision === effectiveRevision) || list[list.length - 1] || null;
   }, [editableRevisionsList, revisions, effectiveRevision]);
 
-  const revDateDisplay = activeRevRecord?.date
-    ? activeRevRecord.date
-    : (language === 'en' ? formattedDateEn : formattedDate);
+  const revDateDisplay = React.useMemo(() => {
+    if (activeRevRecord?.date) {
+      return formatNbeStandardDate(activeRevRecord.date, language === 'en' ? 'en' : 'id');
+    }
+    return language === 'en' ? formattedDateEn : formattedDate;
+  }, [activeRevRecord, language, formattedDateEn, formattedDate]);
 
   const effectiveRevisions: RevisionRecord[] = React.useMemo(() => {
     if (revisions && revisions.length > 0) {
@@ -1640,7 +1626,15 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   whiteSpace: 'nowrap',
                 }}
               >
-                {language === 'en' ? 'Revised:' : 'Revisi:'} {effectiveRevision > 0 ? revDateDisplay : '-'}
+                <span
+                  contentEditable={isEditing}
+                  suppressContentEditableWarning
+                  onBlur={(e) => handleCoverChange('kopDate', e.currentTarget.innerText.trim())}
+                  className={isEditing ? 'ms-word-editable-inline' : ''}
+                  title={isEditing ? 'Klik untuk mengedit Tanggal di Kop' : undefined}
+                >
+                  {language === 'en' ? 'Revised:' : 'Revisi:'} {revDateDisplay}
+                </span>
               </td>
             </tr>
           </tbody>
@@ -2122,7 +2116,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 title={isEditing ? 'Klik untuk mengedit Tanggal Revisi' : undefined}
                 style={{ ...tableCellStyle, textAlign: 'center' }}
               >
-                {rev.date}
+                {formatNbeStandardDate(rev.date, language === 'en' ? 'en' : 'id')}
               </td>
               <td
                 contentEditable={isEditing}
