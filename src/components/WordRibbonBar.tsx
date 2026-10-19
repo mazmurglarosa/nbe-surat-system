@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Scissors,
   Copy,
@@ -34,6 +34,7 @@ import {
   Heading2,
   Type,
   FileText,
+  Minus,
 } from 'lucide-react';
 
 export interface WordRibbonBarProps {
@@ -73,6 +74,18 @@ export const WordRibbonBar: React.FC<WordRibbonBarProps> = ({
     setStatusNotice(msg);
     setTimeout(() => setStatusNotice(null), 2500);
   };
+
+  // Accessible keyboard Escape handler for find & replace modal (R-32 Accessibility)
+  useEffect(() => {
+    if (!showFindModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowFindModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showFindModal]);
 
   const exec = (command: string, value: string | undefined = undefined) => {
     try {
@@ -1236,7 +1249,7 @@ export const WordRibbonBar: React.FC<WordRibbonBarProps> = ({
               className="word-style-tile"
               style={{ minWidth: '70px', padding: '6px' }}
             >
-              <span style={{ fontSize: '18px' }}>—</span>
+              <Minus size={20} color="#0078d4" />
               <span style={{ fontSize: '10px' }}>Divider</span>
             </button>
             <button
@@ -1373,6 +1386,9 @@ export const WordRibbonBar: React.FC<WordRibbonBarProps> = ({
       {/* Find & Replace Modal */}
       {showFindModal && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nbe-word-find-title"
           style={{
             position: 'fixed',
             inset: 0,
@@ -1381,6 +1397,9 @@ export const WordRibbonBar: React.FC<WordRibbonBarProps> = ({
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 99999,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowFindModal(false);
           }}
         >
           <div
@@ -1393,7 +1412,7 @@ export const WordRibbonBar: React.FC<WordRibbonBarProps> = ({
               border: '1px solid #cbd5e1',
             }}
           >
-            <h4 style={{ margin: '0 0 0.75rem 0', fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
+            <h4 id="nbe-word-find-title" style={{ margin: '0 0 0.75rem 0', fontSize: '13px', fontWeight: 700, color: '#1e293b' }}>
               Find and Replace (Microsoft Word)
             </h4>
             <div style={{ marginBottom: '0.5rem' }}>

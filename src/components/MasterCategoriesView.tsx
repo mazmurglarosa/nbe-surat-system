@@ -528,7 +528,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
               disabled={isSavingTemplate}
               className="btn btn-primary btn-sm"
               style={{
-                background: 'linear-gradient(90deg, #ec4899 0%, #db2777 100%)',
+                background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
                 border: 'none',
                 fontWeight: 600,
               }}
@@ -965,16 +965,16 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             borderRadius: 'var(--radius-lg)',
             border:
               activeTab === 'templates'
-                ? '2px solid #ec4899'
+                ? '2px solid var(--primary)'
                 : '1px solid var(--border-subtle)',
             background:
               activeTab === 'templates'
-                ? 'rgba(236, 72, 153, 0.1)'
+                ? 'rgba(2, 132, 199, 0.1)'
                 : 'var(--bg-secondary)',
             transition: 'all 0.2s ease',
             boxShadow:
               activeTab === 'templates'
-                ? '0 4px 16px rgba(236, 72, 153, 0.15)'
+                ? '0 4px 16px rgba(2, 132, 199, 0.18)'
                 : 'none',
           }}
         >
@@ -985,7 +985,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  background: '#ec4899',
+                  background: 'var(--primary)',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
@@ -1003,8 +1003,9 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             <span
               className="badge mono"
               style={{
-                background: 'rgba(236, 72, 153, 0.2)',
-                color: '#ec4899',
+                background: 'rgba(2, 132, 199, 0.15)',
+                color: 'var(--primary)',
+                border: '1px solid rgba(2, 132, 199, 0.3)',
                 fontWeight: 700,
               }}
             >
@@ -1280,9 +1281,7 @@ export const MasterCategoriesView: React.FC<MasterCategoriesViewProps> = ({
             </div>
           </div>
 
-          {/* ============================================================== */}
-          {/* SECTION: MASTER LOGO KORPORAT NBE (COVER & KOP SURAT)          */}
-          {/* ============================================================== */}
+          {/* Section: Master Logo Korporat NBE (Cover & Kop Surat) */}
           <div
             className="glass-card"
             style={{

@@ -408,31 +408,9 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   const effectiveTocList = (data.tocList && data.tocList.length > 0)
     ? data.tocList
     : (!isKB
-      ? (data.language === "en"
-        ? [
-            { num: "1.0", title: "OBJECTIVE" },
-            { num: "2.0", title: "SCOPE" },
-            { num: "3.0", title: "RESPONSIBILITY" },
-            { num: "4.0", title: "DEFINITION" },
-            { num: "5.0", title: "PROCEDURE DETAILS" },
-            { num: "5.1", title: "General Provisions", isSub: true },
-            { num: "5.2", title: "Operational Flow", isSub: true },
-            { num: "6.0", title: "RELATED DOCUMENTS" },
-            { num: "7.0", title: "RECORDS" },
-            { num: "8.0", title: "APPENDICES AND EMERGENCY INSTRUCTIONS" },
-          ]
-        : [
-            { num: "1.0", title: "MAKSUD DAN TUJUAN" },
-            { num: "2.0", title: "RUANG LINGKUP" },
-            { num: "3.0", title: "TANGGUNG JAWAB" },
-            { num: "4.0", title: "DEFINISI" },
-            { num: "5.0", title: "RINCIAN PROSEDUR" },
-            { num: "5.1", title: "Ketentuan Umum", isSub: true },
-            { num: "5.2", title: "Alur Operasional", isSub: true },
-            { num: "6.0", title: "DOKUMEN TERKAIT" },
-            { num: "7.0", title: "REKAMAN" },
-            { num: "8.0", title: "LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT" },
-          ])
+      ? [
+          { num: "1.0", title: data.language === "en" ? "DOCUMENT CONTENT" : "ISI DOKUMEN" },
+        ]
       : null);
 
   const page3TocChildren: Paragraph[] = [];
@@ -561,59 +539,21 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
         }
       });
     } else if (!isKB) {
-      // Fallback standar bab 1 - 8 untuk prosedur/SOP tanpa isian
-      const defaultChapters = data.language === "en" ? [
-        ["1.0 OBJECTIVE", "To establish operational governance standards across PT Nirwana Bhumi Energy ensuring all activities operate efficiently, safely, and in full compliance with oil & gas industry regulations as well as ISO 9001/14001/45001 integrated management systems."],
-        ["2.0 SCOPE", "This procedure applies to all operational, engineering, procurement, and corporate administration units within the working areas of PT Nirwana Bhumi Energy, including onshore operations and supporting facilities."],
-        ["3.0 RESPONSIBILITY", "All executing personnel are required to comprehend and implement the working instructions set forth herein. Technical verifiers are responsible for quality control and compliance with regular audit systems."],
-        ["4.0 DEFINITION", "IMS (Integrated Management Systems): Integrated quality, HSE, and environmental management systems adopted by PT Nirwana Bhumi Energy.\nDCC (Document Control Centre): Administrative unit governing the registration, distribution, and archiving of controlled documents."],
-        ["5.0 PROCEDURE DETAILS", "All operational activities must commence with a Job Safety Analysis (JSA) risk assessment, scheduled equipment inspections, and verification of valid work permits.\nOperational task execution shall be reported on a daily basis to the integrated monitoring system to ensure data continuity and accurate maintenance history."],
-        ["6.0 RELATED DOCUMENTS", "Corporate Integrated Management System Manual NBE-IMS-MAN-2026 and Field Quality Verification Forms."],
-        ["7.0 RECORDS", "All verification records, inspection logbooks, and official handover minutes shall be preserved in controlled archives for a minimum period of 5 (five) years."],
-        ["8.0 APPENDICES AND EMERGENCY INSTRUCTIONS", "Emergency response instructions and key emergency telephone directories are set forth in the internal operational appendices."],
-      ] : [
-        ["1.0 MAKSUD DAN TUJUAN", "Menetapkan tata kelola standar operasional pada PT Nirwana Bhumi Energy agar seluruh aktivitas berjalan efisien, aman, dan mematuhi regulasi industri migas serta sistem manajemen mutu ISO 9001/14001/45001."],
-        ["2.0 RUANG LINGKUP", "Prosedur ini mencakup seluruh unit operasional, teknik, pengadaan, dan administrasi korporat di wilayah kerja PT Nirwana Bhumi Energy termasuk operasional darat dan fasilitas pendukung lainnya."],
-        ["3.0 TANGGUNG JAWAB", "Seluruh personel pelaksana wajib memahami dan menerapkan instruksi kerja yang tercantum. Verifikator teknis bertanggung jawab atas kendali mutu dan kepatuhan sistem audit berkala."],
-        ["4.0 DEFINISI", "IMS (Integrated Management Systems): Sistem Manajemen Terintegrasi mutu, K3, dan lingkungan yang diadopsi PT Nirwana Bhumi Energy.\nDCC (Document Control Center): Unit pengelola registrasi, distribusi, dan pengarsipan naskah dokumen terkontrol."],
-        ["5.0 RINCIAN PROSEDUR", "Setiap kegiatan wajib diawali dengan penilaian risiko (Job Safety Analysis) dan inspeksi berkala pada peralatan kerja serta verifikasi izin kerja berlaku.\nPelaksanaan tugas operasional dilaporkan secara harian ke sistem pemantauan terpadu untuk menjamin kontinuitas data dan akurasi riwayat penanganan."],
-        ["6.0 DOKUMEN TERKAIT", "Manual Sistem Manajemen Terintegrasi NBE-IMS-MAN-2026 dan Formulir Verifikasi Mutu Lapangan."],
-        ["7.0 REKAMAN", "Seluruh catatan verifikasi, logbook inspeksi, dan berita acara disimpan dalam arsip terkontrol minimal selama 5 (lima) tahun."],
-        ["8.0 LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT", "Instruksi tanggap darurat dan nomor kontak darurat tertera pada lampiran internal operasional."],
-      ];
-
-      defaultChapters.forEach(([chTitle, chDesc], idx) => {
-        const [numPart, ...titleParts] = chTitle.split(" ");
-        const titlePart = titleParts.join(" ");
-        proceduralBodyChildren.push(
-          new Paragraph({
-            tabStops: [{ type: TabStopType.LEFT, position: 720 }],
-            spacing: { before: 200, after: 60, line: 276 },
-            children: [
-              new TextRun({
-                text: `${numPart}\t${titlePart}`,
-                font: "Arial",
-                size: 24,
-                bold: true,
-                color: COLOR_BLACK,
-              }),
-            ],
-          }),
-          new Paragraph({
-            alignment: AlignmentType.JUSTIFIED,
-            indent: { left: 720 },
-            spacing: { before: 0, after: 120, line: 276 },
-            children: [
-              new TextRun({
-                text: chDesc,
-                font: "Arial",
-                size: 21,
-                color: COLOR_BODY,
-              }),
-            ],
-          })
-        );
-      });
+      proceduralBodyChildren.push(
+        new Paragraph({
+          tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+          spacing: { before: 200, after: 60, line: 276 },
+          children: [
+            new TextRun({
+              text: data.language === "en" ? "1.0\tDOCUMENT CONTENT" : "1.0\tISI DOKUMEN",
+              font: "Arial",
+              size: 24,
+              bold: true,
+              color: COLOR_BLACK,
+            }),
+          ],
+        })
+      );
     }
 
     // Tambahkan tabel asli dari berkas pengguna jika ada

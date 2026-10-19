@@ -142,26 +142,6 @@ export async function extractDocxParagraphs(fileOrBlob: File | Blob | string): P
 
 /**
  * Paragraf default standar operasional prosedur NBE
- * Digunakan jika dokumen baru dibuat atau tidak memiliki isi asli
+ * Dikosongkan agar sistem selalu mengutamakan isi berkas asli (.docx) yang diunggah
  */
-export const DEFAULT_NBE_BODY_PARAGRAPHS = [
-  '1.0 OBJECTIVE & TUJUAN',
-  'Prosedur ini menetapkan tata kelola baku pelaksanaan operasional dan kepatuhan sistem kendali terintegrasi (Integrated Management Systems / IMS) di lingkungan PT Nirwana Bhumi Energy.',
-  '2.0 SCOPE & RUANG LINGKUP',
-  'Meliputi seluruh kegiatan operasional, keteknikan, kepatuhan HSE, audit internal, administrasi dokumentasi, serta seluruh personil yang ditunjuk dalam struktur organisasi.',
-  '3.0 RESPONSIBILITY & TANGGUNG JAWAB',
-  '3.1 Direksi bertanggung jawab atas pengesahan, alokasi sumber daya, dan penerapan kebijakan mutu serta keselamatan kerja.',
-  '3.2 Tim Document Control Center (DCC) bertanggung jawab atas registrasi kode surat, kendali versi, pengarsipan Google Drive, dan distribusi dokumen terkendali.',
-  '3.3 Seluruh kepala divisi dan penanggung jawab operasional wajib memastikan seluruh staf mematuhi prosedur yang berlaku.',
-  '4.0 DEFINITIONS & ISTILAH',
-  'Dokumen Terkendali adalah dokumen resmi yang telah melalui verifikasi, persetujuan direksi, dan terdaftar dalam sistem penomoran resmi PT Nirwana Bhumi Energy.',
-  '5.0 DETAILED PROCEDURE & LANGKAH KERJA',
-  '5.1 Setiap pembuatan dokumen baru wajib diawali dengan registrasi kode resmi melalui sistem penomoran terpusat.',
-  '5.2 Penomoran terdiri atas 6 segmen baku: [Nomor Urut 4 Digit]-[Kode Kategori]-[Divisi]-[Approver]-[Bulan Romawi]-[Tahun].',
-  '5.3 Dokumen wajib melalui tahapan verifikasi oleh pejabat berwenang sebelum diajukan pengesahan akhir oleh Direktur Utama (CEO).',
-  '5.4 Setelah disetujui, dokumen diarsipkan secara hierarkis 4 tingkat pada Google Drive perusahaan.',
-  '6.0 REFERENCED STANDARDS & DOKUMEN TERKAIT',
-  'Standar Sistem Manajemen Keselamatan Pertambangan (SMKP), ISO 9001:2015, ISO 14001:2015, dan ISO 45001:2018.',
-  '7.0 ATTACHMENTS & LAMPIRAN',
-  'Formulir Status Temuan Audit, Formulir Permintaan Perubahan Dokumen, dan Lembar Distribusi Dokumen Terkendali.',
-];
+export const DEFAULT_NBE_BODY_PARAGRAPHS: string[] = [];

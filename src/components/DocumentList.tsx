@@ -548,12 +548,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       <span className="badge badge-purple">{doc.typeCode}</span>
                       {doc.subCategoryCode && (
                         <span
-                          className="badge"
-                          style={{
-                            background: 'rgba(6, 182, 212, 0.15)',
-                            color: '#22d3ee',
-                            border: '1px solid rgba(6, 182, 212, 0.35)',
-                          }}
+                          className="badge badge-info"
                           title={`Sub-Kategori: ${doc.subCategoryCode}`}
                         >
                           {doc.subCategoryCode}
@@ -561,12 +556,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                       )}
                       {doc.subSubCategoryCode && (
                         <span
-                          className="badge"
-                          style={{
-                            background: 'rgba(139, 92, 246, 0.15)',
-                            color: '#c084fc',
-                            border: '1px solid rgba(139, 92, 246, 0.35)',
-                          }}
+                          className="badge badge-purple"
                           title={`Sub-sub Kategori: ${doc.subSubCategoryCode}`}
                         >
                           {doc.subSubCategoryCode}
@@ -805,12 +795,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   <span className="badge badge-purple">{doc.typeCode}</span>
                   {doc.subCategoryCode && (
                     <span
-                      className="badge"
-                      style={{
-                        background: 'rgba(6, 182, 212, 0.15)',
-                        color: '#22d3ee',
-                        border: '1px solid rgba(6, 182, 212, 0.35)',
-                      }}
+                      className="badge badge-info"
                       title={`Sub-Kategori: ${doc.subCategoryCode}`}
                     >
                       {doc.subCategoryCode}
@@ -818,12 +803,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                   )}
                   {doc.subSubCategoryCode && (
                     <span
-                      className="badge"
-                      style={{
-                        background: 'rgba(139, 92, 246, 0.15)',
-                        color: '#c084fc',
-                        border: '1px solid rgba(139, 92, 246, 0.35)',
-                      }}
+                      className="badge badge-purple"
                       title={`Sub-sub Kategori: ${doc.subSubCategoryCode}`}
                     >
                       {doc.subSubCategoryCode}

@@ -40,6 +40,7 @@ import {
   Heading1,
   Heading2,
   Type,
+  Minus,
 } from "lucide-react";
 import "./ms-word-ribbon.css";
 import { DocumentLanguage } from "../types";
@@ -107,6 +108,7 @@ export interface MsWordEditorProps {
   documentYear?: string;
   language?: DocumentLanguage;
   paperSize?: "A4" | "F4";
+  documentId?: string;
 }
 
 export function repairCorruptedEditorHtml(html: string): string {
@@ -146,6 +148,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   documentYear = "2026",
   language = "id",
   paperSize = "A4",
+  documentId,
 }) => {
   const isF4 = paperSize === "F4";
   const maxBodyHeightPx = isF4 ? 845 : 720;
@@ -159,33 +162,30 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   const hasUserEditedRef = useRef<boolean>(false);
   const autoSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const lastLanguageRef = useRef<DocumentLanguage>(language);
+  const lastDocumentIdRef = useRef<string | undefined>(documentId);
 
   // Setiap elemen array mewakili HTML isi dari 1 halaman body (mulai Halaman 4 dst.)
   const [bodyPagesHtml, setBodyPagesHtml] = useState<string[]>(() => {
-    // Try to load any previously auto-saved body pages from localStorage
-    try {
-      const draft = localStorage.getItem("nbe_doc_autosave_latest");
-      if (draft) {
-        const parsed = JSON.parse(draft);
-        if (parsed.bodyPagesHtml && Array.isArray(parsed.bodyPagesHtml) && parsed.bodyPagesHtml.length > 0) {
-          hasUserEditedRef.current = true;
-          return parsed.bodyPagesHtml.map(repairCorruptedEditorHtml);
-        }
-      }
-    } catch (e) {}
-
     return initialHtmlPages && initialHtmlPages.length > 0
       ? initialHtmlPages.map(repairCorruptedEditorHtml)
-      : ["<p style='text-align: justify; font-size: 10.5pt; font-family: Arial;'>1.0\tOBJECTIVE</p>"];
+      : ["<p style='text-align: justify; font-size: 10.5pt; font-family: Arial; color: #3B3838;'>Isi dokumen kosong.</p>"];
   });
 
-  // Only sync initialHtmlPages if user has NOT yet made any edits
+  // Sinkronisasi real-time saat dokumen berganti atau konten awal berubah
   useEffect(() => {
-    if (hasUserEditedRef.current) return;
+    if (documentId !== lastDocumentIdRef.current) {
+      lastDocumentIdRef.current = documentId;
+      hasUserEditedRef.current = false;
+      if (initialHtmlPages && initialHtmlPages.length > 0) {
+        setBodyPagesHtml(initialHtmlPages.map(repairCorruptedEditorHtml));
+      }
+      return;
+    }
+
     if (initialHtmlPages && initialHtmlPages.length > 0) {
       setBodyPagesHtml(initialHtmlPages.map(repairCorruptedEditorHtml));
     }
-  }, [initialHtmlPages]);
+  }, [documentId, initialHtmlPages]);
 
   // Auto-translate editor HTML contents in-place when language toggles between 'id' and 'en'
   useEffect(() => {
@@ -195,18 +195,19 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
       setBodyPagesHtml((prevPages) => {
         const translated = prevPages.map((pgHtml) => translateHtmlContent(pgHtml, targetLang));
         try {
-          const draft = localStorage.getItem("nbe_doc_autosave_latest");
+          const docKey = `nbe_doc_autosave_${documentId || 'latest'}`;
+          const draft = localStorage.getItem(docKey);
           if (draft) {
             const parsed = JSON.parse(draft);
             parsed.bodyPagesHtml = translated;
-            localStorage.setItem("nbe_doc_autosave_latest", JSON.stringify(parsed));
+            localStorage.setItem(docKey, JSON.stringify(parsed));
           }
         } catch (e) {}
         return translated;
       });
     }
     lastLanguageRef.current = language;
-  }, [language]);
+  }, [language, documentId]);
 
   const [activeTab, setActiveTab] = useState<"Home" | "Insert" | "Layout" | "View">("Home");
   const [currentFontFamily, setCurrentFontFamily] = useState<string>("Arial");
@@ -410,9 +411,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     setRulerHoverCm(cm);
   };
 
-  // ============================================================================
-  // MESIN AUTO-PAGINATION
-  // ============================================================================
+  // Mesin Auto-Pagination
   const runAutoPaginationPass = useCallback(() => {
     let domChanged = false;
     const currentContainers = pageRefs.current.filter((el): el is HTMLDivElement => el !== null);
@@ -807,9 +806,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
 
   return (
     <div style={{ width: "100%" }}>
-      {/* ========================================================================
-          MS WORD 365 MODERN RIBBON BAR (MUNCUL KETIKA MODE EDIT AKTIF)
-         ======================================================================== */}
+      {/* MS Word 365 Ribbon Bar (Mode Edit Aktif) */}
       {isEditing && (
         <div className="ms-word-ribbon-container no-print">
           {/* 1. TOP TITLEBAR */}
@@ -981,7 +978,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
 
           {/* 3. RIBBON COMMAND BODY */}
           <div className="ms-word-ribbon-body">
-            {/* ================= TAB BERANDA (HOME) ================= */}
+            {/* Tab Beranda (Home) */}
             {activeTab === "Home" && (
               <>
                 {/* GRUP CLIPBOARD */}
@@ -1452,7 +1449,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
               </>
             )}
 
-            {/* ================= TAB SISIPKAN (INSERT) ================= */}
+            {/* Tab Sisipkan (Insert) */}
             {activeTab === "Insert" && (
               <>
                 <div className="ms-word-group">
@@ -1492,7 +1489,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                       className="ms-word-large-btn"
                       title="Sisipkan Garis Pembatas Horisontal"
                     >
-                      <span style={{ fontSize: "1.2rem", fontWeight: "bold" }}>—</span>
+                      <Minus size={20} color="#003366" />
                       <span className="ms-word-large-btn-label">Pemisah</span>
                     </button>
 
@@ -1532,7 +1529,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
               </>
             )}
 
-            {/* ================= TAB TATA LETAK (LAYOUT) ================= */}
+            {/* Tab Tata Letak (Layout) */}
             {activeTab === "Layout" && (
               <>
                 {/* KONTROL UKURAN TABEL KOP SURAT */}
@@ -1640,7 +1637,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
               </>
             )}
 
-            {/* ================= TAB TAMPILAN (VIEW) ================= */}
+            {/* Tab Tampilan (View) */}
             {activeTab === "View" && (
               <>
                 <div className="ms-word-group">
@@ -1878,9 +1875,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
         </div>
       )}
 
-      {/* ========================================================================
-          KANVAS DOKUMEN A4
-         ======================================================================== */}
+      {/* Kanvas Dokumen A4 / F4 */}
       <div
         id="nbe-single-a4-preview-canvas"
         className={`a4-print-container ${isF4 ? "paper-size-f4" : "paper-size-a4"}`}

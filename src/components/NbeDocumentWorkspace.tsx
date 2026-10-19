@@ -1457,9 +1457,7 @@ export const NbeDocumentWorkspace: React.FC<{
         ref={editorCanvasRef}
         className="space-y-8 select-text"
       >
-        {/* ========================================================================= */}
-        {/* LEMBAR 1: COVER PAGE (DENGAN LOGO COVER KUSTOM, TANPA KOP HEADER - POIN 1) */}
-        {/* ========================================================================= */}
+        {/* Lembar 1: Cover Page */}
         <div
           className="a4-page-preview flex flex-col justify-between bg-white text-black shadow-lg mx-auto"
           style={{
@@ -1535,9 +1533,7 @@ export const NbeDocumentWorkspace: React.FC<{
           </div>
         </div>
 
-        {/* ========================================================================= */}
-        {/* LEMBAR 2: KOP HEADER + TABEL INDEX REVISI SAJA (POIN 7 & 8)                */}
-        {/* ========================================================================= */}
+        {/* Lembar 2: Kop Header & Tabel Index Revisi */}
         <div
           className="a4-page-preview flex flex-col justify-between bg-white text-black shadow-lg mx-auto"
           style={{
@@ -1591,9 +1587,7 @@ export const NbeDocumentWorkspace: React.FC<{
           </div>
         </div>
 
-        {/* ========================================================================= */}
-        {/* LEMBAR 3: KOP HEADER + DAFTAR ISI (TOC) 1 HALAMAN TERSENDIRI (POIN 8)       */}
-        {/* ========================================================================= */}
+        {/* Lembar 3: Kop Header & Daftar Isi (TOC) */}
         <div
           className="a4-page-preview flex flex-col justify-between bg-white text-black shadow-lg mx-auto"
           style={{
@@ -1632,9 +1626,7 @@ export const NbeDocumentWorkspace: React.FC<{
           </div>
         </div>
 
-        {/* ========================================================================= */}
-        {/* LEMBAR 4+: KOP HEADER TIAP HALAMAN + ISI DOKUMEN (TANPA LEMBAR VALIDASI AKHIR)*/}
-        {/* ========================================================================= */}
+        {/* Lembar 4+: Kop Header & Isi Dokumen */}
         {activeDoc.bodyPages.map((paragraphs, pageIdx) => (
           <div
             key={pageIdx}

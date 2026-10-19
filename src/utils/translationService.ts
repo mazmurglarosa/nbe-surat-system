@@ -59,29 +59,17 @@ export const HEADING_TRANSLATIONS: Array<{ id: string; en: string }> = [
   { id: 'SISTEM MANAJEMEN TERINTEGRASI', en: 'INTEGRATED MANAGEMENT SYSTEMS' },
 ];
 
-// 2. Full Standard Paragraph Body Translations (Exact & Substring)
+// 2. Standard Paragraph Translations
 export const PARAGRAPH_TRANSLATIONS: Array<{ id: string; en: string }> = [
-  // 1.0 Objective
-  {
-    id: 'Menetapkan tata kelola standar operasional pada PT Nirwana Bhumi Energy agar seluruh aktivitas berjalan efisien, aman, dan mematuhi regulasi industri migas serta sistem manajemen mutu ISO 9001/14001/45001.',
-    en: 'To establish operational governance standards across PT Nirwana Bhumi Energy ensuring all activities operate efficiently, safely, and in full compliance with oil & gas industry regulations as well as ISO 9001/14001/45001 integrated management systems.',
-  },
+  // Standar umum dokumen resmi
   {
     id: 'Prosedur ini menetapkan tata cara, acuan baku, dan mekanisme pengendalian pelaksanaan prosedur di lingkungan PT Nirwana Bhumi Energy guna menjamin mutu, akurasi, serta kepatuhan keselamatan kerja.',
     en: 'This procedure establishes guidelines, benchmark standards, and control mechanisms for procedure implementation across PT Nirwana Bhumi Energy to guarantee quality, precision, and workplace safety compliance.',
-  },
-
-  // 2.0 Scope
-  {
-    id: 'Prosedur ini mencakup seluruh unit operasional, teknik, pengadaan, dan administrasi korporat di wilayah kerja PT Nirwana Bhumi Energy termasuk operasional darat dan fasilitas pendukung lainnya.',
-    en: 'This procedure applies to all operational, engineering, procurement, and corporate administration units within the working areas of PT Nirwana Bhumi Energy, including onshore operations and supporting facilities.',
   },
   {
     id: 'Prosedur ini berlaku secara menyeluruh bagi seluruh departemen, proyek operasional, dan personel terkait di lingkungan PT Nirwana Bhumi Energy.',
     en: 'This procedure applies comprehensively across all departments, operational projects, and relevant personnel within PT Nirwana Bhumi Energy.',
   },
-
-  // 3.0 Responsibility
   {
     id: 'Seluruh personel pelaksana wajib memahami dan menerapkan instruksi kerja yang tercantum. Verifikator teknis bertanggung jawab atas kendali mutu dan kepatuhan sistem audit berkala.',
     en: 'All executing personnel are required to comprehend and implement the working instructions set forth herein. Technical verifiers are responsible for quality control and compliance with regular audit systems.',
@@ -90,8 +78,6 @@ export const PARAGRAPH_TRANSLATIONS: Array<{ id: string; en: string }> = [
     id: 'Pedoman Sistem Manajemen Terintegrasi PT Nirwana Bhumi Energy, ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, dan kualifikasi CSMS SKK Migas serta PT PLN (Persero).',
     en: 'Integrated Management System Guidelines of PT Nirwana Bhumi Energy, ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, and CSMS qualifications of SKK Migas and PT PLN (Persero).',
   },
-
-  // 4.0 Definition
   {
     id: 'IMS (Integrated Management Systems): Sistem Manajemen Terintegrasi mutu, K3, dan lingkungan yang diadopsi PT Nirwana Bhumi Energy.',
     en: 'IMS (Integrated Management Systems): Integrated quality, HSE, and environmental management systems adopted by PT Nirwana Bhumi Energy.',
@@ -99,20 +85,6 @@ export const PARAGRAPH_TRANSLATIONS: Array<{ id: string; en: string }> = [
   {
     id: 'DCC (Document Control Center): Unit pengelola registrasi, distribusi, dan pengarsipan naskah dokumen terkontrol.',
     en: 'DCC (Document Control Centre): Administrative unit governing the registration, distribution, and archiving of controlled documents.',
-  },
-  {
-    id: 'Pembuat dokumen bertanggung jawab menyusun draf materi teknis. Verifikator memeriksa kesesuaian risiko. Pejabat berwenang mengesahkan dokumen.',
-    en: 'Document creators are responsible for drafting technical content. Verifiers review risk alignment. Authorised executives enact the documents.',
-  },
-
-  // 5.0 Procedure Details / 5.1 General Provisions / 5.2 Operational Flow
-  {
-    id: 'Setiap kegiatan wajib diawali dengan penilaian risiko (Job Safety Analysis) dan inspeksi berkala pada peralatan kerja serta verifikasi izin kerja berlaku.',
-    en: 'All operational activities must commence with a Job Safety Analysis (JSA) risk assessment, scheduled equipment inspections, and verification of valid work permits.',
-  },
-  {
-    id: 'Pelaksanaan tugas operasional dilaporkan secara harian ke sistem pemantauan terpadu untuk menjamin kontinuitas data dan akurasi riwayat penanganan.',
-    en: 'Operational task execution shall be reported on a daily basis to the integrated monitoring system to ensure data continuity and accurate maintenance history.',
   },
   {
     id: 'Pelaksanaan teknis alur kerja sesuai dengan instruksi kerja dan matriks tanggung jawab yang telah ditetapkan.',
@@ -208,7 +180,7 @@ export function translateTextLine(text: string, targetLang: 'id' | 'en'): string
   if (!text) return text;
   const trimmed = text.trim();
 
-  // 1. Check if line starts with numbered clause e.g. "1.0 OBJECTIVE", "5.1 General Provisions"
+  // 1. Check if line starts with numbered clause e.g. "1.0 TUJUAN", "5.1 Klausul Rincian"
   const clauseMatch = trimmed.match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
   if (clauseMatch) {
     const numPart = clauseMatch[1];

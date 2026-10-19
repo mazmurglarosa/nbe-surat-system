@@ -23,6 +23,12 @@ import { MsWordRibbonEditor, KopTableSettings } from './MsWordRibbonEditor';
 import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
 import { translateTocList, translateTextLine, translateHtmlContent } from '../utils/translationService';
 import { formatNbeStandardDate, parseDateParts } from '../utils/dateFormatter';
+import {
+  translateExtractedHtml,
+  translateTocHeadings,
+  paginateHtmlContent,
+  TocHeadingItem,
+} from '../utils/docxOriginalExtractor';
 
 export type { KopTableSettings };
 
@@ -74,6 +80,9 @@ export interface A4DocumentPreviewProps {
   kopLogoWidthInches?: number;
   tocList?: Array<{ num: string; title: string; isSub?: boolean }>;
   bodyPages?: string[][];
+  originalHtmlBody?: string;
+  tocHeadings?: TocHeadingItem[];
+  documentId?: string;
   onCopyCode?: () => void;
   onDownloadDocx?: () => void;
   onSaveDocument?: (updated: DocumentSavePayload) => void;
@@ -108,6 +117,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   kopLogoWidthInches = 0.95,
   tocList,
   bodyPages,
+  originalHtmlBody,
+  tocHeadings,
+  documentId,
   onCopyCode,
   onDownloadDocx,
   onSaveDocument,
@@ -128,6 +140,18 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setPaperSize(propPaperSize);
     }
   }, [propPaperSize]);
+
+  // Accessible keyboard Escape handler for print paper size modal (R-32 Accessibility)
+  useEffect(() => {
+    if (!showPrintModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowPrintModal(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showPrintModal]);
 
   // Dynamic @page style injection for print & PDF export
   useEffect(() => {
@@ -214,34 +238,12 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     ];
   });
 
-  // Table of Contents State
+  // Table of Contents State (Diambil dinamis dari heading asli berkas .docx yang diedit)
   const [editableTocItems, setEditableTocItems] = useState<Array<{ num: string; title: string; isSub?: boolean }>>(() => {
-    if (tocList && tocList.length > 0) return tocList;
-    if (language === 'en') {
-      return [
-        { num: '1.0', title: 'OBJECTIVE' },
-        { num: '2.0', title: 'SCOPE' },
-        { num: '3.0', title: 'RESPONSIBILITY' },
-        { num: '4.0', title: 'DEFINITION' },
-        { num: '5.0', title: 'PROCEDURE DETAILS' },
-        { num: '5.1', title: 'General Provisions', isSub: true },
-        { num: '5.2', title: 'Operational Flow', isSub: true },
-        { num: '6.0', title: 'RELATED DOCUMENTS' },
-        { num: '7.0', title: 'RECORDS' },
-        { num: '8.0', title: 'APPENDICES AND EMERGENCY INSTRUCTIONS' },
-      ];
-    }
+    if (tocHeadings && tocHeadings.length > 0) return translateTocHeadings(tocHeadings, language);
+    if (tocList && tocList.length > 0) return translateTocList(tocList, language === 'en' ? 'en' : 'id');
     return [
-      { num: '1.0', title: 'MAKSUD DAN TUJUAN' },
-      { num: '2.0', title: 'RUANG LINGKUP' },
-      { num: '3.0', title: 'TANGGUNG JAWAB' },
-      { num: '4.0', title: 'DEFINISI' },
-      { num: '5.0', title: 'RINCIAN PROSEDUR' },
-      { num: '5.1', title: 'Ketentuan Umum', isSub: true },
-      { num: '5.2', title: 'Alur Operasional', isSub: true },
-      { num: '6.0', title: 'DOKUMEN TERKAIT' },
-      { num: '7.0', title: 'REKAMAN' },
-      { num: '8.0', title: 'LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT' },
+      { num: '1.0', title: language === 'en' ? 'DOCUMENT CONTENT' : 'ISI DOKUMEN', isSub: false },
     ];
   });
 
@@ -297,6 +299,19 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     try {
       const rawSaved = localStorage.getItem(docStorageKey);
       if (rawSaved) {
+        // Guardrail: Buang otomatis draf lama jika terkontaminasi teks dummy boilerplate
+        if (
+          rawSaved.includes('operational governance') ||
+          rawSaved.includes('General Provisions') ||
+          rawSaved.includes('PT Nirwana Bhumi Energy ensuring all activities operate efficiently') ||
+          rawSaved.includes('IMS (Integrated Management Systems)')
+        ) {
+          console.warn('Purged legacy dummy draft from localStorage:', docStorageKey);
+          localStorage.removeItem(docStorageKey);
+          localStorage.removeItem('nbe_doc_autosave_latest');
+          return;
+        }
+
         const parsed = JSON.parse(rawSaved);
         if (title) setEditableTitle(title);
         else if (parsed.title) setEditableTitle(parsed.title);
@@ -375,14 +390,23 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     verifiedRole: verifiedRole || '',
     approvedBy: approvedBy || '',
     approvedRole: approvedRole || '',
+    documentId: documentId || '',
+    tocHeadingsJson: JSON.stringify(tocHeadings || []),
   });
 
   // Synchronize state whenever props from parent form change
   useEffect(() => {
     const prev = lastPropsRef.current;
     const currentRevsJson = JSON.stringify(revisions || []);
+    const currentTocHeadingsJson = JSON.stringify(tocHeadings || []);
     const targetLang = language === 'en' ? 'en' : 'id';
 
+    if (documentId && documentId !== prev.documentId) {
+      isUserModifiedRef.current = false;
+      if (tocHeadings && tocHeadings.length > 0) {
+        setEditableTocItems(translateTocHeadings(tocHeadings, language));
+      }
+    }
     if (code && code !== prev.code) {
       setEditableCode(code);
     }
@@ -415,6 +439,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       if (revisions[0]?.description) {
         setEditableRevisionDesc(revisions[0].description);
       }
+    }
+    if (tocHeadings && tocHeadings.length > 0 && currentTocHeadingsJson !== prev.tocHeadingsJson) {
+      setEditableTocItems(translateTocHeadings(tocHeadings, language));
     }
     if (preparedBy && preparedBy !== prev.preparedBy) {
       setEditablePreparedBy(preparedBy);
@@ -454,8 +481,10 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       verifiedRole: verifiedRole || '',
       approvedBy: approvedBy || '',
       approvedRole: approvedRole || '',
+      documentId: documentId || '',
+      tocHeadingsJson: currentTocHeadingsJson,
     };
-  }, [code, title, typeLabel, issueDate, revision, revisions, preparedBy, preparedRole, verifiedBy, verifiedRole, approvedBy, approvedRole, preservedBodyParagraphs, bodyTables, language]);
+  }, [code, title, typeLabel, issueDate, revision, revisions, preparedBy, preparedRole, verifiedBy, verifiedRole, approvedBy, approvedRole, preservedBodyParagraphs, bodyTables, language, tocHeadings, documentId]);
 
   // Bi-directional automatic translation when user selects language ('id' <-> 'en')
   const lastDocLanguageRef = useRef<DocumentLanguage>(language);
@@ -680,18 +709,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           revisedBy: preparedBy || 'Mazmur Gusti Agung Larosa',
         },
       ]);
-      setEditableTocItems(tocList && tocList.length > 0 ? tocList : [
-        { num: '1.0', title: 'OBJECTIVE' },
-        { num: '2.0', title: 'SCOPE' },
-        { num: '3.0', title: 'RESPONSIBILITY' },
-        { num: '4.0', title: 'DEFINITION' },
-        { num: '5.0', title: 'PROCEDURE DETAILS' },
-        { num: '5.1', title: 'General Provisions', isSub: true },
-        { num: '5.2', title: 'Operational Flow', isSub: true },
-        { num: '6.0', title: 'RELATED DOCUMENTS' },
-        { num: '7.0', title: 'RECORDS' },
-        { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
-      ]);
+      setEditableTocItems(
+        tocHeadings && tocHeadings.length > 0
+          ? translateTocHeadings(tocHeadings, language)
+          : (tocList && tocList.length > 0
+              ? translateTocList(tocList, language === 'en' ? 'en' : 'id')
+              : [{ num: '1.0', title: language === 'en' ? 'DOCUMENT CONTENT' : 'ISI DOKUMEN', isSub: false }])
+      );
       setKopSettings({
         logoWidthPercent: 25,
         paddingY: 6,
@@ -939,52 +963,19 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   }, [categoryCode, effectiveCode, tocList, bodyPages, editableParagraphs]);
 
   const effectiveTocList = React.useMemo(() => {
-    const target = language === 'en' ? 'en' : 'id';
-    if (tocList && tocList.length > 0) return translateTocList(tocList, target);
+    if (tocHeadings && tocHeadings.length > 0) {
+      return translateTocHeadings(tocHeadings, language);
+    }
+    if (tocList && tocList.length > 0) {
+      return translateTocList(tocList, language === 'en' ? 'en' : 'id');
+    }
     if (editableTocItems && editableTocItems.length > 0) {
-      return translateTocList(editableTocItems, target);
-    }
-    if (editableParagraphs && editableParagraphs.length > 0) {
-      const extracted: Array<{ num: string; title: string; isSub?: boolean }> = [];
-      editableParagraphs.forEach((p) => {
-        const m = p.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
-        if (m) {
-          extracted.push({
-            num: m[1],
-            title: m[2],
-            isSub: !m[1].endsWith('.0'),
-          });
-        }
-      });
-      if (extracted.length > 0) return translateTocList(extracted, target);
-    }
-    if (target === 'en') {
-      return [
-        { num: '1.0', title: 'OBJECTIVE' },
-        { num: '2.0', title: 'SCOPE' },
-        { num: '3.0', title: 'RESPONSIBILITY' },
-        { num: '4.0', title: 'DEFINITION' },
-        { num: '5.0', title: 'PROCEDURE DETAILS' },
-        { num: '5.1', title: 'General Provisions', isSub: true },
-        { num: '5.2', title: 'Operational Flow', isSub: true },
-        { num: '6.0', title: 'RELATED DOCUMENTS' },
-        { num: '7.0', title: 'RECORDS' },
-        { num: '8.0', title: 'APPENDICES AND EMERGENCY INSTRUCTIONS' },
-      ];
+      return translateTocHeadings(editableTocItems, language);
     }
     return [
-      { num: '1.0', title: 'MAKSUD DAN TUJUAN' },
-      { num: '2.0', title: 'RUANG LINGKUP' },
-      { num: '3.0', title: 'TANGGUNG JAWAB' },
-      { num: '4.0', title: 'DEFINISI' },
-      { num: '5.0', title: 'RINCIAN PROSEDUR' },
-      { num: '5.1', title: 'Ketentuan Umum', isSub: true },
-      { num: '5.2', title: 'Alur Operasional', isSub: true },
-      { num: '6.0', title: 'DOKUMEN TERKAIT' },
-      { num: '7.0', title: 'REKAMAN' },
-      { num: '8.0', title: 'LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT' },
+      { num: '1.0', title: language === 'en' ? 'DOCUMENT CONTENT' : 'ISI DOKUMEN', isSub: false },
     ];
-  }, [tocList, editableTocItems, editableParagraphs, language]);
+  }, [tocHeadings, tocList, editableTocItems, language]);
 
   const effectiveBodyPages: string[][] = React.useMemo(() => {
     const target = language === 'en' ? 'en' : 'id';
@@ -1003,63 +994,62 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       });
       return pages.length > 0 ? pages : [editableParagraphs.map((l) => translateTextLine(l, target))];
     }
-    if (target === 'en') {
-      return [
-        [
-          '1.0 OBJECTIVE',
-          'To establish operational governance standards across PT Nirwana Bhumi Energy ensuring all activities operate efficiently, safely, and in full compliance with oil & gas industry regulations as well as ISO 9001/14001/45001 integrated management systems.',
-          '2.0 SCOPE',
-          'This procedure applies to all operational, engineering, procurement, and corporate administration units within the working areas of PT Nirwana Bhumi Energy, including onshore operations and supporting facilities.',
-          '3.0 RESPONSIBILITY',
-          'All executing personnel are required to comprehend and implement the working instructions set forth herein. Technical verifiers are responsible for quality control and compliance with regular audit systems.',
-          '4.0 DEFINITION',
-          'IMS (Integrated Management Systems): Integrated quality, HSE, and environmental management systems adopted by PT Nirwana Bhumi Energy.',
-          'DCC (Document Control Centre): Administrative unit governing the registration, distribution, and archiving of controlled documents.',
-        ],
-        [
-          '5.0 PROCEDURE DETAILS',
-          '5.1 General Provisions',
-          'All operational activities must commence with a Job Safety Analysis (JSA) risk assessment, scheduled equipment inspections, and verification of valid work permits.',
-          '5.2 Operational Flow',
-          'Operational task execution shall be reported on a daily basis to the integrated monitoring system to ensure data continuity and accurate maintenance history.',
-          '6.0 RELATED DOCUMENTS',
-          'Corporate Integrated Management System Manual NBE-IMS-MAN-2026 and Field Quality Verification Forms.',
-          '7.0 RECORDS',
-          'All verification records, inspection logbooks, and official handover minutes shall be preserved in controlled archives for a minimum period of 5 (five) years.',
-          '8.0 APPENDICES AND EMERGENCY INSTRUCTIONS',
-          'Emergency response instructions and key emergency telephone directories are set forth in the internal operational appendices.',
-        ],
-      ];
-    }
     return [
       [
-        '1.0 MAKSUD DAN TUJUAN',
-        'Menetapkan tata kelola standar operasional pada PT Nirwana Bhumi Energy agar seluruh aktivitas berjalan efisien, aman, dan mematuhi regulasi industri migas serta sistem manajemen mutu ISO 9001/14001/45001.',
-        '2.0 RUANG LINGKUP',
-        'Prosedur ini mencakup seluruh unit operasional, teknik, pengadaan, dan administrasi korporat di wilayah kerja PT Nirwana Bhumi Energy termasuk operasional darat dan fasilitas pendukung lainnya.',
-        '3.0 TANGGUNG JAWAB',
-        'Seluruh personel pelaksana wajib memahami dan menerapkan instruksi kerja yang tercantum. Verifikator teknis bertanggung jawab atas kendali mutu dan kepatuhan sistem audit berkala.',
-        '4.0 DEFINISI',
-        'IMS (Integrated Management Systems): Sistem Manajemen Terintegrasi mutu, K3, dan lingkungan yang diadopsi PT Nirwana Bhumi Energy.',
-        'DCC (Document Control Center): Unit pengelola registrasi, distribusi, dan pengarsipan naskah dokumen terkontrol.',
-      ],
-      [
-        '5.0 RINCIAN PROSEDUR',
-        '5.1 Ketentuan Umum',
-        'Setiap kegiatan wajib diawali dengan penilaian risiko (Job Safety Analysis) dan inspeksi berkala pada peralatan kerja serta verifikasi izin kerja berlaku.',
-        '5.2 Alur Operasional',
-        'Pelaksanaan tugas operasional dilaporkan secara harian ke sistem pemantauan terpadu untuk menjamin kontinuitas data dan akurasi riwayat penanganan.',
-        '6.0 DOKUMEN TERKAIT',
-        'Manual Sistem Manajemen Terintegrasi NBE-IMS-MAN-2026 dan Formulir Verifikasi Mutu Lapangan.',
-        '7.0 REKAMAN',
-        'Seluruh catatan verifikasi, logbook inspeksi, dan berita acara disimpan dalam arsip terkontrol minimal selama 5 (lima) tahun.',
-        '8.0 LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT',
-        'Instruksi tanggap darurat dan nomor kontak darurat tertera pada lampiran internal operasional.',
+        language === 'en' ? '1.0 DOCUMENT CONTENT' : '1.0 ISI DOKUMEN',
       ],
     ];
   }, [bodyPages, editableParagraphs, language]);
 
-  const totalPages = isProceduralDoc ? 3 + effectiveBodyPages.length : 4;
+  const [translatedHtmlPages, setTranslatedHtmlPages] = useState<string[]>([]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const processContent = async () => {
+      if (originalHtmlBody && originalHtmlBody.trim()) {
+        const translatedHtml = await translateExtractedHtml(originalHtmlBody, language);
+        if (!isCancelled) {
+          const pages = paginateHtmlContent(translatedHtml);
+          setTranslatedHtmlPages(pages);
+        }
+      } else if (effectiveBodyPages && effectiveBodyPages.length > 0) {
+        const pages = effectiveBodyPages.map((pageLines) => {
+          return pageLines
+            .map((line) => {
+              const matchH = line.trim().match(/^([0-9]+(?:\.0)?\.?|[IVXLCDM]+\.?)\s+(.*)$/);
+              if (matchH) {
+                const [, numPart, titlePart] = matchH;
+                const isMainH = numPart.endsWith('.0') || !numPart.includes('.');
+                return `<p style="margin: ${
+                  isMainH ? '0.75rem' : '0.45rem'
+                } 0 0.3rem 0; font-weight: bold; color: #000000; font-size: ${
+                  isMainH ? '11pt' : '10.5pt'
+                }; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span>${titlePart}</p>`;
+              }
+              return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; word-break: normal; overflow-wrap: break-word;">${line}</p>`;
+            })
+            .join('');
+        });
+        if (!isCancelled) {
+          setTranslatedHtmlPages(pages);
+        }
+      } else {
+        if (!isCancelled) {
+          setTranslatedHtmlPages([
+            `<p style="font-family: Arial, sans-serif; font-size: 10.5pt; color: #3B3838; text-align: justify;">${
+              language === 'en' ? 'Document body is empty.' : 'Isi dokumen kosong.'
+            }</p>`,
+          ]);
+        }
+      }
+    };
+    processContent();
+    return () => {
+      isCancelled = true;
+    };
+  }, [originalHtmlBody, effectiveBodyPages, language]);
+
+  const totalPages = isProceduralDoc ? 3 + Math.max(1, translatedHtmlPages.length || effectiveBodyPages.length) : 4;
 
   const documentYear = React.useMemo(() => {
     if (editableIssueDate) {
@@ -1646,14 +1636,17 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const renderRunningKopHeader = () => renderSharedKopHeader();
 
   const initialHtmlPages = React.useMemo(() => {
+    if (translatedHtmlPages && translatedHtmlPages.length > 0) {
+      return translatedHtmlPages;
+    }
     if (effectiveBodyPages && effectiveBodyPages.length > 0) {
       return effectiveBodyPages.map((pageLines) => {
         return pageLines
           .map((line) => {
-            const matchH = line.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
+            const matchH = line.trim().match(/^([0-9]+(?:\.0)?\.?|[IVXLCDM]+\.?)\s+(.*)$/);
             if (matchH) {
               const [, numPart, titlePart] = matchH;
-              const isMainH = numPart.endsWith('.0');
+              const isMainH = numPart.endsWith('.0') || !numPart.includes('.');
               return `<p style="margin: ${
                 isMainH ? '0.75rem' : '0.45rem'
               } 0 0.3rem 0; font-weight: bold; color: #000000; font-size: ${
@@ -1666,9 +1659,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       });
     }
     return [
-      "<p style='text-align: justify; font-size: 10.5pt; font-family: Arial;'>1.0\tOBJECTIVE</p>",
+      `<p style="font-family: Arial, sans-serif; font-size: 10.5pt; color: #3B3838; text-align: justify;">${
+        language === 'en' ? 'Document body is empty.' : 'Isi dokumen kosong.'
+      }</p>`,
     ];
-  }, [effectiveBodyPages]);
+  }, [translatedHtmlPages, effectiveBodyPages, language]);
 
   const handleSaveFromRibbonEditor = (updatedHtmlPages: string[]) => {
     const extractedParagraphs: string[] = [];
@@ -2266,7 +2261,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               padding: '0.5rem 0',
             }}
           >
-            {editableTocItems.map((item, idx) => (
+            {(isEditing ? editableTocItems : effectiveTocList).map((item, idx) => (
               <div
                 key={idx}
                 style={{
@@ -2765,7 +2760,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           ...(isProceduralDoc
             ? [
                 { id: 3, label: 'Hal 3: Table of Contents' },
-                ...effectiveBodyPages.map((_, idx) => ({
+                ...(translatedHtmlPages && translatedHtmlPages.length > 0 ? translatedHtmlPages : effectiveBodyPages).map((_, idx) => ({
                   id: 4 + idx,
                   label: `Hal ${4 + idx}: Isi Dokumen (Bag. ${idx + 1})`,
                 })),
@@ -2799,6 +2794,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
       {/* MS WORD RIBBON BAR & AUTO-PAGINATION DOCUMENT CANVAS */}
       <MsWordRibbonEditor
+        key={`${documentId || effectiveCode}-${language}-${paperSize}-${initialHtmlPages.length}-${(initialHtmlPages[0] || '').slice(0, 30)}`}
+        documentId={documentId || effectiveCode}
         isEditing={isEditing}
         onToggleEdit={() => setIsEditing(!isEditing)}
         onSaveDocument={handleSaveFromRibbonEditor}
@@ -2823,6 +2820,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       {showPrintModal && (
         <div
           className="no-print"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nbe-print-modal-title"
           style={{
             position: 'fixed',
             inset: 0,
@@ -2877,7 +2877,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   <Printer size={20} />
                 </div>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+                  <h3 id="nbe-print-modal-title" style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
                     Cetak Dokumen ke PDF
                   </h3>
                   <p style={{ margin: '2px 0 0 0', fontSize: '0.82rem', color: '#64748b' }}>
@@ -2888,6 +2888,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPrintModal(false)}
+                aria-label="Tutup dialog pilihan ukuran kertas cetak"
                 style={{
                   background: 'transparent',
                   border: 'none',
@@ -2908,18 +2909,30 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             {/* Modal Body: Cards Pilihan Ukuran Kertas */}
             <div style={{ padding: '1.5rem' }}>
               <div
+                className="nbe-paper-size-grid"
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
                   gap: '1.25rem',
                   marginBottom: '1.25rem',
                 }}
               >
                 {/* CARD 1: A4 */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={paperSize === 'A4'}
+                  aria-label="Pilih format ukuran kertas A4 210 kali 297 milimeter"
                   onClick={() => {
                     setPaperSize('A4');
                     onPaperSizeChange?.('A4');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setPaperSize('A4');
+                      onPaperSizeChange?.('A4');
+                    }
                   }}
                   style={{
                     border: paperSize === 'A4' ? '2.5px solid #003366' : '1.5px solid #e2e8f0',
@@ -2933,6 +2946,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     boxShadow: paperSize === 'A4' ? '0 8px 20px rgba(0, 51, 102, 0.12)' : 'none',
+                    outline: 'none',
                   }}
                 >
                   {paperSize === 'A4' && (
@@ -3054,9 +3068,20 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
                 {/* CARD 2: F4 / FOLIO */}
                 <div
+                  role="button"
+                  tabIndex={0}
+                  aria-pressed={paperSize === 'F4'}
+                  aria-label="Pilih format ukuran kertas F4 Folio 215 kali 330 milimeter"
                   onClick={() => {
                     setPaperSize('F4');
                     onPaperSizeChange?.('F4');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setPaperSize('F4');
+                      onPaperSizeChange?.('F4');
+                    }
                   }}
                   style={{
                     border: paperSize === 'F4' ? '2.5px solid #003366' : '1.5px solid #e2e8f0',
@@ -3070,6 +3095,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     flexDirection: 'column',
                     justifyContent: 'space-between',
                     boxShadow: paperSize === 'F4' ? '0 8px 20px rgba(0, 51, 102, 0.12)' : 'none',
+                    outline: 'none',
                   }}
                 >
                   {paperSize === 'F4' && (

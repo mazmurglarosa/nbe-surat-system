@@ -1,7 +1,4 @@
-/* ==============================================================================
-   MS WORD 365 RIBBON BAR & RULER STYLESHEET
-   PT Nirwana Bhumi Energy (NBE) - Clean Modern Corporate Document Editor
-   ============================================================================== */
+/* MS Word 365 Ribbon Bar & Ruler Stylesheet - PT Nirwana Bhumi Energy (NBE) */
 
 .ms-word-ribbon-container {
   width: 100%;
@@ -889,4 +886,33 @@
   background-color: #ffffff;
   outline: 2px solid #0284c7 !important;
   box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+}
+
+/* 9. ACCESSIBLE KEYBOARD FOCUS INDICATORS (R-32 Accessibility) */
+.ms-word-tab-btn:focus-visible,
+.ms-word-tool-btn:focus-visible,
+.ms-word-quick-btn:focus-visible,
+.ms-word-large-btn:focus-visible,
+.ms-word-style-btn:focus-visible,
+.word-style-tile:focus-visible,
+.word-ribbon-btn:focus-visible,
+.ms-word-select:focus-visible,
+.ms-word-search-input:focus-visible {
+  outline: 2px solid var(--primary, #003366) !important;
+  outline-offset: 1px !important;
+}
+
+@media (forced-colors: active) {
+  .ms-word-tab-btn:focus-visible,
+  .ms-word-tool-btn:focus-visible,
+  .ms-word-quick-btn:focus-visible,
+  .ms-word-large-btn:focus-visible,
+  .ms-word-style-btn:focus-visible,
+  .word-style-tile:focus-visible,
+  .word-ribbon-btn:focus-visible,
+  .ms-word-select:focus-visible,
+  .ms-word-search-input:focus-visible {
+    outline: 2px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
 }

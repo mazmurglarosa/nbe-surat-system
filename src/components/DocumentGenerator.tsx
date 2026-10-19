@@ -125,6 +125,22 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [quickAddError, setQuickAddError] = useState<string | null>(null);
   const [isCreatingCategoryFolder, setIsCreatingCategoryFolder] = useState<boolean>(false);
 
+  // Accessible keyboard Escape handler for quick add modal (R-32 Accessibility)
+  useEffect(() => {
+    if (!quickAddModal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setQuickAddModal(null);
+        setQuickCode('');
+        setQuickLabel('');
+        setQuickDesc('');
+        setQuickAddError(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [quickAddModal]);
+
   // Date selections
   const [issueDate, setIssueDate] = useState<string>(() =>
     new Date().toISOString().slice(0, 10)
@@ -1009,22 +1025,26 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 gap: '0.4rem',
               }}
             >
-              <span className="badge badge-blue">
+              <span className="badge badge-primary">
                 No: {formatSequence(effectiveSequence)}
               </span>
-              <span className="badge badge-purple">
+              <span className="badge badge-blue">
                 Tipe: {selectedType}
               </span>
-              <span className="badge badge-info" style={{ background: 'rgba(6, 182, 212, 0.15)', color: '#22d3ee', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
-                Sub (ZZ): {selectedSubCategory}
-              </span>
-              <span className="badge" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#f472b6', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
-                Sub-sub (AA): {selectedSubSubCategory}
-              </span>
-              <span className="badge badge-primary">Divisi: {selectedDivision}</span>
+              {selectedSubCategory && (
+                <span className="badge badge-info">
+                  Sub (ZZ): {selectedSubCategory}
+                </span>
+              )}
+              {selectedSubSubCategory && (
+                <span className="badge badge-purple">
+                  Sub-sub (AA): {selectedSubSubCategory}
+                </span>
+              )}
+              <span className="badge badge-blue">Divisi: {selectedDivision}</span>
               <span className="badge badge-warning">Approver: {selectedApprover}</span>
-              <span className="badge badge-blue">Bulan: {getRomanMonth(monthNumber)}</span>
-              <span className="badge badge-purple">Tahun: {year}</span>
+              <span className="badge badge-primary">Bulan: {getRomanMonth(monthNumber)}</span>
+              <span className="badge badge-primary">Tahun: {year}</span>
             </div>
           </div>
 
@@ -1577,13 +1597,10 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     </div>
                   </div>
                   <span
-                    className="badge mono"
+                    className="badge badge-info mono"
                     style={{
                       fontSize: '0.8rem',
                       padding: '0.2rem 0.5rem',
-                      background: 'rgba(6, 182, 212, 0.25)',
-                      color: '#22d3ee',
-                      border: '1px solid rgba(6, 182, 212, 0.4)',
                     }}
                   >
                     {sc.code}
@@ -1673,13 +1690,10 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                     </div>
                   </div>
                   <span
-                    className="badge mono"
+                    className="badge badge-purple mono"
                     style={{
                       fontSize: '0.8rem',
                       padding: '0.2rem 0.5rem',
-                      background: 'rgba(139, 92, 246, 0.25)',
-                      color: '#c084fc',
-                      border: '1px solid rgba(139, 92, 246, 0.4)',
                     }}
                   >
                     {ssc.code}
@@ -2487,6 +2501,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       />
 
       <A4DocumentPreview
+        key={`${activeCode}-${selectedLang}`}
+        documentId={activeCode}
         language={selectedLang}
         title={
           selectedLang === 'en'
@@ -2532,6 +2548,9 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       {quickAddModal && (
         <div
           className="modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nbe-quick-add-modal-title"
           style={{
             position: 'fixed',
             inset: 0,
@@ -2542,6 +2561,15 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             justifyContent: 'center',
             zIndex: 9999,
             padding: '1rem',
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setQuickAddModal(null);
+              setQuickCode('');
+              setQuickLabel('');
+              setQuickDesc('');
+              setQuickAddError(null);
+            }
           }}
         >
           <div
@@ -2564,7 +2592,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 marginBottom: '1.25rem',
               }}
             >
-              <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
+              <h3 id="nbe-quick-add-modal-title" style={{ fontSize: '1.15rem', fontWeight: 700, color: 'var(--text-main)' }}>
                 {quickAddModal === 'subsubcategory'
                   ? 'Tambah Sub-sub Kategori Baru (AA)'
                   : quickAddModal === 'subcategory'
@@ -2581,6 +2609,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                   setQuickAddError(null);
                 }}
                 className="btn-icon"
+                aria-label="Tutup dialog tambah cepat"
                 style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer' }}
               >
                 <X size={18} />
