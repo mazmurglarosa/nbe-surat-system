@@ -227,19 +227,41 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       const rawSaved = localStorage.getItem(docStorageKey);
       if (rawSaved) {
         const parsed = JSON.parse(rawSaved);
-        if (parsed.title) setEditableTitle(parsed.title);
-        if (parsed.code) setEditableCode(parsed.code);
+        if (title) setEditableTitle(title);
+        else if (parsed.title) setEditableTitle(parsed.title);
+
+        if (code) setEditableCode(code);
+        else if (parsed.code) setEditableCode(parsed.code);
+
         if (parsed.companyName) setEditableCompanyName(parsed.companyName);
-        if (parsed.typeLabel) setEditableDocTypeLabel(parsed.typeLabel);
-        if (parsed.issueDate) setEditableIssueDate(parsed.issueDate);
-        if (typeof parsed.revision === 'number') setEditableRevision(parsed.revision);
-        if (parsed.preparedBy) setEditablePreparedBy(parsed.preparedBy);
+
+        if (typeLabel) setEditableDocTypeLabel(translateTextLine(typeLabel, language === 'en' ? 'en' : 'id'));
+        else if (parsed.typeLabel) setEditableDocTypeLabel(parsed.typeLabel);
+
+        if (issueDate) setEditableIssueDate(issueDate);
+        else if (parsed.issueDate) setEditableIssueDate(parsed.issueDate);
+
+        if (typeof revision === 'number') setEditableRevision(revision);
+        else if (typeof parsed.revision === 'number') setEditableRevision(parsed.revision);
+
+        if (preparedBy) setEditablePreparedBy(preparedBy);
+        else if (parsed.preparedBy) setEditablePreparedBy(parsed.preparedBy);
+
         if (parsed.preparedRole) setEditablePreparedRole(parsed.preparedRole);
-        if (parsed.verifiedBy) setEditableVerifiedBy(parsed.verifiedBy);
+
+        if (verifiedBy) setEditableVerifiedBy(verifiedBy);
+        else if (parsed.verifiedBy) setEditableVerifiedBy(parsed.verifiedBy);
+
         if (parsed.verifiedRole) setEditableVerifiedRole(parsed.verifiedRole);
-        if (parsed.approvedBy) setEditableApprovedBy(parsed.approvedBy);
+
+        if (approvedBy) setEditableApprovedBy(approvedBy);
+        else if (parsed.approvedBy) setEditableApprovedBy(parsed.approvedBy);
+
         if (parsed.approvedRole) setEditableApprovedRole(parsed.approvedRole);
-        if (parsed.revisions && Array.isArray(parsed.revisions) && parsed.revisions.length > 0) {
+
+        if (revisions && revisions.length > 0) {
+          setEditableRevisionsList(revisions);
+        } else if (parsed.revisions && Array.isArray(parsed.revisions) && parsed.revisions.length > 0) {
           setEditableRevisionsList(parsed.revisions);
         }
         if (parsed.tocList && Array.isArray(parsed.tocList) && parsed.tocList.length > 0) {
@@ -268,25 +290,74 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     }
   }, [docStorageKey]);
 
-  // Synchronize state when props change ONLY IF not modified by user
-  React.useEffect(() => {
-    if (!isUserModifiedRef.current && !isEditing) {
-      setEditableTitle(title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN');
-      setEditableCode(code || '0001-KB-GNR-CEO-X-2026');
-      setEditableIssueDate(issueDate || '2026-10-17');
-      setEditableRevision(revision ?? 0);
-      setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
-      setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
-      setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
-      setEditableDocTypeLabel(typeLabel || 'Standar Operasional Prosedur (SOP)');
-      setEditableRevisionDesc(
-        revisions?.[0]?.description ||
-          `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
-      );
-      setEditableParagraphs(preservedBodyParagraphs || []);
-      setEditableTables(bodyTables || []);
+  // Track last synced props to react immediately when parent form values change
+  const lastPropsRef = useRef({
+    code: code || '',
+    title: title || '',
+    typeLabel: typeLabel || '',
+    issueDate: issueDate || '',
+    revision: revision ?? 0,
+    revisionsJson: JSON.stringify(revisions || []),
+    preparedBy: preparedBy || '',
+    verifiedBy: verifiedBy || '',
+    approvedBy: approvedBy || '',
+  });
+
+  // Synchronize state whenever props from parent form change
+  useEffect(() => {
+    const prev = lastPropsRef.current;
+    const currentRevsJson = JSON.stringify(revisions || []);
+    const targetLang = language === 'en' ? 'en' : 'id';
+
+    if (code && code !== prev.code) {
+      setEditableCode(code);
     }
-  }, [title, code, issueDate, revision, preparedBy, verifiedBy, approvedBy, typeLabel, revisions, preservedBodyParagraphs, bodyTables, isEditing]);
+    if (title && title !== prev.title) {
+      setEditableTitle(title);
+    }
+    if (typeLabel && typeLabel !== prev.typeLabel) {
+      setEditableDocTypeLabel(translateTextLine(typeLabel, targetLang));
+    }
+    if (issueDate && issueDate !== prev.issueDate) {
+      setEditableIssueDate(issueDate);
+    }
+    if (typeof revision === 'number' && revision !== prev.revision) {
+      setEditableRevision(revision);
+    }
+    if (revisions && revisions.length > 0 && currentRevsJson !== prev.revisionsJson) {
+      setEditableRevisionsList(revisions);
+      if (revisions[0]?.description) {
+        setEditableRevisionDesc(revisions[0].description);
+      }
+    }
+    if (preparedBy && preparedBy !== prev.preparedBy) {
+      setEditablePreparedBy(preparedBy);
+    }
+    if (verifiedBy && verifiedBy !== prev.verifiedBy) {
+      setEditableVerifiedBy(verifiedBy);
+    }
+    if (approvedBy && approvedBy !== prev.approvedBy) {
+      setEditableApprovedBy(approvedBy);
+    }
+    if (preservedBodyParagraphs && preservedBodyParagraphs.length > 0) {
+      setEditableParagraphs(preservedBodyParagraphs);
+    }
+    if (bodyTables && bodyTables.length > 0) {
+      setEditableTables(bodyTables);
+    }
+
+    lastPropsRef.current = {
+      code: code || '',
+      title: title || '',
+      typeLabel: typeLabel || '',
+      issueDate: issueDate || '',
+      revision: revision ?? 0,
+      revisionsJson: currentRevsJson,
+      preparedBy: preparedBy || '',
+      verifiedBy: verifiedBy || '',
+      approvedBy: approvedBy || '',
+    };
+  }, [code, title, typeLabel, issueDate, revision, revisions, preparedBy, verifiedBy, approvedBy, preservedBodyParagraphs, bodyTables, language]);
 
   // Bi-directional automatic translation when user selects language ('id' <-> 'en')
   const lastDocLanguageRef = useRef<DocumentLanguage>(language);
@@ -673,41 +744,68 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     });
   };
 
-  const displayTitle = (isEditing ? editableTitle : title || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN').trim().toUpperCase();
-  const effectiveCode = (isEditing ? editableCode : code || '0001-KB-GNR-CEO-X-2026').trim().toUpperCase();
-  const effectivePreparedBy = isEditing ? editablePreparedBy : preparedBy || 'Mazmur Gusti Agung Larosa';
-  const effectiveVerifiedBy = isEditing ? editableVerifiedBy : verifiedBy || 'Dennis Raditya';
-  const effectiveApprovedBy = isEditing ? editableApprovedBy : approvedBy || 'Bima Satryo Hartanto';
-  const effectiveRevision = isEditing ? editableRevision : revision ?? 0;
-  const effectiveDateStr = isEditing ? editableIssueDate : issueDate;
+  const displayTitle = (isEditing ? editableTitle : title || editableTitle || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN').trim().toUpperCase();
+  const effectiveCode = (isEditing ? editableCode : code || editableCode || '0001-KB-GNR-CEO-X-2026').trim().toUpperCase();
+  const effectivePreparedBy = isEditing ? editablePreparedBy : preparedBy || editablePreparedBy || 'Mazmur Gusti Agung Larosa';
+  const effectiveVerifiedBy = isEditing ? editableVerifiedBy : verifiedBy || editableVerifiedBy || 'Dennis Raditya';
+  const effectiveApprovedBy = isEditing ? editableApprovedBy : approvedBy || editableApprovedBy || 'Bima Satryo Hartanto';
+  const effectiveRevision = isEditing ? editableRevision : (typeof revision === 'number' ? revision : editableRevision);
+  const effectiveDateStr = isEditing ? editableIssueDate : (issueDate || editableIssueDate);
+
+  // Dynamic effective document type label (translated according to selected language)
+  const effectiveDocTypeLabel = React.useMemo(() => {
+    const raw = (isEditing ? editableDocTypeLabel : (typeLabel || editableDocTypeLabel || 'Standard Operating Procedure (SOP)')).trim();
+    return translateTextLine(raw, language === 'en' ? 'en' : 'id');
+  }, [isEditing, editableDocTypeLabel, typeLabel, language]);
+
+  const parseAnyDate = (str?: string) => {
+    if (!str) return new Date();
+    if (str.includes('/')) {
+      const parts = str.split('/');
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      }
+    }
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
 
   const formattedDate = React.useMemo(() => {
     try {
-      const d = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
-      if (isNaN(d.getTime())) return '17 Oktober 2026';
+      const d = parseAnyDate(effectiveDateStr);
       return d.toLocaleDateString('id-ID', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
-      });
+      }).replace('.', '');
     } catch {
-      return '17 Oktober 2026';
+      return '19 Okt 2026';
     }
   }, [effectiveDateStr]);
 
   const formattedDateEn = React.useMemo(() => {
     try {
-      const d = effectiveDateStr ? new Date(effectiveDateStr) : new Date();
-      if (isNaN(d.getTime())) return '17 October 2026';
+      const d = parseAnyDate(effectiveDateStr);
       return d.toLocaleDateString('en-GB', {
         day: 'numeric',
-        month: 'long',
+        month: 'short',
         year: 'numeric',
       });
     } catch {
-      return '17 October 2026';
+      return '19 Oct 2026';
     }
   }, [effectiveDateStr]);
+
+  const activeRevRecord = React.useMemo(() => {
+    const list = editableRevisionsList && editableRevisionsList.length > 0
+      ? editableRevisionsList
+      : (revisions && revisions.length > 0 ? revisions : []);
+    return list.find((r) => r.revision === effectiveRevision) || list[list.length - 1] || null;
+  }, [editableRevisionsList, revisions, effectiveRevision]);
+
+  const revDateDisplay = activeRevRecord?.date
+    ? activeRevRecord.date
+    : (language === 'en' ? formattedDateEn : formattedDate);
 
   const effectiveRevisions: RevisionRecord[] = React.useMemo(() => {
     if (revisions && revisions.length > 0) {
@@ -1305,7 +1403,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   className={isEditing ? 'ms-word-editable-inline' : ''}
                   title={isEditing ? 'Klik untuk mengedit Kategori di Kop' : undefined}
                 >
-                  {editableDocTypeLabel || typeLabel || 'Procedure'}
+                  {effectiveDocTypeLabel}
                 </span>
               </td>
             </tr>
@@ -1355,7 +1453,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               >
                 {isEditing ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                    <span>Revision:</span>
+                    <span>{language === 'en' ? 'Revision:' : 'Revisi:'}</span>
                     <input
                       type="number"
                       min={0}
@@ -1378,7 +1476,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                     />
                   </span>
                 ) : (
-                  <>Revision: {effectiveRevision}</>
+                  <>{language === 'en' ? 'Revision:' : 'Revisi:'} {effectiveRevision}</>
                 )}
               </td>
 
@@ -1421,7 +1519,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   whiteSpace: 'nowrap',
                 }}
               >
-                Revised: {effectiveRevision > 0 ? (language === 'en' ? formattedDateEn : formattedDate) : '-'}
+                {language === 'en' ? 'Revised:' : 'Revisi:'} {effectiveRevision > 0 ? revDateDisplay : '-'}
               </td>
             </tr>
           </tbody>
@@ -1596,7 +1694,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               textTransform: 'uppercase',
             }}
           >
-            {editableDocTypeLabel}
+            {effectiveDocTypeLabel.toUpperCase()}
           </div>
 
           <div style={{ padding: '0 1.5rem', textAlign: 'center' }}>

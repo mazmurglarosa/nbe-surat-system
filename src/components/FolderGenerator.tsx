@@ -727,6 +727,64 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     });
   };
 
+  const handleIssueDateChange = (newD: string) => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    let newM = monthNumber;
+    let newY = year;
+    if (newD) {
+      const d = new Date(newD);
+      if (!isNaN(d.getTime())) {
+        newM = d.getMonth() + 1;
+        newY = d.getFullYear();
+        setMonthNumber(newM);
+        setYear(newY);
+      }
+    }
+    const seq = effectiveSequence + selectedWordIndex;
+    const newCode = isManualOverride && manualCode.trim()
+      ? manualCode.trim().toUpperCase()
+      : generateDocumentCode(
+          seq,
+          current.typeCode,
+          current.subCategoryCode,
+          current.subSubCategoryCode,
+          current.divisionCode,
+          current.approverCode,
+          newM,
+          newY
+        );
+    const updatedRevs = [...(current.revisions || [])];
+    if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
+      updatedRevs[0] = {
+        ...updatedRevs[0],
+        date: formatIssueDate(newD),
+        description: `Initial Edition: ${current.title} (${newCode})`,
+      };
+    }
+    handleUpdateActiveCustomization({
+      issueDate: newD,
+      code: newCode,
+      revisions: updatedRevs,
+    });
+  };
+
+  const handlePreparedByChange = (newAuthor: string) => {
+    if (!activeWordFile) return;
+    const current = fileCustomizations[activeWordFile.id] || activeCustomization;
+    const updatedRevs = [...(current.revisions || [])];
+    if (updatedRevs.length > 0 && updatedRevs[0].revision === 0) {
+      updatedRevs[0] = {
+        ...updatedRevs[0],
+        revisedBy: newAuthor,
+      };
+    }
+    handleUpdateActiveCustomization({
+      preparedBy: newAuthor,
+      revisions: updatedRevs,
+    });
+  };
+
   const handleClassificationChange = (
     field: 'typeCode' | 'subCategoryCode' | 'subSubCategoryCode' | 'divisionCode' | 'approverCode',
     val: string
@@ -2317,17 +2375,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       <input
                         type="date"
                         value={activeCustomization.issueDate}
-                        onChange={(e) => {
-                          const newD = e.target.value;
-                          handleUpdateActiveCustomization({ issueDate: newD });
-                          if (newD) {
-                            const d = new Date(newD);
-                            if (!isNaN(d.getTime())) {
-                              setMonthNumber(d.getMonth() + 1);
-                              setYear(d.getFullYear());
-                            }
-                          }
-                        }}
+                        onChange={(e) => handleIssueDateChange(e.target.value)}
                         className="form-input"
                       />
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
@@ -2340,7 +2388,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       <input
                         type="text"
                         value={activeCustomization.preparedBy}
-                        onChange={(e) => handleUpdateActiveCustomization({ preparedBy: e.target.value })}
+                        onChange={(e) => handlePreparedByChange(e.target.value)}
                         placeholder="Contoh: Mazmur L"
                         className="form-input"
                       />
@@ -2710,6 +2758,12 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         language: selectedLang,
                         preservedBodyParagraphs: activeCustomization.preservedBodyParagraphs,
                         bodyTables: activeCustomization.preservedBodyTables,
+                        revisionRows: (activeCustomization.revisions || []).map((r) => ({
+                          rev: String(r.revision),
+                          date: r.date,
+                          description: r.description,
+                          revisedBy: r.revisedBy,
+                        })),
                         coverLogoBuffer: coverLogoBuf,
                         kopLogoBuffer: kopLogoBuf,
                         coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
