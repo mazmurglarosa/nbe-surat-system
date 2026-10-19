@@ -61,8 +61,230 @@ export async function extractOriginalDocxContent(
     throw new Error("Format berkas Word (.docx) tidak dikenali");
   }
 
-  // Fallback ekstraksi baris teks jika berkas adalah binary .doc atau non-OpenXML
-  const extractFallbackTextFromBinary = (buffer: ArrayBuffer): ExtractedDocSection => {
+  // 1. Ekstraktor format biner Microsoft Word 97-2003 (.doc) berbasis struktur OLE2 Compound File
+  const extractDocBinaryContent = (buffer: ArrayBuffer): ExtractedDocSection | null => {
+    const u8 = new Uint8Array(buffer);
+    if (
+      u8.length < 512 ||
+      u8[0] !== 0xd0 ||
+      u8[1] !== 0xcf ||
+      u8[2] !== 0x11 ||
+      u8[3] !== 0xe0 ||
+      u8[4] !== 0xa1 ||
+      u8[5] !== 0xb1 ||
+      u8[6] !== 0x1a ||
+      u8[7] !== 0xe1
+    ) {
+      return null;
+    }
+
+    try {
+      const view = new DataView(buffer);
+      const sectorSize = 1 << view.getUint16(30, true);
+      const dirSecId = view.getInt32(48, true);
+      const dirOffset = (dirSecId + 1) * sectorSize;
+
+      let wordDocSec = -1;
+      let wordDocSize = 0;
+
+      for (let i = 0; i < 64; i++) {
+        const entryOffset = dirOffset + i * 128;
+        if (entryOffset + 128 > u8.length) break;
+        const nameLen = view.getUint16(entryOffset + 64, true);
+        if (nameLen === 0) continue;
+        let name = "";
+        for (let j = 0; j < nameLen - 2; j += 2) {
+          name += String.fromCharCode(view.getUint16(entryOffset + j, true));
+        }
+        if (name === "WordDocument") {
+          wordDocSec = view.getInt32(entryOffset + 116, true);
+          wordDocSize = view.getUint32(entryOffset + 120, true);
+          break;
+        }
+      }
+
+      if (wordDocSec < 0) {
+        for (let sec = 0; sec < 15; sec++) {
+          const off = (sec + 1) * sectorSize;
+          if (off + 2 <= u8.length && view.getUint16(off, true) === 0xa5ec) {
+            wordDocSec = sec;
+            wordDocSize = u8.length - off;
+            break;
+          }
+        }
+      }
+
+      if (wordDocSec < 0) return null;
+
+      const wordDocOffset = (wordDocSec + 1) * sectorSize;
+      const wordDocEnd = Math.min(u8.length, wordDocOffset + wordDocSize);
+      const wordDoc = u8.subarray(wordDocOffset, wordDocEnd);
+      const wordDocView = new DataView(wordDoc.buffer, wordDoc.byteOffset, wordDoc.byteLength);
+
+      if (wordDoc.length < 100 || wordDocView.getUint16(0, true) !== 0xa5ec) return null;
+
+      const fcMin = wordDocView.getUint32(24, true);
+      const totalLen = wordDocView.getUint32(0x004c, true);
+      if (fcMin >= wordDoc.length) return null;
+
+      const len = Math.min(totalLen > 0 ? totalLen : 100000, wordDoc.length - fcMin);
+      const textSlice = wordDoc.subarray(fcMin, fcMin + len);
+
+      let zeroCount = 0;
+      for (let i = 1; i < Math.min(textSlice.length, 200); i += 2) {
+        if (textSlice[i] === 0) zeroCount++;
+      }
+
+      let rawText = "";
+      if (zeroCount > 30) {
+        for (let i = 0; i < textSlice.length - 1; i += 2) {
+          rawText += String.fromCharCode(textSlice[i] | (textSlice[i + 1] << 8));
+        }
+      } else {
+        for (let i = 0; i < textSlice.length; i++) {
+          rawText += String.fromCharCode(textSlice[i]);
+        }
+      }
+
+      const rawParagraphs = rawText.split("\r");
+      interface ParsedDocItem {
+        type: "paragraph" | "table";
+        text?: string;
+        rows?: string[][];
+      }
+      const items: ParsedDocItem[] = [];
+      let currentTableRows: string[][] = [];
+
+      for (const rawPara of rawParagraphs) {
+        if (rawPara.includes("\u0007")) {
+          const rowChunks = rawPara.split(/\u0007\u0007+/);
+          for (const chunk of rowChunks) {
+            const cells = chunk
+              .split("\u0007")
+              .map((c) =>
+                c
+                  .replace(/[\x00-\x1f\x7f-\xff]/g, " ")
+                  .replace(/\s+/g, " ")
+                  .trim()
+              )
+              .filter(
+                (c) =>
+                  c.length > 0 &&
+                  !c.startsWith("SHAPE") &&
+                  !c.startsWith("PAGE ") &&
+                  !c.includes("MERGEFORMAT") &&
+                  !c.includes("IDAT")
+              );
+            if (cells.length > 0) {
+              currentTableRows.push(cells);
+            }
+          }
+        } else {
+          if (currentTableRows.length > 0) {
+            items.push({ type: "table", rows: currentTableRows });
+            currentTableRows = [];
+          }
+          const clean = rawPara
+            .replace(/[\x00-\x1f\x7f-\xff]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim();
+          if (
+            clean.length > 0 &&
+            !clean.startsWith("SHAPE") &&
+            !clean.startsWith("PAGE ") &&
+            !clean.includes("IDAT") &&
+            !clean.includes("MERGEFORMAT") &&
+            !clean.startsWith("Hlm ")
+          ) {
+            items.push({ type: "paragraph", text: clean });
+          }
+        }
+      }
+      if (currentTableRows.length > 0) {
+        items.push({ type: "table", rows: currentTableRows });
+      }
+
+      // Potong front-matter dokumen lama (Cover lama, Nomor Dokumen BMT/..., tanda tangan)
+      // Dokumen Halaman 4 dst harus mulai dari klausul pertama (1. TUJUAN, 1.0, dsb.)
+      const firstClauseRegex = /(?:^[1-9]\d*(?:\.0|\.)?\s*[:.-]?\s*(?:TUJUAN|RUANG LINGKUP|PENDAHULUAN|DEFINISI|REFERENSI|DASAR|KEBIJAKAN|URAIAN|KETENTUAN|PROSEDUR|PELAKSANAAN|TANGGUNG JAWAB)|^[1-9]\.0?\s+[A-Z]{3,}|^BAB\s+[IVXLCDM]+)/i;
+      const firstClauseIdx = items.findIndex(
+        (it) => it.type === "paragraph" && it.text && firstClauseRegex.test(it.text)
+      );
+
+      const bodyItems = firstClauseIdx !== -1 ? items.slice(firstClauseIdx) : items;
+
+      const toc: TocHeadingItem[] = [];
+      const paragraphs: string[] = [];
+      const tables: DocxTableData[] = [];
+      let html = "";
+
+      for (const item of bodyItems) {
+        if (item.type === "paragraph" && item.text) {
+          paragraphs.push(item.text);
+          const matchH = item.text.match(
+            /^([0-9]+(?:\.[0-9]+)*\.?|[A-Z]\.|\b(?:BAB\s+[IVXLCDM]+|[IVXLCDM]+\.)\b)\s*[:.-]?\s*(.+)$/i
+          );
+          const isPureHeading =
+            !matchH &&
+            item.text.length <= 40 &&
+            item.text === item.text.toUpperCase() &&
+            !item.text.includes(":") &&
+            /^[A-Z\s]+$/.test(item.text);
+
+          if (matchH) {
+            const rawNum = matchH[1].trim();
+            const num = rawNum.endsWith(".") ? rawNum : rawNum + ".";
+            const isSub =
+              rawNum.includes(".") &&
+              !rawNum.endsWith(".0") &&
+              rawNum.split(".").length > 2;
+            toc.push({ num, title: matchH[2].trim(), isSub });
+            html += `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; padding-left: 0.5in; text-indent: -0.5in;"><span style="display: inline-block; min-width: 0.5in;">${num}</span>${matchH[2]}</p>`;
+          } else if (isPureHeading) {
+            toc.push({ num: "", title: item.text, isSub: false });
+            html += `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; text-align: left;">${item.text}</p>`;
+          } else {
+            html += `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; color: #3B3838;">${item.text}</p>`;
+          }
+        } else if (item.type === "table" && item.rows) {
+          tables.push({ rows: item.rows });
+          html +=
+            '<table class="nbe-editor-table" style="width: 100%; border-collapse: collapse; margin: 12px 0 16px 0; border: 1.5px solid #000000; font-family: Arial; font-size: 9.5pt;"><tbody>';
+          item.rows.forEach((row, rIdx) => {
+            const isHeader = rIdx === 0;
+            const bg = isHeader ? "background-color: #f1f5f9; font-weight: bold;" : "";
+            html += `<tr style="${bg}">`;
+            row.forEach((cell) => {
+              html += `<td style="border: 1px solid #000000; padding: 6px 8px; vertical-align: top;">${cell}</td>`;
+            });
+            html += "</tr>";
+          });
+          html += "</tbody></table>";
+        }
+      }
+
+      return {
+        tocHeadings:
+          toc.length > 0 ? toc : [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
+        originalHtmlBody: html,
+        paragraphs,
+        tables,
+        rawText: paragraphs.join("\n"),
+      };
+    } catch (e) {
+      console.warn("Gagal mengekstrak struktur berkas .doc biner:", e);
+      return null;
+    }
+  };
+
+  // Cek apakah berkas merupakan format biner Microsoft Word (.doc)
+  const docBinaryResult = extractDocBinaryContent(arrayBuffer);
+  if (docBinaryResult) {
+    return docBinaryResult;
+  }
+
+  // Fallback ekstraksi teks bersih jika bukan format OLE2 dan bukan OpenXML biasa
+  const extractFallbackCleanText = (buffer: ArrayBuffer): ExtractedDocSection => {
     const bytes = new Uint8Array(buffer);
     const lines: string[] = [];
     let current = "";
@@ -72,20 +294,34 @@ export async function extractOriginalDocxContent(
         current += String.fromCharCode(b);
       } else if (b === 10 || b === 13) {
         const trimmed = current.trim();
-        if (trimmed.length >= 4 && !/^[^\w\s]+$/.test(trimmed)) {
+        if (
+          trimmed.length >= 6 &&
+          !/^[^\w\s]+$/.test(trimmed) &&
+          !trimmed.includes("IDAT") &&
+          !trimmed.includes("SHAPE") &&
+          !trimmed.includes("MERGEFORMAT") &&
+          /[a-zA-Z]{3,}/.test(trimmed)
+        ) {
           lines.push(trimmed);
         }
         current = "";
       } else {
         const trimmed = current.trim();
-        if (trimmed.length >= 4 && !/^[^\w\s]+$/.test(trimmed)) {
+        if (
+          trimmed.length >= 6 &&
+          !/^[^\w\s]+$/.test(trimmed) &&
+          !trimmed.includes("IDAT") &&
+          !trimmed.includes("SHAPE") &&
+          !trimmed.includes("MERGEFORMAT") &&
+          /[a-zA-Z]{3,}/.test(trimmed)
+        ) {
           lines.push(trimmed);
         }
         current = "";
       }
     }
 
-    const filtered = lines.filter((l) => l.length >= 5 && /[a-zA-Z0-9]/.test(l));
+    const filtered = lines.filter((l) => l.length >= 6 && /[a-zA-Z0-9]/.test(l));
     if (filtered.length > 0) {
       const toc: TocHeadingItem[] = [];
       const html = filtered
@@ -122,8 +358,8 @@ export async function extractOriginalDocxContent(
   try {
     loadedZip = await zip.loadAsync(arrayBuffer);
   } catch (err) {
-    console.warn("Berkas bukan format ZIP OpenXML biasa, menggunakan ekstraktor biner:", err);
-    return extractFallbackTextFromBinary(arrayBuffer);
+    console.warn("Berkas bukan format ZIP OpenXML biasa, menggunakan ekstraktor cadangan bersih:", err);
+    return extractFallbackCleanText(arrayBuffer);
   }
 
   // 1. Cari berkas document.xml secara fleksibel (case-insensitive & separator-agnostic)
@@ -165,7 +401,7 @@ export async function extractOriginalDocxContent(
 
   if (!docXmlFile) {
     console.warn("Berkas XML dokumen utama tidak ditemukan dalam arsip zip, mengekstrak teks biner:");
-    return extractFallbackTextFromBinary(arrayBuffer);
+    return extractFallbackCleanText(arrayBuffer);
   }
 
   const xmlString = await docXmlFile.async("text");

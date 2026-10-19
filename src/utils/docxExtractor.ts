@@ -15,7 +15,22 @@ export interface ExtractedDocxData {
  * Berfungsi mengekstrak isi asli dokumen dari berkas Word yang diunggah
  * tanpa mengubah struktur pokok dokumen (Content Preservation Guardrail).
  */
+import { extractOriginalDocxContent } from './docxOriginalExtractor';
+
 export async function extractDocxData(fileOrBlob: File | Blob | string): Promise<ExtractedDocxData> {
+  try {
+    const original = await extractOriginalDocxContent(fileOrBlob as any);
+    if (original && ((original.paragraphs && original.paragraphs.length > 0) || (original.tables && original.tables.length > 0))) {
+      return {
+        paragraphs: original.paragraphs || [],
+        tables: original.tables || [],
+        rawText: original.rawText || '',
+      };
+    }
+  } catch (err) {
+    // Fallback directly to OpenXML parsing if needed
+  }
+
   try {
     let blob: Blob;
 
