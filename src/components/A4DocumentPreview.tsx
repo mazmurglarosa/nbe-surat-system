@@ -55,8 +55,11 @@ export interface A4DocumentPreviewProps {
   revision?: number;
   revisions?: RevisionRecord[];
   preparedBy?: string;
+  preparedRole?: string;
   verifiedBy?: string;
+  verifiedRole?: string;
   approvedBy?: string;
+  approvedRole?: string;
   typeLabel?: string;
   divisionLabel?: string;
   approverLabel?: string;
@@ -83,8 +86,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   revision = 0,
   revisions = [],
   preparedBy = 'Mazmur Gusti Agung Larosa',
+  preparedRole,
   verifiedBy = 'Dennis Raditya',
+  verifiedRole,
   approvedBy = 'Bima Satryo Hartanto',
+  approvedRole,
   typeLabel = 'Standar Operasional Prosedur (SOP)',
   divisionLabel = 'General (GNR)',
   approverLabel = 'President Director (CEO)',
@@ -116,11 +122,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [editableIssueDate, setEditableIssueDate] = useState(issueDate || '2026-10-17');
   const [editableRevision, setEditableRevision] = useState(revision ?? 0);
   const [editablePreparedBy, setEditablePreparedBy] = useState(preparedBy || 'Mazmur Gusti Agung Larosa');
-  const [editablePreparedRole, setEditablePreparedRole] = useState('(Lead Document Controller & Finance Director)');
+  const [editablePreparedRole, setEditablePreparedRole] = useState(preparedRole || '(Lead Document Controller & Finance Director)');
   const [editableVerifiedBy, setEditableVerifiedBy] = useState(verifiedBy || 'Dennis Raditya');
-  const [editableVerifiedRole, setEditableVerifiedRole] = useState('(Director of Operations & Technology / CTO)');
+  const [editableVerifiedRole, setEditableVerifiedRole] = useState(verifiedRole || '(Director of Operations & Technology / CTO)');
   const [editableApprovedBy, setEditableApprovedBy] = useState(approvedBy || 'Bima Satryo Hartanto');
-  const [editableApprovedRole, setEditableApprovedRole] = useState('(President Director / CEO)');
+  const [editableApprovedRole, setEditableApprovedRole] = useState(approvedRole || '(President Director / CEO)');
   const [editableRevisionDesc, setEditableRevisionDesc] = useState(
     revisions?.[0]?.description ||
       `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
@@ -299,8 +305,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     revision: revision ?? 0,
     revisionsJson: JSON.stringify(revisions || []),
     preparedBy: preparedBy || '',
+    preparedRole: preparedRole || '',
     verifiedBy: verifiedBy || '',
+    verifiedRole: verifiedRole || '',
     approvedBy: approvedBy || '',
+    approvedRole: approvedRole || '',
   });
 
   // Synchronize state whenever props from parent form change
@@ -333,11 +342,20 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     if (preparedBy && preparedBy !== prev.preparedBy) {
       setEditablePreparedBy(preparedBy);
     }
+    if (preparedRole !== undefined && preparedRole !== prev.preparedRole) {
+      setEditablePreparedRole(preparedRole);
+    }
     if (verifiedBy && verifiedBy !== prev.verifiedBy) {
       setEditableVerifiedBy(verifiedBy);
     }
+    if (verifiedRole !== undefined && verifiedRole !== prev.verifiedRole) {
+      setEditableVerifiedRole(verifiedRole);
+    }
     if (approvedBy && approvedBy !== prev.approvedBy) {
       setEditableApprovedBy(approvedBy);
+    }
+    if (approvedRole !== undefined && approvedRole !== prev.approvedRole) {
+      setEditableApprovedRole(approvedRole);
     }
     if (preservedBodyParagraphs && preservedBodyParagraphs.length > 0) {
       setEditableParagraphs(preservedBodyParagraphs);
@@ -354,10 +372,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       revision: revision ?? 0,
       revisionsJson: currentRevsJson,
       preparedBy: preparedBy || '',
+      preparedRole: preparedRole || '',
       verifiedBy: verifiedBy || '',
+      verifiedRole: verifiedRole || '',
       approvedBy: approvedBy || '',
+      approvedRole: approvedRole || '',
     };
-  }, [code, title, typeLabel, issueDate, revision, revisions, preparedBy, verifiedBy, approvedBy, preservedBodyParagraphs, bodyTables, language]);
+  }, [code, title, typeLabel, issueDate, revision, revisions, preparedBy, preparedRole, verifiedBy, verifiedRole, approvedBy, approvedRole, preservedBodyParagraphs, bodyTables, language]);
 
   // Bi-directional automatic translation when user selects language ('id' <-> 'en')
   const lastDocLanguageRef = useRef<DocumentLanguage>(language);
@@ -752,6 +773,23 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const effectiveRevision = isEditing ? editableRevision : (typeof revision === 'number' ? revision : editableRevision);
   const effectiveDateStr = isEditing ? editableIssueDate : (issueDate || editableIssueDate);
 
+  const formatRoleDisplay = (role?: string) => {
+    if (!role) return '';
+    const trimmed = role.trim();
+    if (!trimmed) return '';
+    return trimmed.startsWith('(') && trimmed.endsWith(')') ? trimmed : `(${trimmed})`;
+  };
+
+  const effectivePreparedRole = formatRoleDisplay(
+    isEditing ? editablePreparedRole : (preparedRole || editablePreparedRole || 'Lead Document Controller & Finance Director')
+  );
+  const effectiveVerifiedRole = formatRoleDisplay(
+    isEditing ? editableVerifiedRole : (verifiedRole || editableVerifiedRole || 'Director of Operations & Technology / CTO')
+  );
+  const effectiveApprovedRole = formatRoleDisplay(
+    isEditing ? editableApprovedRole : (approvedRole || editableApprovedRole || 'President Director / CEO')
+  );
+
   // Dynamic effective document type label (translated according to selected language)
   const effectiveDocTypeLabel = React.useMemo(() => {
     const raw = (isEditing ? editableDocTypeLabel : (typeLabel || editableDocTypeLabel || 'Standard Operating Procedure (SOP)')).trim();
@@ -1059,8 +1097,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     setEditableIssueDate(issueDate || '2026-10-17');
     setEditableRevision(revision ?? 0);
     setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
+    setEditablePreparedRole(preparedRole || '(Lead Document Controller & Finance Director)');
     setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
+    setEditableVerifiedRole(verifiedRole || '(Director of Operations & Technology / CTO)');
     setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
+    setEditableApprovedRole(approvedRole || '(President Director / CEO)');
     setEditableRevisionDesc(
       revisions?.[0]?.description ||
         `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
@@ -1597,8 +1638,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         issueDate: effectiveDateStr,
         revision: effectiveRevision,
         preparedBy: effectivePreparedBy,
+        preparedRole: effectivePreparedRole,
         verifiedBy: effectiveVerifiedBy,
+        verifiedRole: effectiveVerifiedRole,
         approvedBy: effectiveApprovedBy,
+        approvedRole: effectiveApprovedRole,
         revisions: updatedRevs,
         preservedBodyParagraphs: finalParagraphs,
         bodyTables: editableTables,
@@ -1791,7 +1835,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   title={isEditing ? 'Klik untuk mengedit Jabatan Penyetuju' : undefined}
                   style={{ color: '#000000', fontSize: '9pt' }}
                 >
-                  {editableApprovedRole}
+                  {isEditing ? editableApprovedRole : effectiveApprovedRole}
                 </div>
               </td>
             </tr>
@@ -1821,7 +1865,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   title={isEditing ? 'Klik untuk mengedit Jabatan Verifikator' : undefined}
                   style={{ color: '#000000', fontSize: '9pt' }}
                 >
-                  {editableVerifiedRole}
+                  {isEditing ? editableVerifiedRole : effectiveVerifiedRole}
                 </div>
               </td>
             </tr>
@@ -1851,7 +1895,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   title={isEditing ? 'Klik untuk mengedit Jabatan Penyusun' : undefined}
                   style={{ color: '#000000', fontSize: '9pt' }}
                 >
-                  {editablePreparedRole}
+                  {isEditing ? editablePreparedRole : effectivePreparedRole}
                 </div>
               </td>
             </tr>

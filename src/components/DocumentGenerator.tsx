@@ -160,8 +160,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.');
   const [createdBy, setCreatedBy] = useState<string>('Mazmur Gusti Agung Larosa');
-  const [approvedBy, setApprovedBy] = useState<string>('Bima Satryo Hartanto');
+  const [preparedRole, setPreparedRole] = useState<string>('Lead Document Controller & Finance Director');
   const [verifiedBy, setVerifiedBy] = useState<string>('Dennis Raditya');
+  const [verifiedRole, setVerifiedRole] = useState<string>('Director of Operations & Technology / CTO');
+  const [approvedBy, setApprovedBy] = useState<string>('Bima Satryo Hartanto');
+  const [approvedRole, setApprovedRole] = useState<string>('President Director / CEO');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
   const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
@@ -565,11 +568,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         issueDateId: formatIssueDate(issueDate),
         issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
         preparedBy: createdBy.trim() || 'Mazmur Gusti Agung Larosa',
-        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+        preparedRole: preparedRole || 'Lead Document Controller & Finance Director',
         verifiedBy: verifiedBy || 'Dennis Raditya',
-        verifiedRole: 'Director of Operations & Technology / CTO',
+        verifiedRole: verifiedRole || 'Director of Operations & Technology / CTO',
         approvedBy: approvedBy || 'Bima Satryo Hartanto',
-        approvedRole: apprvDef?.label || 'President Director / CEO',
+        approvedRole: approvedRole || 'President Director / CEO',
         language: selectedLang,
       });
     } catch (err: any) {
@@ -1994,7 +1997,19 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 required
                 value={createdBy}
                 onChange={(e) => setCreatedBy(e.target.value)}
-                placeholder="Contoh: Abdul Q / Staff Name"
+                placeholder="Contoh: Mazmur Gusti Agung Larosa"
+                className="form-input"
+              />
+            </div>
+
+            {/* Jabatan Pembuat */}
+            <div className="form-group">
+              <label className="form-label">Jabatan Pembuat (Role)</label>
+              <input
+                type="text"
+                value={preparedRole}
+                onChange={(e) => setPreparedRole(e.target.value)}
+                placeholder="Lead Document Controller & Finance Director"
                 className="form-input"
               />
             </div>
@@ -2006,7 +2021,19 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 type="text"
                 value={verifiedBy}
                 onChange={(e) => setVerifiedBy(e.target.value)}
-                placeholder="Contoh: Management Representative (MR)"
+                placeholder="Contoh: Dennis Raditya"
+                className="form-input"
+              />
+            </div>
+
+            {/* Jabatan Verifikator */}
+            <div className="form-group">
+              <label className="form-label">Jabatan Verifikator (Role)</label>
+              <input
+                type="text"
+                value={verifiedRole}
+                onChange={(e) => setVerifiedRole(e.target.value)}
+                placeholder="Director of Operations & Technology / CTO"
                 className="form-input"
               />
             </div>
@@ -2018,7 +2045,19 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
                 type="text"
                 value={approvedBy}
                 onChange={(e) => setApprovedBy(e.target.value)}
-                placeholder="Contoh: President Director (CEO)"
+                placeholder="Contoh: Bima Satryo Hartanto"
+                className="form-input"
+              />
+            </div>
+
+            {/* Jabatan Penyetuju */}
+            <div className="form-group">
+              <label className="form-label">Jabatan Penyetuju (Role)</label>
+              <input
+                type="text"
+                value={approvedRole}
+                onChange={(e) => setApprovedRole(e.target.value)}
+                placeholder="President Director / CEO"
                 className="form-input"
               />
             </div>
@@ -2462,8 +2501,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         issueDate={issueDate}
         revision={revision}
         preparedBy={createdBy.trim() || 'Mazmur Gusti Agung Larosa'}
+        preparedRole={preparedRole}
         verifiedBy={verifiedBy || 'Dennis Raditya'}
+        verifiedRole={verifiedRole}
         approvedBy={approvedBy || 'Bima Satryo Hartanto'}
+        approvedRole={approvedRole}
         typeLabel={docTypes.find((d) => d.code === selectedType)?.label || selectedType}
         divisionLabel={divs.find((d) => d.code === selectedDivision)?.label || selectedDivision}
         approverLabel={apprvs.find((a) => a.code === selectedApprover)?.label || selectedApprover}

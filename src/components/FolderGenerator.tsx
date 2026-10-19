@@ -182,8 +182,11 @@ export interface FileMetadataCustomization {
   revision: number;
   status: DocumentStatus;
   preparedBy: string;
+  preparedRole?: string;
   verifiedBy: string;
+  verifiedRole?: string;
   approvedBy: string;
+  approvedRole?: string;
   description: string;
   revisions: RevisionRecord[];
   typeCode: string;
@@ -288,8 +291,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   const [year, setYear] = useState<number>(() => new Date().getFullYear());
 
   const [preparedBy, setPreparedBy] = useState<string>('Mazmur Gusti Agung Larosa');
+  const [preparedRole, setPreparedRole] = useState<string>('Lead Document Controller & Finance Director');
   const [verifiedBy, setVerifiedBy] = useState<string>('Dennis Raditya');
+  const [verifiedRole, setVerifiedRole] = useState<string>('Director of Operations & Technology / CTO');
   const [approvedBy, setApprovedBy] = useState<string>('Bima Satryo Hartanto');
+  const [approvedRole, setApprovedRole] = useState<string>('President Director / CEO');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
 
@@ -345,8 +351,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     revision: revision,
     status: status,
     preparedBy: preparedBy,
+    preparedRole: preparedRole,
     verifiedBy: verifiedBy,
+    verifiedRole: verifiedRole,
     approvedBy: approvedBy,
+    approvedRole: approvedRole,
     description: parsedActiveFile?.hasCode && parsedActiveFile.typeCode !== 'KB'
       ? `${docTypes.find((d) => d.code === parsedActiveFile.typeCode)?.label || parsedActiveFile.typeCode} PT Nirwana Bhumi Energy: ${parsedActiveFile.title}.`
       : `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`,
@@ -555,11 +564,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             issueDateId: formatIssueDate(issueDate),
             issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
             preparedBy: preparedBy,
-            preparedRole: 'Director of Finance & Engineering / DCC Lead',
+            preparedRole: preparedRole,
             verifiedBy: verifiedBy,
-            verifiedRole: 'Director of Operations & Technology / CTO',
+            verifiedRole: verifiedRole,
             approvedBy: approvedBy,
-            approvedRole: 'President Director / CEO',
+            approvedRole: approvedRole,
             language: selectedLang,
           });
 
@@ -636,8 +645,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           revision: 0,
           status: 'Published',
           preparedBy: preparedBy,
+          preparedRole: preparedRole,
           verifiedBy: verifiedBy,
+          verifiedRole: verifiedRole,
           approvedBy: approvedBy,
+          approvedRole: approvedRole,
           description: isSK
             ? `Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.`
             : `${docTypes.find((d) => d.code === docTypeCode)?.label || docTypeCode} PT Nirwana Bhumi Energy: ${cleanTitle}.`,
@@ -672,11 +684,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             issueDateId: formatIssueDate(issueDate),
             issueDateEn: new Date(issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
             preparedBy: preparedBy,
-            preparedRole: 'Director of Finance & Engineering / DCC Lead',
+            preparedRole: preparedRole,
             verifiedBy: verifiedBy,
-            verifiedRole: 'Director of Operations & Technology / CTO',
+            verifiedRole: verifiedRole,
             approvedBy: approvedBy,
-            approvedRole: 'President Director / CEO',
+            approvedRole: approvedRole,
             language: selectedLang,
             preservedBodyParagraphs: initialParagraphs,
             bodyTables: initialTables,
@@ -770,6 +782,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   };
 
   const handlePreparedByChange = (newAuthor: string) => {
+    setPreparedBy(newAuthor);
     if (!activeWordFile) return;
     const current = fileCustomizations[activeWordFile.id] || activeCustomization;
     const updatedRevs = [...(current.revisions || [])];
@@ -783,6 +796,31 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       preparedBy: newAuthor,
       revisions: updatedRevs,
     });
+  };
+
+  const handlePreparedRoleChange = (newRole: string) => {
+    setPreparedRole(newRole);
+    handleUpdateActiveCustomization({ preparedRole: newRole });
+  };
+
+  const handleVerifiedByChange = (newVal: string) => {
+    setVerifiedBy(newVal);
+    handleUpdateActiveCustomization({ verifiedBy: newVal });
+  };
+
+  const handleVerifiedRoleChange = (newRole: string) => {
+    setVerifiedRole(newRole);
+    handleUpdateActiveCustomization({ verifiedRole: newRole });
+  };
+
+  const handleApprovedByChange = (newVal: string) => {
+    setApprovedBy(newVal);
+    handleUpdateActiveCustomization({ approvedBy: newVal });
+  };
+
+  const handleApprovedRoleChange = (newRole: string) => {
+    setApprovedRole(newRole);
+    handleUpdateActiveCustomization({ approvedRole: newRole });
   };
 
   const handleClassificationChange = (
@@ -1014,8 +1052,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             next[fId] = {
               ...next[fId],
               preparedBy: activeCustomization.preparedBy,
+              preparedRole: activeCustomization.preparedRole,
               verifiedBy: activeCustomization.verifiedBy,
+              verifiedRole: activeCustomization.verifiedRole,
               approvedBy: activeCustomization.approvedBy,
+              approvedRole: activeCustomization.approvedRole,
             };
           }
         });
@@ -1064,11 +1105,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         issueDateId: formatIssueDate(custom.issueDate),
         issueDateEn: new Date(custom.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
         preparedBy: custom.preparedBy || 'Mazmur Gusti Agung Larosa',
-        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+        preparedRole: custom.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
         verifiedBy: custom.verifiedBy || 'Dennis Raditya',
-        verifiedRole: 'Director of Operations & Technology / CTO',
+        verifiedRole: custom.verifiedRole || verifiedRole || 'Director of Operations & Technology / CTO',
         approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
-        approvedRole: 'President Director / CEO',
+        approvedRole: custom.approvedRole || approvedRole || 'President Director / CEO',
         language: selectedLang,
         preservedBodyParagraphs: custom.preservedBodyParagraphs,
         bodyTables: custom.preservedBodyTables,
@@ -1179,11 +1220,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           issueDateId: formatIssueDate(custom.issueDate),
           issueDateEn: new Date(custom.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
           preparedBy: custom.preparedBy || 'Mazmur Gusti Agung Larosa',
-          preparedRole: 'Director of Finance & Engineering / DCC Lead',
+          preparedRole: custom.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
           verifiedBy: custom.verifiedBy || 'Dennis Raditya',
-          verifiedRole: 'Director of Operations & Technology / CTO',
+          verifiedRole: custom.verifiedRole || verifiedRole || 'Director of Operations & Technology / CTO',
           approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
-          approvedRole: 'President Director / CEO',
+          approvedRole: custom.approvedRole || approvedRole || 'President Director / CEO',
           language: selectedLang,
           preservedBodyParagraphs: custom.preservedBodyParagraphs,
           bodyTables: custom.preservedBodyTables,
@@ -2389,7 +2430,18 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         type="text"
                         value={activeCustomization.preparedBy}
                         onChange={(e) => handlePreparedByChange(e.target.value)}
-                        placeholder="Contoh: Mazmur L"
+                        placeholder="Contoh: Mazmur Gusti Agung Larosa"
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>JABATAN PEMBUAT (ROLE)</label>
+                      <input
+                        type="text"
+                        value={activeCustomization.preparedRole ?? preparedRole}
+                        onChange={(e) => handlePreparedRoleChange(e.target.value)}
+                        placeholder="Lead Document Controller & Finance Director"
                         className="form-input"
                       />
                     </div>
@@ -2399,8 +2451,19 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       <input
                         type="text"
                         value={activeCustomization.verifiedBy}
-                        onChange={(e) => handleUpdateActiveCustomization({ verifiedBy: e.target.value })}
-                        placeholder="Auditor Internal Utama"
+                        onChange={(e) => handleVerifiedByChange(e.target.value)}
+                        placeholder="Contoh: Dennis Raditya"
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>JABATAN VERIFIKATOR (ROLE)</label>
+                      <input
+                        type="text"
+                        value={activeCustomization.verifiedRole ?? verifiedRole}
+                        onChange={(e) => handleVerifiedRoleChange(e.target.value)}
+                        placeholder="Director of Operations & Technology / CTO"
                         className="form-input"
                       />
                     </div>
@@ -2410,8 +2473,19 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       <input
                         type="text"
                         value={activeCustomization.approvedBy}
-                        onChange={(e) => handleUpdateActiveCustomization({ approvedBy: e.target.value })}
-                        placeholder="Direktur Keuangan (CFO)"
+                        onChange={(e) => handleApprovedByChange(e.target.value)}
+                        placeholder="Contoh: Bima Satryo Hartanto"
+                        className="form-input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.8rem' }}>JABATAN PENYETUJU (ROLE)</label>
+                      <input
+                        type="text"
+                        value={activeCustomization.approvedRole ?? approvedRole}
+                        onChange={(e) => handleApprovedRoleChange(e.target.value)}
+                        placeholder="President Director / CEO"
                         className="form-input"
                       />
                     </div>
@@ -2700,8 +2774,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   revision={activeCustomization.revision}
                   revisions={activeCustomization.revisions}
                   preparedBy={activeCustomization.preparedBy}
+                  preparedRole={activeCustomization.preparedRole || preparedRole}
                   verifiedBy={activeCustomization.verifiedBy}
+                  verifiedRole={activeCustomization.verifiedRole || verifiedRole}
                   approvedBy={activeCustomization.approvedBy}
+                  approvedRole={activeCustomization.approvedRole || approvedRole}
                   typeLabel={docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode}
                   divisionLabel={divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode}
                   approverLabel={apprvs.find((a) => a.code === activeCustomization.approverCode)?.label || activeCustomization.approverCode}
@@ -2750,11 +2827,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         issueDateId: formatIssueDate(activeCustomization.issueDate),
                         issueDateEn: new Date(activeCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
                         preparedBy: activeCustomization.preparedBy,
-                        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+                        preparedRole: activeCustomization.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
                         verifiedBy: activeCustomization.verifiedBy,
-                        verifiedRole: 'Director of Operations & Technology / CTO',
+                        verifiedRole: activeCustomization.verifiedRole || verifiedRole || 'Director of Operations & Technology / CTO',
                         approvedBy: activeCustomization.approvedBy,
-                        approvedRole: 'President Director / CEO',
+                        approvedRole: activeCustomization.approvedRole || approvedRole || 'President Director / CEO',
                         language: selectedLang,
                         preservedBodyParagraphs: activeCustomization.preservedBodyParagraphs,
                         bodyTables: activeCustomization.preservedBodyTables,
@@ -2784,8 +2861,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       issueDate: updated.issueDate,
                       revision: updated.revision,
                       preparedBy: updated.preparedBy,
+                      preparedRole: updated.preparedRole || current.preparedRole || preparedRole,
                       verifiedBy: updated.verifiedBy,
+                      verifiedRole: updated.verifiedRole || current.verifiedRole || verifiedRole,
                       approvedBy: updated.approvedBy,
+                      approvedRole: updated.approvedRole || current.approvedRole || approvedRole,
                       revisions: updated.revisions || current.revisions,
                       preservedBodyParagraphs: updated.preservedBodyParagraphs || current.preservedBodyParagraphs,
                       preservedBodyTables: updated.bodyTables || current.preservedBodyTables,
@@ -2810,11 +2890,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         issueDateId: formatIssueDate(updatedCustomization.issueDate),
                         issueDateEn: new Date(updatedCustomization.issueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
                         preparedBy: updatedCustomization.preparedBy,
-                        preparedRole: 'Director of Finance & Engineering / DCC Lead',
+                        preparedRole: updatedCustomization.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
                         verifiedBy: updatedCustomization.verifiedBy,
-                        verifiedRole: 'Director of Operations & Technology / CTO',
+                        verifiedRole: updatedCustomization.verifiedRole || verifiedRole || 'Director of Operations & Technology / CTO',
                         approvedBy: updatedCustomization.approvedBy,
-                        approvedRole: 'President Director / CEO',
+                        approvedRole: updatedCustomization.approvedRole || approvedRole || 'President Director / CEO',
                         language: selectedLang,
                         preservedBodyParagraphs: updatedCustomization.preservedBodyParagraphs,
                         bodyTables: updatedCustomization.preservedBodyTables,
@@ -3307,11 +3387,11 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         revisionNo: String(c.revision || 0),
                         issueDate: c.issueDate || '17 Oktober 2026',
                         approvedBy: c.approvedBy || 'Bima Satryo Hartanto',
-                        approvedRole: 'President Director / CEO',
+                        approvedRole: c.approvedRole || approvedRole || 'President Director / CEO',
                         verifiedBy: c.verifiedBy || 'Dennis Raditya',
-                        verifiedRole: 'Director of Operations & Technology / CTO',
+                        verifiedRole: c.verifiedRole || verifiedRole || 'Director of Operations & Technology / CTO',
                         createdBy: c.preparedBy || 'Mazmur Gusti Agung Larosa',
-                        createdRole: 'Director of Finance & Engineering / DCC Lead',
+                        createdRole: c.preparedRole || preparedRole || 'Lead Document Controller & Finance Director',
                         revisions: (c.revisions || []).map((r: any) => ({
                           rev: String(r.revision ?? r.rev ?? 0),
                           date: r.date,
