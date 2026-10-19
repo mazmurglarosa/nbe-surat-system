@@ -2437,11 +2437,27 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       </form>
 
       {/* Real-Time Document Preview (Real Paper Size) TEPAT DI BAWAH form penomoran sesuai Panduan NBE */}
-      <LanguageSelector selectedLang={selectedLang} onSelectLang={(l) => setSelectedLang(l)} />
+      <LanguageSelector
+        selectedLang={selectedLang}
+        onSelectLang={(l) => {
+          setSelectedLang(l);
+          if (l === 'en' && (!title || title.trim().toUpperCase() === 'SISTEM KONTROL DAN PENOMORAN DOKUMEN')) {
+            setTitle('DOCUMENT CONTROL AND NUMBERING SYSTEM');
+          } else if (l === 'id' && (!title || title.trim().toUpperCase() === 'DOCUMENT CONTROL AND NUMBERING SYSTEM')) {
+            setTitle('SISTEM KONTROL DAN PENOMORAN DOKUMEN');
+          }
+        }}
+      />
 
       <A4DocumentPreview
         language={selectedLang}
-        title={title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN'}
+        title={
+          selectedLang === 'en'
+            ? (!title || title.trim().toUpperCase() === 'SISTEM KONTROL DAN PENOMORAN DOKUMEN'
+                ? 'DOCUMENT CONTROL AND NUMBERING SYSTEM'
+                : title.trim().toUpperCase())
+            : (title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN')
+        }
         code={activeCode}
         issueDate={issueDate}
         revision={revision}

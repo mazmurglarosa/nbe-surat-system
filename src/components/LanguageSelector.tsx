@@ -31,13 +31,6 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
       desc: 'UK Corporate Standard (4 Pages)',
       sublabel: "Board of Directors' Resolution, Having Considered & Resolves",
     },
-    {
-      id: 'bi',
-      label: 'Bilingual (ID - EN)',
-      flag: '🌐',
-      desc: 'Dual-Column Parallel (4 Pages)',
-      sublabel: 'Kolom Kiri Indonesia, Kolom Kanan British English Berdampingan',
-    },
   ];
 
   return (
@@ -89,8 +82,8 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '0.75rem',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: '0.85rem',
         }}
       >
         {languages.map((l) => {

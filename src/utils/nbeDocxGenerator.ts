@@ -391,7 +391,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 240, after: 200 },
-      children: [new TextRun({ text: "REVISION INDEX", font: "Arial", size: 24, bold: true, color: COLOR_BLACK })],
+      children: [new TextRun({ text: data.language === "en" ? "REVISION INDEX" : "TABEL INDEKS REVISI", font: "Arial", size: 24, bold: true, color: COLOR_BLACK })],
     }),
     new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },
@@ -405,19 +405,31 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   const effectiveTocList = (data.tocList && data.tocList.length > 0)
     ? data.tocList
     : (!isKB
-      ? [
-          { num: "1.0", title: "OBJECTIVE" },
-          { num: "2.0", title: "SCOPE" },
-          { num: "3.0", title: "REFERENCES AND DEFINITIONS" },
-          { num: "4.0", title: "RESPONSIBILITIES AND AUTHORITIES" },
-          { num: "5.0", title: "PROCEDURE DETAILS AND WORKFLOW" },
-          { num: "5.1", title: "Annual Audit Plan and Risk Assessment", isSub: true },
-          { num: "5.2", title: "Audit Execution and Evidence Gathering", isSub: true },
-          { num: "5.3", title: "Non-Conformance Reporting (CAR)", isSub: true },
-          { num: "6.0", title: "RECORDS AND DOCUMENTATION" },
-          { num: "7.0", title: "APPENDICES AND FORMS" },
-          { num: "8.0", title: "ATTACHMENTS AND EMERGENCY INSTRUCTIONS" },
-        ]
+      ? (data.language === "en"
+        ? [
+            { num: "1.0", title: "OBJECTIVE" },
+            { num: "2.0", title: "SCOPE" },
+            { num: "3.0", title: "RESPONSIBILITY" },
+            { num: "4.0", title: "DEFINITION" },
+            { num: "5.0", title: "PROCEDURE DETAILS" },
+            { num: "5.1", title: "General Provisions", isSub: true },
+            { num: "5.2", title: "Operational Flow", isSub: true },
+            { num: "6.0", title: "RELATED DOCUMENTS" },
+            { num: "7.0", title: "RECORDS" },
+            { num: "8.0", title: "APPENDICES AND EMERGENCY INSTRUCTIONS" },
+          ]
+        : [
+            { num: "1.0", title: "MAKSUD DAN TUJUAN" },
+            { num: "2.0", title: "RUANG LINGKUP" },
+            { num: "3.0", title: "TANGGUNG JAWAB" },
+            { num: "4.0", title: "DEFINISI" },
+            { num: "5.0", title: "RINCIAN PROSEDUR" },
+            { num: "5.1", title: "Ketentuan Umum", isSub: true },
+            { num: "5.2", title: "Alur Operasional", isSub: true },
+            { num: "6.0", title: "DOKUMEN TERKAIT" },
+            { num: "7.0", title: "REKAMAN" },
+            { num: "8.0", title: "LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT" },
+          ])
       : null);
 
   const page3TocChildren: Paragraph[] = [];
@@ -426,7 +438,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { before: 120, after: 300 },
-        children: [new TextRun({ text: "TABLE OF CONTENTS", font: "Arial", size: 26, bold: true, color: COLOR_BLACK })],
+        children: [new TextRun({ text: data.language === "en" ? "TABLE OF CONTENTS" : "DAFTAR ISI", font: "Arial", size: 26, bold: true, color: COLOR_BLACK })],
       }),
       ...effectiveTocList.map((item) =>
         new Paragraph({
@@ -547,15 +559,24 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       });
     } else if (!isKB) {
       // Fallback standar bab 1 - 8 untuk prosedur/SOP tanpa isian
-      const defaultChapters = [
-        ["1.0 OBJECTIVE", "Prosedur ini menetapkan tata cara, acuan baku, dan mekanisme pengendalian pelaksanaan prosedur di lingkungan PT Nirwana Bhumi Energy guna menjamin mutu, akurasi, serta kepatuhan keselamatan kerja."],
-        ["2.0 SCOPE", "Prosedur ini berlaku secara menyeluruh bagi seluruh departemen, proyek operasional, dan personel terkait di lingkungan PT Nirwana Bhumi Energy."],
-        ["3.0 REFERENCES AND DEFINITIONS", "Pedoman Sistem Manajemen Terintegrasi PT Nirwana Bhumi Energy, ISO 9001:2015, ISO 14001:2015, ISO 45001:2018, dan kualifikasi CSMS SKK Migas serta PT PLN (Persero)."],
-        ["4.0 RESPONSIBILITIES AND AUTHORITIES", "Pembuat dokumen bertanggung jawab menyusun draf materi teknis. Verifikator memeriksa kesesuaian risiko. Pejabat berwenang mengesahkan dokumen."],
-        ["5.0 PROCEDURE DETAILS AND WORKFLOW", "Pelaksanaan teknis alur kerja sesuai dengan instruksi kerja dan matriks tanggung jawab yang telah ditetapkan."],
-        ["6.0 RECORDS AND DOCUMENTATION", "Seluruh rekaman, daftar periksa, formulir isian, dan bukti verifikasi diarsipkan secara digital dalam Google Drive Korporat."],
-        ["7.0 APPENDICES AND FORMS", "Lampiran formulir teknis, checklist audit, dan lembar catatan mutu."],
-        ["8.0 ATTACHMENTS AND EMERGENCY INSTRUCTIONS", "Instruksi khusus dan penanganan darurat ketidaksesuaian operasional."],
+      const defaultChapters = data.language === "en" ? [
+        ["1.0 OBJECTIVE", "To establish operational governance standards across PT Nirwana Bhumi Energy ensuring all activities operate efficiently, safely, and in full compliance with oil & gas industry regulations as well as ISO 9001/14001/45001 integrated management systems."],
+        ["2.0 SCOPE", "This procedure applies to all operational, engineering, procurement, and corporate administration units within the working areas of PT Nirwana Bhumi Energy, including onshore operations and supporting facilities."],
+        ["3.0 RESPONSIBILITY", "All executing personnel are required to comprehend and implement the working instructions set forth herein. Technical verifiers are responsible for quality control and compliance with regular audit systems."],
+        ["4.0 DEFINITION", "IMS (Integrated Management Systems): Integrated quality, HSE, and environmental management systems adopted by PT Nirwana Bhumi Energy.\nDCC (Document Control Centre): Administrative unit governing the registration, distribution, and archiving of controlled documents."],
+        ["5.0 PROCEDURE DETAILS", "All operational activities must commence with a Job Safety Analysis (JSA) risk assessment, scheduled equipment inspections, and verification of valid work permits.\nOperational task execution shall be reported on a daily basis to the integrated monitoring system to ensure data continuity and accurate maintenance history."],
+        ["6.0 RELATED DOCUMENTS", "Corporate Integrated Management System Manual NBE-IMS-MAN-2026 and Field Quality Verification Forms."],
+        ["7.0 RECORDS", "All verification records, inspection logbooks, and official handover minutes shall be preserved in controlled archives for a minimum period of 5 (five) years."],
+        ["8.0 APPENDICES AND EMERGENCY INSTRUCTIONS", "Emergency response instructions and key emergency telephone directories are set forth in the internal operational appendices."],
+      ] : [
+        ["1.0 MAKSUD DAN TUJUAN", "Menetapkan tata kelola standar operasional pada PT Nirwana Bhumi Energy agar seluruh aktivitas berjalan efisien, aman, dan mematuhi regulasi industri migas serta sistem manajemen mutu ISO 9001/14001/45001."],
+        ["2.0 RUANG LINGKUP", "Prosedur ini mencakup seluruh unit operasional, teknik, pengadaan, dan administrasi korporat di wilayah kerja PT Nirwana Bhumi Energy termasuk operasional darat dan fasilitas pendukung lainnya."],
+        ["3.0 TANGGUNG JAWAB", "Seluruh personel pelaksana wajib memahami dan menerapkan instruksi kerja yang tercantum. Verifikator teknis bertanggung jawab atas kendali mutu dan kepatuhan sistem audit berkala."],
+        ["4.0 DEFINISI", "IMS (Integrated Management Systems): Sistem Manajemen Terintegrasi mutu, K3, dan lingkungan yang diadopsi PT Nirwana Bhumi Energy.\nDCC (Document Control Center): Unit pengelola registrasi, distribusi, dan pengarsipan naskah dokumen terkontrol."],
+        ["5.0 RINCIAN PROSEDUR", "Setiap kegiatan wajib diawali dengan penilaian risiko (Job Safety Analysis) dan inspeksi berkala pada peralatan kerja serta verifikasi izin kerja berlaku.\nPelaksanaan tugas operasional dilaporkan secara harian ke sistem pemantauan terpadu untuk menjamin kontinuitas data dan akurasi riwayat penanganan."],
+        ["6.0 DOKUMEN TERKAIT", "Manual Sistem Manajemen Terintegrasi NBE-IMS-MAN-2026 dan Formulir Verifikasi Mutu Lapangan."],
+        ["7.0 REKAMAN", "Seluruh catatan verifikasi, logbook inspeksi, dan berita acara disimpan dalam arsip terkontrol minimal selama 5 (lima) tahun."],
+        ["8.0 LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT", "Instruksi tanggap darurat dan nomor kontak darurat tertera pada lampiran internal operasional."],
       ];
 
       defaultChapters.forEach(([chTitle, chDesc], idx) => {

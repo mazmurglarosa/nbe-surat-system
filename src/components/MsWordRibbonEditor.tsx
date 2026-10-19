@@ -42,6 +42,8 @@ import {
   Type,
 } from "lucide-react";
 import "./ms-word-ribbon.css";
+import { DocumentLanguage } from "../types";
+import { translateHtmlContent } from "../utils/translationService";
 
 // Ukuran batas tinggi maksimum area isi per halaman A4 (di luar Kop Header & Footer)
 const MAX_BODY_HEIGHT_PX = 720;
@@ -103,6 +105,7 @@ export interface MsWordEditorProps {
   kopSettings?: KopTableSettings;
   onUpdateKopSetting?: (key: keyof KopTableSettings, val: number) => void;
   documentYear?: string;
+  language?: DocumentLanguage;
 }
 
 export function repairCorruptedEditorHtml(html: string): string {
@@ -140,9 +143,11 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   kopSettings,
   onUpdateKopSetting,
   documentYear = "2026",
+  language = "id",
 }) => {
   const hasUserEditedRef = useRef<boolean>(false);
   const autoSaveDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastLanguageRef = useRef<DocumentLanguage>(language);
 
   // Setiap elemen array mewakili HTML isi dari 1 halaman body (mulai Halaman 4 dst.)
   const [bodyPagesHtml, setBodyPagesHtml] = useState<string[]>(() => {
@@ -170,6 +175,27 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
       setBodyPagesHtml(initialHtmlPages.map(repairCorruptedEditorHtml));
     }
   }, [initialHtmlPages]);
+
+  // Auto-translate editor HTML contents in-place when language toggles between 'id' and 'en'
+  useEffect(() => {
+    if (!language) return;
+    if (lastLanguageRef.current && lastLanguageRef.current !== language) {
+      const targetLang = language === 'en' ? 'en' : 'id';
+      setBodyPagesHtml((prevPages) => {
+        const translated = prevPages.map((pgHtml) => translateHtmlContent(pgHtml, targetLang));
+        try {
+          const draft = localStorage.getItem("nbe_doc_autosave_latest");
+          if (draft) {
+            const parsed = JSON.parse(draft);
+            parsed.bodyPagesHtml = translated;
+            localStorage.setItem("nbe_doc_autosave_latest", JSON.stringify(parsed));
+          }
+        } catch (e) {}
+        return translated;
+      });
+    }
+    lastLanguageRef.current = language;
+  }, [language]);
 
   const [activeTab, setActiveTab] = useState<"Home" | "Insert" | "Layout" | "View">("Home");
   const [currentFontFamily, setCurrentFontFamily] = useState<string>("Arial");

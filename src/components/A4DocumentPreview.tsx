@@ -21,6 +21,7 @@ import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocxTableData } from '../utils/docxExtractor';
 import { MsWordRibbonEditor, KopTableSettings } from './MsWordRibbonEditor';
 import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
+import { translateTocList, translateTextLine, translateHtmlContent } from '../utils/translationService';
 
 export type { KopTableSettings };
 
@@ -145,17 +146,31 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   // Table of Contents State
   const [editableTocItems, setEditableTocItems] = useState<Array<{ num: string; title: string; isSub?: boolean }>>(() => {
     if (tocList && tocList.length > 0) return tocList;
+    if (language === 'en') {
+      return [
+        { num: '1.0', title: 'OBJECTIVE' },
+        { num: '2.0', title: 'SCOPE' },
+        { num: '3.0', title: 'RESPONSIBILITY' },
+        { num: '4.0', title: 'DEFINITION' },
+        { num: '5.0', title: 'PROCEDURE DETAILS' },
+        { num: '5.1', title: 'General Provisions', isSub: true },
+        { num: '5.2', title: 'Operational Flow', isSub: true },
+        { num: '6.0', title: 'RELATED DOCUMENTS' },
+        { num: '7.0', title: 'RECORDS' },
+        { num: '8.0', title: 'APPENDICES AND EMERGENCY INSTRUCTIONS' },
+      ];
+    }
     return [
-      { num: '1.0', title: 'OBJECTIVE' },
-      { num: '2.0', title: 'SCOPE' },
-      { num: '3.0', title: 'RESPONSIBILITY' },
-      { num: '4.0', title: 'DEFINITION' },
-      { num: '5.0', title: 'PROCEDURE DETAILS' },
-      { num: '5.1', title: 'General Provisions', isSub: true },
-      { num: '5.2', title: 'Operational Flow', isSub: true },
-      { num: '6.0', title: 'RELATED DOCUMENTS' },
-      { num: '7.0', title: 'RECORDS' },
-      { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
+      { num: '1.0', title: 'MAKSUD DAN TUJUAN' },
+      { num: '2.0', title: 'RUANG LINGKUP' },
+      { num: '3.0', title: 'TANGGUNG JAWAB' },
+      { num: '4.0', title: 'DEFINISI' },
+      { num: '5.0', title: 'RINCIAN PROSEDUR' },
+      { num: '5.1', title: 'Ketentuan Umum', isSub: true },
+      { num: '5.2', title: 'Alur Operasional', isSub: true },
+      { num: '6.0', title: 'DOKUMEN TERKAIT' },
+      { num: '7.0', title: 'REKAMAN' },
+      { num: '8.0', title: 'LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT' },
     ];
   });
 
@@ -272,6 +287,50 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setEditableTables(bodyTables || []);
     }
   }, [title, code, issueDate, revision, preparedBy, verifiedBy, approvedBy, typeLabel, revisions, preservedBodyParagraphs, bodyTables, isEditing]);
+
+  // Bi-directional automatic translation when user selects language ('id' <-> 'en')
+  const lastDocLanguageRef = useRef<DocumentLanguage>(language);
+  useEffect(() => {
+    if (!language) return;
+    const target = language === 'en' ? 'en' : 'id';
+    if (lastDocLanguageRef.current && lastDocLanguageRef.current !== language) {
+      setEditableTitle((prev) => {
+        const trimmed = (prev || '').trim().toUpperCase();
+        if (target === 'en' && trimmed === 'SISTEM KONTROL DAN PENOMORAN DOKUMEN') {
+          return 'DOCUMENT CONTROL AND NUMBERING SYSTEM';
+        }
+        if (target === 'id' && trimmed === 'DOCUMENT CONTROL AND NUMBERING SYSTEM') {
+          return 'SISTEM KONTROL DAN PENOMORAN DOKUMEN';
+        }
+        return translateTextLine(prev, target);
+      });
+
+      setEditableDocTypeLabel((prev) => translateTextLine(prev, target));
+      setEditableTocItems((prev) => translateTocList(prev, target));
+      setEditableParagraphs((prev) => prev.map((p) => translateTextLine(p, target)));
+
+      setEditableRevisionDesc((prev) => {
+        if (target === 'en') {
+          return prev
+            .replace('Edisi Awal – Penerbitan Dokumen Standar PT NBE', 'Initial Edition – PT NBE Standard Document Issuance')
+            .replace('Edisi Awal', 'Initial Edition');
+        } else {
+          return prev
+            .replace('Initial Edition – PT NBE Standard Document Issuance', 'Edisi Awal – Penerbitan Dokumen Standar PT NBE')
+            .replace('Initial Edition – Corporate Standard Document', 'Edisi Awal – Penerbitan Dokumen Standar PT NBE')
+            .replace('Initial Edition', 'Edisi Awal');
+        }
+      });
+
+      setEditableRevisionsList((prev) =>
+        prev.map((r) => ({
+          ...r,
+          description: translateTextLine(r.description, target),
+        }))
+      );
+    }
+    lastDocLanguageRef.current = language;
+  }, [language]);
 
   // Debounced continuous auto-save engine
   const scheduleAutoSave = useCallback((partial?: Partial<any>) => {
@@ -694,7 +753,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   }, [categoryCode, effectiveCode, tocList, bodyPages, editableParagraphs]);
 
   const effectiveTocList = React.useMemo(() => {
-    if (tocList && tocList.length > 0) return tocList;
+    const target = language === 'en' ? 'en' : 'id';
+    if (tocList && tocList.length > 0) return translateTocList(tocList, target);
+    if (editableTocItems && editableTocItems.length > 0) {
+      return translateTocList(editableTocItems, target);
+    }
     if (editableParagraphs && editableParagraphs.length > 0) {
       const extracted: Array<{ num: string; title: string; isSub?: boolean }> = [];
       editableParagraphs.forEach((p) => {
@@ -707,63 +770,108 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           });
         }
       });
-      if (extracted.length > 0) return extracted;
+      if (extracted.length > 0) return translateTocList(extracted, target);
+    }
+    if (target === 'en') {
+      return [
+        { num: '1.0', title: 'OBJECTIVE' },
+        { num: '2.0', title: 'SCOPE' },
+        { num: '3.0', title: 'RESPONSIBILITY' },
+        { num: '4.0', title: 'DEFINITION' },
+        { num: '5.0', title: 'PROCEDURE DETAILS' },
+        { num: '5.1', title: 'General Provisions', isSub: true },
+        { num: '5.2', title: 'Operational Flow', isSub: true },
+        { num: '6.0', title: 'RELATED DOCUMENTS' },
+        { num: '7.0', title: 'RECORDS' },
+        { num: '8.0', title: 'APPENDICES AND EMERGENCY INSTRUCTIONS' },
+      ];
     }
     return [
-      { num: '1.0', title: 'OBJECTIVE' },
-      { num: '2.0', title: 'SCOPE' },
-      { num: '3.0', title: 'RESPONSIBILITY' },
-      { num: '4.0', title: 'DEFINITION' },
-      { num: '5.0', title: 'PROCEDURE DETAILS' },
-      { num: '5.1', title: 'General Provisions', isSub: true },
-      { num: '5.2', title: 'Operational Flow', isSub: true },
-      { num: '6.0', title: 'RELATED DOCUMENTS' },
-      { num: '7.0', title: 'RECORDS' },
-      { num: '8.0', title: 'ATTACHMENTS AND EMERGENCY INSTRUCTIONS' },
+      { num: '1.0', title: 'MAKSUD DAN TUJUAN' },
+      { num: '2.0', title: 'RUANG LINGKUP' },
+      { num: '3.0', title: 'TANGGUNG JAWAB' },
+      { num: '4.0', title: 'DEFINISI' },
+      { num: '5.0', title: 'RINCIAN PROSEDUR' },
+      { num: '5.1', title: 'Ketentuan Umum', isSub: true },
+      { num: '5.2', title: 'Alur Operasional', isSub: true },
+      { num: '6.0', title: 'DOKUMEN TERKAIT' },
+      { num: '7.0', title: 'REKAMAN' },
+      { num: '8.0', title: 'LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT' },
     ];
-  }, [tocList, editableParagraphs]);
+  }, [tocList, editableTocItems, editableParagraphs, language]);
 
   const effectiveBodyPages: string[][] = React.useMemo(() => {
-    if (bodyPages && bodyPages.length > 0) return bodyPages;
+    const target = language === 'en' ? 'en' : 'id';
+    if (bodyPages && bodyPages.length > 0) {
+      return bodyPages.map((pg) => pg.map((line) => translateTextLine(line, target)));
+    }
     if (editableParagraphs && editableParagraphs.length > 0) {
       const pages: string[][] = [];
       let currentPage: string[] = [];
       editableParagraphs.forEach((p, idx) => {
-        currentPage.push(p);
+        currentPage.push(translateTextLine(p, target));
         if (currentPage.length >= 7 || idx === editableParagraphs.length - 1) {
           pages.push(currentPage);
           currentPage = [];
         }
       });
-      return pages.length > 0 ? pages : [editableParagraphs];
+      return pages.length > 0 ? pages : [editableParagraphs.map((l) => translateTextLine(l, target))];
+    }
+    if (target === 'en') {
+      return [
+        [
+          '1.0 OBJECTIVE',
+          'To establish operational governance standards across PT Nirwana Bhumi Energy ensuring all activities operate efficiently, safely, and in full compliance with oil & gas industry regulations as well as ISO 9001/14001/45001 integrated management systems.',
+          '2.0 SCOPE',
+          'This procedure applies to all operational, engineering, procurement, and corporate administration units within the working areas of PT Nirwana Bhumi Energy, including onshore operations and supporting facilities.',
+          '3.0 RESPONSIBILITY',
+          'All executing personnel are required to comprehend and implement the working instructions set forth herein. Technical verifiers are responsible for quality control and compliance with regular audit systems.',
+          '4.0 DEFINITION',
+          'IMS (Integrated Management Systems): Integrated quality, HSE, and environmental management systems adopted by PT Nirwana Bhumi Energy.',
+          'DCC (Document Control Centre): Administrative unit governing the registration, distribution, and archiving of controlled documents.',
+        ],
+        [
+          '5.0 PROCEDURE DETAILS',
+          '5.1 General Provisions',
+          'All operational activities must commence with a Job Safety Analysis (JSA) risk assessment, scheduled equipment inspections, and verification of valid work permits.',
+          '5.2 Operational Flow',
+          'Operational task execution shall be reported on a daily basis to the integrated monitoring system to ensure data continuity and accurate maintenance history.',
+          '6.0 RELATED DOCUMENTS',
+          'Corporate Integrated Management System Manual NBE-IMS-MAN-2026 and Field Quality Verification Forms.',
+          '7.0 RECORDS',
+          'All verification records, inspection logbooks, and official handover minutes shall be preserved in controlled archives for a minimum period of 5 (five) years.',
+          '8.0 APPENDICES AND EMERGENCY INSTRUCTIONS',
+          'Emergency response instructions and key emergency telephone directories are set forth in the internal operational appendices.',
+        ],
+      ];
     }
     return [
       [
-        '1.0 OBJECTIVE',
+        '1.0 MAKSUD DAN TUJUAN',
         'Menetapkan tata kelola standar operasional pada PT Nirwana Bhumi Energy agar seluruh aktivitas berjalan efisien, aman, dan mematuhi regulasi industri migas serta sistem manajemen mutu ISO 9001/14001/45001.',
-        '2.0 SCOPE',
+        '2.0 RUANG LINGKUP',
         'Prosedur ini mencakup seluruh unit operasional, teknik, pengadaan, dan administrasi korporat di wilayah kerja PT Nirwana Bhumi Energy termasuk operasional darat dan fasilitas pendukung lainnya.',
-        '3.0 RESPONSIBILITY',
+        '3.0 TANGGUNG JAWAB',
         'Seluruh personel pelaksana wajib memahami dan menerapkan instruksi kerja yang tercantum. Verifikator teknis bertanggung jawab atas kendali mutu dan kepatuhan sistem audit berkala.',
-        '4.0 DEFINITION',
+        '4.0 DEFINISI',
         'IMS (Integrated Management Systems): Sistem Manajemen Terintegrasi mutu, K3, dan lingkungan yang diadopsi PT Nirwana Bhumi Energy.',
         'DCC (Document Control Center): Unit pengelola registrasi, distribusi, dan pengarsipan naskah dokumen terkontrol.',
       ],
       [
-        '5.0 PROCEDURE DETAILS',
-        '5.1 General Provisions',
+        '5.0 RINCIAN PROSEDUR',
+        '5.1 Ketentuan Umum',
         'Setiap kegiatan wajib diawali dengan penilaian risiko (Job Safety Analysis) dan inspeksi berkala pada peralatan kerja serta verifikasi izin kerja berlaku.',
-        '5.2 Operational Flow',
+        '5.2 Alur Operasional',
         'Pelaksanaan tugas operasional dilaporkan secara harian ke sistem pemantauan terpadu untuk menjamin kontinuitas data dan akurasi riwayat penanganan.',
-        '6.0 RELATED DOCUMENTS',
+        '6.0 DOKUMEN TERKAIT',
         'Manual Sistem Manajemen Terintegrasi NBE-IMS-MAN-2026 dan Formulir Verifikasi Mutu Lapangan.',
-        '7.0 RECORDS',
+        '7.0 REKAMAN',
         'Seluruh catatan verifikasi, logbook inspeksi, dan berita acara disimpan dalam arsip terkontrol minimal selama 5 (lima) tahun.',
-        '8.0 ATTACHMENTS AND EMERGENCY INSTRUCTIONS',
+        '8.0 LAMPIRAN DAN INSTRUKSI KEADAAN DARURAT',
         'Instruksi tanggap darurat dan nomor kontak darurat tertera pada lampiran internal operasional.',
       ],
     ];
-  }, [bodyPages, editableParagraphs]);
+  }, [bodyPages, editableParagraphs, language]);
 
   const totalPages = isProceduralDoc ? 3 + effectiveBodyPages.length : 4;
 
@@ -1561,7 +1669,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           <tbody>
             <tr>
               <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem', whiteSpace: 'nowrap' }}>
-                Approved By
+                {language === 'en' ? 'Approved By' : 'Disetujui Oleh'}
               </td>
               <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem' }}>
                 :
@@ -1591,7 +1699,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             </tr>
             <tr>
               <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem', whiteSpace: 'nowrap' }}>
-                Verified By
+                {language === 'en' ? 'Verified By' : 'Diverifikasi Oleh'}
               </td>
               <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', paddingBottom: '0.5rem' }}>
                 :
@@ -1621,7 +1729,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
             </tr>
             <tr>
               <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem', whiteSpace: 'nowrap' }}>
-                Created By
+                {language === 'en' ? 'Prepared By' : 'Disusun Oleh'}
               </td>
               <td style={{ verticalAlign: 'top', fontWeight: 600, paddingRight: '0.75rem' }}>
                 :
@@ -1693,7 +1801,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           letterSpacing: '0.08em',
         }}
       >
-        {language === 'en' ? 'REVISION INDEX' : 'TABEL INDEKS REVISI / REVISION INDEX'}
+        {language === 'en' ? 'REVISION INDEX' : 'TABEL INDEKS REVISI'}
       </div>
 
       {/* Action Buttons for Revision Rows in Edit Mode */}
@@ -1866,7 +1974,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
               className={isEditing ? 'ms-word-editable-inline' : ''}
               style={{ fontSize: '13pt', fontWeight: 'bold', color: '#000000', margin: 0, textTransform: 'uppercase' }}
             >
-              TABLE OF CONTENTS
+              {language === 'en' ? 'TABLE OF CONTENTS' : 'DAFTAR ISI'}
             </h4>
           </div>
 
@@ -2102,25 +2210,14 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   fontSize: '0.72rem',
                   padding: '0.15rem 0.55rem',
                   borderRadius: '9999px',
-                  background:
-                    language === 'id'
-                      ? '#ecfdf5'
-                      : language === 'en'
-                      ? '#eff6ff'
-                      : '#fdf4ff',
-                  color:
-                    language === 'id'
-                      ? '#059669'
-                      : language === 'en'
-                      ? '#2563eb'
-                      : '#9333ea',
+                  background: language === 'id' ? '#ecfdf5' : '#eff6ff',
+                  color: language === 'id' ? '#059669' : '#2563eb',
                   fontWeight: 700,
                   border: '1px solid currentColor',
                 }}
               >
                 {language === 'id' && '🇮🇩 Bahasa Indonesia (4 Halaman)'}
                 {language === 'en' && '🇬🇧 British English (4 Pages)'}
-                {language === 'bi' && '🌐 Bilingual (ID - EN 4 Pages)'}
               </span>
             </div>
             <p
@@ -2410,6 +2507,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         renderRunningKopHeader={renderRunningKopHeader}
         activePageTab={activePageTab}
         documentYear={documentYear}
+        language={language}
       />
 
     </div>

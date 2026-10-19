@@ -622,7 +622,7 @@ export const TemplateReferenceView: React.FC = () => {
 
         <A4DocumentPreview
           language={selectedLang}
-          title="SISTEM KONTROL DAN PENOMORAN DOKUMEN"
+          title={selectedLang === 'en' ? 'DOCUMENT CONTROL AND NUMBERING SYSTEM' : 'SISTEM KONTROL DAN PENOMORAN DOKUMEN'}
           code="0001-KB-GNR-CEO-X-2026"
           issueDate="2026-10-17"
           revision={0}
