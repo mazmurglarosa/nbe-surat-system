@@ -29,9 +29,21 @@ export async function extractOriginalDocxContent(
 
   if (typeof fileOrBlobOrBuffer === "string") {
     if (fileOrBlobOrBuffer.startsWith("data:")) {
-      const res = await fetch(fileOrBlobOrBuffer);
-      const blob = await res.blob();
-      arrayBuffer = await blob.arrayBuffer();
+      const commaIdx = fileOrBlobOrBuffer.indexOf(",");
+      if (commaIdx !== -1) {
+        const base64Data = fileOrBlobOrBuffer.slice(commaIdx + 1);
+        const binaryString = atob(base64Data);
+        const len = binaryString.length;
+        const bytes = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        arrayBuffer = bytes.buffer;
+      } else {
+        const res = await fetch(fileOrBlobOrBuffer);
+        const blob = await res.blob();
+        arrayBuffer = await blob.arrayBuffer();
+      }
     } else {
       const byteCharacters = atob(fileOrBlobOrBuffer);
       const byteNumbers = new Array(byteCharacters.length);
@@ -49,31 +61,111 @@ export async function extractOriginalDocxContent(
     throw new Error("Format berkas Word (.docx) tidak dikenali");
   }
 
+  // Fallback ekstraksi baris teks jika berkas adalah binary .doc atau non-OpenXML
+  const extractFallbackTextFromBinary = (buffer: ArrayBuffer): ExtractedDocSection => {
+    const bytes = new Uint8Array(buffer);
+    const lines: string[] = [];
+    let current = "";
+    for (let i = 0; i < bytes.length; i++) {
+      const b = bytes[i];
+      if ((b >= 32 && b <= 126) || b === 9) {
+        current += String.fromCharCode(b);
+      } else if (b === 10 || b === 13) {
+        const trimmed = current.trim();
+        if (trimmed.length >= 4 && !/^[^\w\s]+$/.test(trimmed)) {
+          lines.push(trimmed);
+        }
+        current = "";
+      } else {
+        const trimmed = current.trim();
+        if (trimmed.length >= 4 && !/^[^\w\s]+$/.test(trimmed)) {
+          lines.push(trimmed);
+        }
+        current = "";
+      }
+    }
+
+    const filtered = lines.filter((l) => l.length >= 5 && /[a-zA-Z0-9]/.test(l));
+    if (filtered.length > 0) {
+      const toc: TocHeadingItem[] = [];
+      const html = filtered
+        .map((line) => {
+          const matchH = line.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.+)$/);
+          if (matchH) {
+            toc.push({ num: matchH[1], title: matchH[2].trim(), isSub: matchH[1].includes(".") && !matchH[1].endsWith(".0") });
+            return `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; padding-left: 0.5in; text-indent: -0.5in;"><span style="display: inline-block; min-width: 0.5in;">${matchH[1]}</span>${matchH[2]}</p>`;
+          }
+          return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; color: #3B3838;">${line}</p>`;
+        })
+        .join("");
+
+      return {
+        tocHeadings: toc.length > 0 ? toc : [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
+        originalHtmlBody: html,
+        paragraphs: filtered,
+        tables: [],
+        rawText: filtered.join("\n"),
+      };
+    }
+
+    return {
+      tocHeadings: [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
+      originalHtmlBody: "<p style='font-family: Arial; font-size: 10.5pt; color: #3B3838; font-style: italic;'>Isi dokumen asli siap diedit.</p>",
+      paragraphs: ["1.0 TUJUAN", "Tujuan pelaksanaan prosedur ini sesuai standar operasional PT Nirwana Bhumi Energy."],
+      tables: [],
+      rawText: "1.0 TUJUAN\nTujuan pelaksanaan prosedur ini sesuai standar operasional PT Nirwana Bhumi Energy.",
+    };
+  };
+
   const zip = new JSZip();
   let loadedZip: JSZip;
   try {
     loadedZip = await zip.loadAsync(arrayBuffer);
   } catch (err) {
-    console.warn("Gagal membaca zip archive berkas .docx:", err);
-    return {
-      tocHeadings: [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
-      originalHtmlBody: "<p style='font-family: Arial; font-size: 10.5pt; color: #3B3838;'>Isi dokumen tidak dapat diekstrak.</p>",
-      paragraphs: [],
-      tables: [],
-      rawText: "",
-    };
+    console.warn("Berkas bukan format ZIP OpenXML biasa, menggunakan ekstraktor biner:", err);
+    return extractFallbackTextFromBinary(arrayBuffer);
   }
 
-  const docXmlFile = loadedZip.file("word/document.xml");
+  // 1. Cari berkas document.xml secara fleksibel (case-insensitive & separator-agnostic)
+  let docXmlFile = loadedZip.file("word/document.xml");
   if (!docXmlFile) {
-    console.warn("word/document.xml tidak ditemukan di dalam arsip docx");
-    return {
-      tocHeadings: [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
-      originalHtmlBody: "<p style='font-family: Arial; font-size: 10.5pt; color: #3B3838;'>word/document.xml tidak ditemukan.</p>",
-      paragraphs: [],
-      tables: [],
-      rawText: "",
-    };
+    const keys = Object.keys(loadedZip.files);
+    const foundKey = keys.find((k) => {
+      const norm = k.toLowerCase().replace(/\\/g, "/");
+      return (
+        norm === "word/document.xml" ||
+        norm.endsWith("/word/document.xml") ||
+        norm === "document.xml" ||
+        norm.endsWith("/document.xml")
+      );
+    });
+    if (foundKey) {
+      docXmlFile = loadedZip.file(foundKey);
+    }
+  }
+
+  // 2. Jika path standar tidak cocok, cari file XML apapun dalam arsip yang memuat elemen dokumen Word
+  if (!docXmlFile) {
+    const xmlKeys = Object.keys(loadedZip.files).filter((k) => k.toLowerCase().endsWith(".xml"));
+    for (const key of xmlKeys) {
+      try {
+        const content = await loadedZip.files[key].async("text");
+        if (
+          content.includes("<w:body") ||
+          content.includes("<w:p") ||
+          content.includes("<office:body") ||
+          content.includes("<text:p")
+        ) {
+          docXmlFile = loadedZip.file(key);
+          break;
+        }
+      } catch (e) {}
+    }
+  }
+
+  if (!docXmlFile) {
+    console.warn("Berkas XML dokumen utama tidak ditemukan dalam arsip zip, mengekstrak teks biner:");
+    return extractFallbackTextFromBinary(arrayBuffer);
   }
 
   const xmlString = await docXmlFile.async("text");

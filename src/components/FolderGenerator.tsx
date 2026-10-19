@@ -15,7 +15,7 @@ import {
   Save,
   FolderPlus,
   Folder,
-  File,
+  File as FileIcon,
   Trash2,
   Eye,
   Plus,
@@ -399,8 +399,9 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   // Helper memastikan isi asli berkas .docx terbaca secara reaktif
   const ensureFileExtracted = async (fileItem: AnalyzedFileItem): Promise<ExtractedDocSection | null> => {
     if (!fileItem) return null;
-    if (parsedDocsMap[fileItem.id]?.originalHtmlBody) {
-      return parsedDocsMap[fileItem.id];
+    const existing = parsedDocsMap[fileItem.id];
+    if (existing?.originalHtmlBody && !existing.originalHtmlBody.includes('tidak ditemukan')) {
+      return existing;
     }
     const targetFile = fileItem.originalFile || (fileItem as any).file || fileItem.dataUrl;
     if (!targetFile) return null;
@@ -411,19 +412,19 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         [fileItem.id]: extracted,
       }));
       setFileCustomizations((prev) => {
-        const existing = prev[fileItem.id] || activeCustomization;
+        const existingCust = prev[fileItem.id] || activeCustomization;
         return {
           ...prev,
           [fileItem.id]: {
-            ...existing,
+            ...existingCust,
             originalHtmlBody: extracted.originalHtmlBody,
             tocHeadings: extracted.tocHeadings,
             preservedBodyParagraphs: (extracted.paragraphs && extracted.paragraphs.length > 0)
               ? extracted.paragraphs
-              : existing.preservedBodyParagraphs,
+              : existingCust.preservedBodyParagraphs,
             preservedBodyTables: (extracted.tables && extracted.tables.length > 0)
               ? extracted.tables
-              : existing.preservedBodyTables,
+              : existingCust.preservedBodyTables,
           },
         };
       });
@@ -438,7 +439,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   useEffect(() => {
     if (!activeWordFile) return;
     const current = fileCustomizations[activeWordFile.id];
-    if (!current?.originalHtmlBody || !parsedDocsMap[activeWordFile.id]) {
+    if (!current?.originalHtmlBody || !parsedDocsMap[activeWordFile.id] || current.originalHtmlBody.includes('tidak ditemukan')) {
       ensureFileExtracted(activeWordFile);
     }
   }, [selectedWordIndex, activeWordFile?.id]);
@@ -478,7 +479,19 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
 
     setRawFiles((prev) => {
       const existingNames = new Set(prev.map((f) => f.name));
-      const fresh = list.filter((f) => !existingNames.has(f.name));
+      const fresh = list.filter((f) => {
+        // Filter out Windows temporary lock files (~$...) and system metadata files
+        if (
+          f.name.startsWith('~$') ||
+          f.name.startsWith('._') ||
+          f.name === 'Thumbs.db' ||
+          f.name === '.DS_Store' ||
+          f.size === 0
+        ) {
+          return false;
+        }
+        return !existingNames.has(f.name);
+      });
       return [...prev, ...fresh];
     });
   };
@@ -517,6 +530,18 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       const pdfs: AnalyzedFileItem[] = [];
 
       for (const file of rawFiles) {
+        // Abaikan file lock sementara MS Word (~$...) dan file sistem/rusak
+        if (
+          file.name.startsWith('~$') ||
+          file.name.startsWith('._') ||
+          file.name === 'Thumbs.db' ||
+          file.name === '.DS_Store' ||
+          file.size === 0 ||
+          (file.size < 300 && file.name.toLowerCase().endsWith('.docx'))
+        ) {
+          continue;
+        }
+
         const lowerName = file.name.toLowerCase();
         const relPath = (file as any).webkitRelativePath || file.name;
         const id = `f-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -619,6 +644,9 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             size: generated.blob.size,
             type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             dataUrl: generated.dataUrl,
+            originalFile: new File([generated.blob], newDocxName, {
+              type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            }),
             relativePath: (pdf.relativePath || pdf.name).replace(/\.pdf$/i, '.docx'),
             fileFormat: 'word',
             isAutoConverted: true,
@@ -1827,7 +1855,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <File size={15} color={f.name.endsWith('.pdf') ? '#ef4444' : '#38bdf8'} />
+                      <FileIcon size={15} color={f.name.endsWith('.pdf') ? '#ef4444' : '#38bdf8'} />
                       <span style={{ fontWeight: 600 }}>{f.name}</span>
                     </div>
                     <span style={{ color: 'var(--text-muted)' }}>{formatBytes(f.size)}</span>
@@ -1981,7 +2009,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     <td style={{ padding: '0.65rem 0.85rem', color: 'var(--text-muted)' }}>{idx + 1}</td>
                     <td style={{ padding: '0.65rem 0.85rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                        <File size={15} color={item.fileFormat === 'pdf' ? '#ef4444' : '#38bdf8'} />
+                        <FileIcon size={15} color={item.fileFormat === 'pdf' ? '#ef4444' : '#38bdf8'} />
                         <span style={{ fontWeight: 600 }}>{item.name}</span>
                       </div>
                     </td>
@@ -2154,7 +2182,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         </td>
                         <td style={{ padding: '0.6rem 0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                            <File size={15} color="#38bdf8" />
+                            <FileIcon size={15} color="#38bdf8" />
                             <span style={{ fontWeight: 600, color: isSelected ? '#38bdf8' : 'var(--text-main)' }}>
                               {wf.name}
                             </span>
@@ -3291,7 +3319,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <File size={15} color="#38bdf8" />
+                      <FileIcon size={15} color="#38bdf8" />
                       <span className="mono" style={{ color: 'var(--primary)', fontWeight: 700 }}>
                         {c.code}
                       </span>
