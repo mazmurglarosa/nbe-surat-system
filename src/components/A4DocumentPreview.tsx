@@ -272,7 +272,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const isUserModifiedRef = useRef<boolean>(false);
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const docStorageKey = `nbe_doc_autosave_${(code || 'default').trim().toUpperCase()}`;
+  const docStorageKey = `nbe_doc_autosave_${(documentId || code || 'default').trim().toUpperCase()}`;
 
   // Global corporate master logo & template settings
   const [masterSettings, setMasterSettings] = useState<DocumentTemplateSettings>(() => loadTemplateSettings());
@@ -304,7 +304,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
           rawSaved.includes('operational governance') ||
           rawSaved.includes('General Provisions') ||
           rawSaved.includes('PT Nirwana Bhumi Energy ensuring all activities operate efficiently') ||
-          rawSaved.includes('IMS (Integrated Management Systems)')
+          rawSaved.includes('IMS (Integrated Management Systems)') ||
+          rawSaved.includes('1.0 ISI DOKUMEN') ||
+          rawSaved.includes('ISI DOKUMEN')
         ) {
           console.warn('Purged legacy dummy draft from localStorage:', docStorageKey);
           localStorage.removeItem(docStorageKey);
@@ -350,13 +352,13 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         } else if (parsed.revisions && Array.isArray(parsed.revisions) && parsed.revisions.length > 0) {
           setEditableRevisionsList(parsed.revisions);
         }
-        if (parsed.tocList && Array.isArray(parsed.tocList) && parsed.tocList.length > 0) {
+        if (!originalHtmlBody && parsed.tocList && Array.isArray(parsed.tocList) && parsed.tocList.length > 0) {
           setEditableTocItems(parsed.tocList);
         }
-        if (parsed.preservedBodyParagraphs && Array.isArray(parsed.preservedBodyParagraphs)) {
+        if (!originalHtmlBody && parsed.preservedBodyParagraphs && Array.isArray(parsed.preservedBodyParagraphs)) {
           setEditableParagraphs(parsed.preservedBodyParagraphs);
         }
-        if (parsed.bodyTables && Array.isArray(parsed.bodyTables)) {
+        if (!originalHtmlBody && parsed.bodyTables && Array.isArray(parsed.bodyTables)) {
           setEditableTables(parsed.bodyTables);
         }
         if (parsed.kopSettings) {
@@ -982,24 +984,27 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     if (bodyPages && bodyPages.length > 0) {
       return bodyPages.map((pg) => pg.map((line) => translateTextLine(line, target)));
     }
-    if (editableParagraphs && editableParagraphs.length > 0) {
+    const currentParagraphs =
+      editableParagraphs && editableParagraphs.length > 0
+        ? editableParagraphs
+        : preservedBodyParagraphs && preservedBodyParagraphs.length > 0
+        ? preservedBodyParagraphs
+        : [];
+
+    if (currentParagraphs.length > 0) {
       const pages: string[][] = [];
       let currentPage: string[] = [];
-      editableParagraphs.forEach((p, idx) => {
+      currentParagraphs.forEach((p, idx) => {
         currentPage.push(translateTextLine(p, target));
-        if (currentPage.length >= 7 || idx === editableParagraphs.length - 1) {
+        if (currentPage.length >= 7 || idx === currentParagraphs.length - 1) {
           pages.push(currentPage);
           currentPage = [];
         }
       });
-      return pages.length > 0 ? pages : [editableParagraphs.map((l) => translateTextLine(l, target))];
+      return pages.length > 0 ? pages : [currentParagraphs.map((l) => translateTextLine(l, target))];
     }
-    return [
-      [
-        language === 'en' ? '1.0 DOCUMENT CONTENT' : '1.0 ISI DOKUMEN',
-      ],
-    ];
-  }, [bodyPages, editableParagraphs, language]);
+    return [];
+  }, [bodyPages, editableParagraphs, preservedBodyParagraphs, language]);
 
   const [translatedHtmlPages, setTranslatedHtmlPages] = useState<string[]>([]);
 
@@ -1036,8 +1041,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       } else {
         if (!isCancelled) {
           setTranslatedHtmlPages([
-            `<p style="font-family: Arial, sans-serif; font-size: 10.5pt; color: #3B3838; text-align: justify;">${
-              language === 'en' ? 'Document body is empty.' : 'Isi dokumen kosong.'
+            `<p style="font-family: Arial, sans-serif; font-size: 10.5pt; color: #64748b; text-align: justify; padding: 2rem 0; font-style: italic;">${
+              language === 'en' ? 'Original document content is loading or empty.' : 'Isi dokumen asli sedang dimuat atau kosong.'
             }</p>`,
           ]);
         }
@@ -1639,6 +1644,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     if (translatedHtmlPages && translatedHtmlPages.length > 0) {
       return translatedHtmlPages;
     }
+    if (originalHtmlBody && originalHtmlBody.trim()) {
+      return paginateHtmlContent(originalHtmlBody);
+    }
     if (effectiveBodyPages && effectiveBodyPages.length > 0) {
       return effectiveBodyPages.map((pageLines) => {
         return pageLines
@@ -1659,11 +1667,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       });
     }
     return [
-      `<p style="font-family: Arial, sans-serif; font-size: 10.5pt; color: #3B3838; text-align: justify;">${
-        language === 'en' ? 'Document body is empty.' : 'Isi dokumen kosong.'
+      `<p style="font-family: Arial, sans-serif; font-size: 10.5pt; color: #64748b; text-align: justify; padding: 2rem 0; font-style: italic;">${
+        language === 'en' ? 'Original document content is loading or empty.' : 'Isi dokumen asli sedang dimuat atau kosong.'
       }</p>`,
     ];
-  }, [translatedHtmlPages, effectiveBodyPages, language]);
+  }, [translatedHtmlPages, originalHtmlBody, effectiveBodyPages, language]);
 
   const handleSaveFromRibbonEditor = (updatedHtmlPages: string[]) => {
     const extractedParagraphs: string[] = [];
@@ -2794,7 +2802,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
       {/* MS WORD RIBBON BAR & AUTO-PAGINATION DOCUMENT CANVAS */}
       <MsWordRibbonEditor
-        key={`${documentId || effectiveCode}-${language}-${paperSize}-${initialHtmlPages.length}-${(initialHtmlPages[0] || '').slice(0, 30)}`}
+        key={`${documentId || effectiveCode}-${language}-${paperSize}-${initialHtmlPages.length}-${(originalHtmlBody || '').length}-${(initialHtmlPages[0] || '').slice(0, 30)}`}
         documentId={documentId || effectiveCode}
         isEditing={isEditing}
         onToggleEdit={() => setIsEditing(!isEditing)}

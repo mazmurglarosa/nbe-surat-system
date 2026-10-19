@@ -347,7 +347,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
   // Active file being customized in Tahap 3
   const activeWordFile = wordFiles[selectedWordIndex] || null;
   const parsedActiveFile = activeWordFile ? parseNbeFileName(activeWordFile.name) : null;
-  const activeCustomization: FileMetadataCustomization = (activeWordFile && fileCustomizations[activeWordFile.id]) || {
+  const rawCustomization: FileMetadataCustomization = (activeWordFile && fileCustomizations[activeWordFile.id]) || {
     title: parsedActiveFile?.title || (activeWordFile ? stripFileExtension(activeWordFile.name).toUpperCase().replace(/[_-]/g, ' ') : 'PENETAPAN SISTEM MANAJEMEN PENGENDALIAN DOKUMEN DAN PENUNJUKAN TIM DOCUMENT CONTROL CENTER (DCC)'),
     code: parsedActiveFile?.hasCode ? parsedActiveFile.code : activeCode,
     issueDate: issueDate,
@@ -383,6 +383,19 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
     tocHeadings: activeWordFile ? (parsedDocsMap[activeWordFile.id]?.tocHeadings || fileCustomizations[activeWordFile.id]?.tocHeadings) : undefined,
   };
 
+  const parsedDoc = activeWordFile ? parsedDocsMap[activeWordFile.id] : undefined;
+  const activeCustomization: FileMetadataCustomization = {
+    ...rawCustomization,
+    originalHtmlBody: rawCustomization.originalHtmlBody || parsedDoc?.originalHtmlBody,
+    tocHeadings: rawCustomization.tocHeadings || parsedDoc?.tocHeadings,
+    preservedBodyParagraphs: (rawCustomization.preservedBodyParagraphs && rawCustomization.preservedBodyParagraphs.length > 0)
+      ? rawCustomization.preservedBodyParagraphs
+      : (parsedDoc?.paragraphs && parsedDoc.paragraphs.length > 0 ? parsedDoc.paragraphs : rawCustomization.preservedBodyParagraphs),
+    preservedBodyTables: (rawCustomization.preservedBodyTables && rawCustomization.preservedBodyTables.length > 0)
+      ? rawCustomization.preservedBodyTables
+      : (parsedDoc?.tables && parsedDoc.tables.length > 0 ? parsedDoc.tables : rawCustomization.preservedBodyTables),
+  };
+
   // Helper memastikan isi asli berkas .docx terbaca secara reaktif
   const ensureFileExtracted = async (fileItem: AnalyzedFileItem): Promise<ExtractedDocSection | null> => {
     if (!fileItem) return null;
@@ -405,6 +418,12 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             ...existing,
             originalHtmlBody: extracted.originalHtmlBody,
             tocHeadings: extracted.tocHeadings,
+            preservedBodyParagraphs: (extracted.paragraphs && extracted.paragraphs.length > 0)
+              ? extracted.paragraphs
+              : existing.preservedBodyParagraphs,
+            preservedBodyTables: (extracted.tables && extracted.tables.length > 0)
+              ? extracted.tables
+              : existing.preservedBodyTables,
           },
         };
       });
@@ -650,21 +669,29 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             const originalDoc = await extractOriginalDocxContent(targetFile);
             originalHtmlBody = originalDoc.originalHtmlBody;
             tocHeadings = originalDoc.tocHeadings;
+            if (originalDoc.paragraphs && originalDoc.paragraphs.length > 0) {
+              extractedParagraphs = originalDoc.paragraphs;
+            }
+            if (originalDoc.tables && originalDoc.tables.length > 0) {
+              extractedTables = originalDoc.tables;
+            }
             setParsedDocsMap((prev) => ({ ...prev, [wf.id]: originalDoc }));
           } catch (err) {
             console.warn('Original docx extraction note in executeAnalysis:', err);
           }
 
-          try {
-            const extracted = await extractDocxData(targetFile);
-            if (extracted.paragraphs && extracted.paragraphs.length > 0) {
-              extractedParagraphs = extracted.paragraphs;
+          if (!extractedParagraphs || extractedParagraphs.length === 0) {
+            try {
+              const extracted = await extractDocxData(targetFile);
+              if (extracted.paragraphs && extracted.paragraphs.length > 0) {
+                extractedParagraphs = extracted.paragraphs;
+              }
+              if (extracted.tables && extracted.tables.length > 0) {
+                extractedTables = extracted.tables;
+              }
+            } catch (err) {
+              console.warn('Docx extraction note in executeAnalysis:', err);
             }
-            if (extracted.tables && extracted.tables.length > 0) {
-              extractedTables = extracted.tables;
-            }
-          } catch (err) {
-            console.warn('Docx extraction note in executeAnalysis:', err);
           }
         }
 
@@ -2801,7 +2828,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
               {/* REAL-TIME A4 DOCUMENT PREVIEW (4 HALAMAN BAKU SESUAI PANDUAN NBE) */}
               <div id="document-preview-section">
                 <A4DocumentPreview
-                  key={`${activeWordFile?.id || selectedWordIndex}-${selectedLang}-${(activeCustomization.originalHtmlBody || parsedDocsMap[activeWordFile?.id || '']?.originalHtmlBody) ? 'loaded' : 'pending'}`}
+                  key={`${activeWordFile?.id || selectedWordIndex}-${selectedLang}-${(activeCustomization.originalHtmlBody || parsedDocsMap[activeWordFile?.id || '']?.originalHtmlBody)?.length || 0}`}
                   documentId={activeWordFile?.id || activeCustomization.code}
                   originalHtmlBody={activeCustomization.originalHtmlBody || parsedDocsMap[activeWordFile?.id || '']?.originalHtmlBody}
                   tocHeadings={activeCustomization.tocHeadings || parsedDocsMap[activeWordFile?.id || '']?.tocHeadings}
@@ -2821,8 +2848,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   divisionLabel={divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode}
                   approverLabel={apprvs.find((a) => a.code === activeCustomization.approverCode)?.label || activeCustomization.approverCode}
                   categoryCode={activeCustomization.typeCode}
-                  preservedBodyParagraphs={activeCustomization.preservedBodyParagraphs}
-                  bodyTables={activeCustomization.preservedBodyTables}
+                  preservedBodyParagraphs={activeCustomization.preservedBodyParagraphs || parsedDocsMap[activeWordFile?.id || '']?.paragraphs}
+                  bodyTables={activeCustomization.preservedBodyTables || parsedDocsMap[activeWordFile?.id || '']?.tables}
                   coverLogoDataUrl={templateSettings.coverLogoDataUrl}
                   kopLogoDataUrl={templateSettings.kopLogoDataUrl}
                   coverLogoWidthInches={templateSettings.coverLogoWidthInches || 3.2}

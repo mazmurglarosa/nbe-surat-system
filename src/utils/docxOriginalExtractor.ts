@@ -1,5 +1,5 @@
-import mammoth from "mammoth";
 import JSZip from "jszip";
+import { DocxTableData } from "./docxExtractor";
 
 export interface TocHeadingItem {
   num: string;
@@ -9,74 +9,18 @@ export interface TocHeadingItem {
 
 export interface ExtractedDocSection {
   tocHeadings: TocHeadingItem[];
-  originalHtmlBody: string; // Berisi <p>, <h1>-<h4>, dan <table> asli dari file .docx
+  originalHtmlBody: string; // Berisi <p>, heading, dan <table> asli dari file .docx
   translatedEnHtmlBody?: string;
   bilingualHtmlBody?: string;
+  paragraphs?: string[];
+  tables?: DocxTableData[];
   rawText?: string;
 }
 
 /**
- * Fallback parser menggunakan JSZip untuk membaca word/document.xml jika mammoth memerlukan fallback
- */
-async function fallbackXmlExtractor(arrayBuffer: ArrayBuffer): Promise<string> {
-  try {
-    const zip = new JSZip();
-    const loadedZip = await zip.loadAsync(arrayBuffer);
-    const docXml = loadedZip.file("word/document.xml");
-    if (!docXml) return "";
-
-    const xmlString = await docXml.async("text");
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, "application/xml");
-
-    const bodyNode = xmlDoc.getElementsByTagName("w:body")[0];
-    if (!bodyNode) return "";
-
-    let html = "";
-    for (let i = 0; i < bodyNode.childNodes.length; i++) {
-      const child = bodyNode.childNodes[i];
-      const tag = child.nodeName.toLowerCase();
-
-      if (tag === "w:p" || tag === "p") {
-        const textNodes = (child as Element).getElementsByTagName("w:t");
-        let pText = "";
-        for (let t = 0; t < textNodes.length; t++) {
-          pText += textNodes[t].textContent || "";
-        }
-        const trimmed = pText.trim();
-        if (trimmed) {
-          html += `<p>${trimmed}</p>`;
-        }
-      } else if (tag === "w:tbl" || tag === "tbl") {
-        const trNodes = (child as Element).getElementsByTagName("w:tr");
-        let tblHtml = "<table>";
-        for (let r = 0; r < trNodes.length; r++) {
-          tblHtml += "<tr>";
-          const tcNodes = trNodes[r].getElementsByTagName("w:tc");
-          for (let c = 0; c < tcNodes.length; c++) {
-            const cellTextNodes = tcNodes[c].getElementsByTagName("w:t");
-            let cellText = "";
-            for (let ct = 0; ct < cellTextNodes.length; ct++) {
-              cellText += cellTextNodes[ct].textContent || "";
-            }
-            const isHeader = r === 0;
-            tblHtml += isHeader ? `<th>${cellText.trim()}</th>` : `<td>${cellText.trim()}</td>`;
-          }
-          tblHtml += "</tr>";
-        }
-        tblHtml += "</table>";
-        html += tblHtml;
-      }
-    }
-    return html;
-  } catch (err) {
-    console.warn("Fallback XML extraction error:", err);
-    return "";
-  }
-}
-
-/**
- * 1. Mengekstrak isi asli (paragraf, penomoran, dan TABEL ASLI) dari file .docx yang diunggah user
+ * 1. Mengekstrak 100% isi asli (paragraf, format cetak tebal/miring, penomoran, dan SELURUH TABEL ASLI)
+ * langsung dari struktur OpenXML word/document.xml menggunakan JSZip dan DOMParser.
+ * Murni client-side tanpa dependensi eksternal mammoth yang rentan error di browser.
  */
 export async function extractOriginalDocxContent(
   fileOrBlobOrBuffer: File | Blob | ArrayBuffer | string
@@ -105,116 +49,284 @@ export async function extractOriginalDocxContent(
     throw new Error("Format berkas Word (.docx) tidak dikenali");
   }
 
-  let rawHtml = "";
-
+  const zip = new JSZip();
+  let loadedZip: JSZip;
   try {
-    // Konversi .docx asli menjadi HTML murni dengan mempertahankan seluruh tabel (<table>, <tr>, <td>)
-    const result = await mammoth.convertToHtml(
-      { arrayBuffer },
-      {
-        styleMap: [
-          "p[style-name='Heading 1'] => h2:fresh",
-          "p[style-name='Heading 2'] => h3:fresh",
-          "p[style-name='Heading 3'] => h4:fresh",
-          "p[style-name='Title'] => h1:fresh",
-        ],
-      }
-    );
-    rawHtml = result.value || "";
+    loadedZip = await zip.loadAsync(arrayBuffer);
   } catch (err) {
-    console.warn("Mammoth conversion note, falling back to direct XML:", err);
+    console.warn("Gagal membaca zip archive berkas .docx:", err);
+    return {
+      tocHeadings: [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
+      originalHtmlBody: "<p style='font-family: Arial; font-size: 10.5pt; color: #3B3838;'>Isi dokumen tidak dapat diekstrak.</p>",
+      paragraphs: [],
+      tables: [],
+      rawText: "",
+    };
   }
 
-  // Jika mammoth menghasilkan HTML kosong, gunakan fallback XML
-  if (!rawHtml.trim()) {
-    rawHtml = await fallbackXmlExtractor(arrayBuffer);
+  const docXmlFile = loadedZip.file("word/document.xml");
+  if (!docXmlFile) {
+    console.warn("word/document.xml tidak ditemukan di dalam arsip docx");
+    return {
+      tocHeadings: [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
+      originalHtmlBody: "<p style='font-family: Arial; font-size: 10.5pt; color: #3B3838;'>word/document.xml tidak ditemukan.</p>",
+      paragraphs: [],
+      tables: [],
+      rawText: "",
+    };
   }
 
-  // Parsing DOM untuk mengekstrak daftar judul bab asli (untuk halaman 3: Table of Contents)
-  // sekaligus merapikan tampilan tabel asli tanpa mengubah struktur baris/kolomnya
+  const xmlString = await docXmlFile.async("text");
   const parser = new DOMParser();
-  const htmlDoc = parser.parseFromString(rawHtml, "text/html");
+  const xmlDoc = parser.parseFromString(xmlString, "application/xml");
 
-  const tocHeadings: TocHeadingItem[] = [];
-
-  htmlDoc.body.querySelectorAll("p, h1, h2, h3, h4, li").forEach((el) => {
-    const text = (el.textContent || "").trim();
-    if (!text) return;
-
-    // Deteksi pola bab utama seperti "1. TUJUAN", "1.0 TUJUAN", "5. URAIAN PROSEDUR", "VI. LAMPIRAN"
-    const mainMatch = text.match(/^([0-9]+(?:\.0)?\.?|[IVXLCDM]+\.?)\s+([A-Z\s&/()-]{3,})$/);
-    if (mainMatch) {
-      const numPart = mainMatch[1].endsWith(".") ? mainMatch[1] : `${mainMatch[1]}.`;
-      tocHeadings.push({
-        num: numPart,
-        title: mainMatch[2].trim(),
-        isSub: false,
-      });
-      el.setAttribute(
-        "style",
-        "font-family: Arial, sans-serif; font-size: 11pt; font-weight: bold; color: #000000; margin-top: 14px; margin-bottom: 6px; line-height: 1.4;"
-      );
-      return;
+  // Helper universal namespace-safe element selector across all browsers
+  const getElements = (parent: Element | Document, name: string): Element[] => {
+    try {
+      const listNS = parent.getElementsByTagNameNS("*", name);
+      if (listNS && listNS.length > 0) return Array.from(listNS);
+    } catch (e) {}
+    try {
+      const listW = parent.getElementsByTagName("w:" + name);
+      if (listW && listW.length > 0) return Array.from(listW);
+    } catch (e) {}
+    try {
+      const listPlain = parent.getElementsByTagName(name);
+      if (listPlain && listPlain.length > 0) return Array.from(listPlain);
+    } catch (e) {}
+    const all = parent.getElementsByTagName("*");
+    const res: Element[] = [];
+    const target = name.toLowerCase();
+    for (let i = 0; i < all.length; i++) {
+      const el = all[i];
+      const lName = (el.localName || el.nodeName.split(":").pop() || el.nodeName).toLowerCase();
+      if (lName === target) {
+        res.push(el);
+      }
     }
+    return res;
+  };
 
-    // Deteksi pola sub-bab seperti "3.1 ...", "4.1 ...", "5.1 ..."
-    const subMatch = text.match(/^([0-9]+\.[1-9][0-9]*\.?)\s+(.*)$/);
-    if (subMatch) {
-      // Jika di bawah bab utama, masukkan juga sebagai sub-bab jika judulnya cukup jelas
-      if (subMatch[2].length < 60 && !subMatch[2].includes(",") && !subMatch[2].includes("adalah")) {
-        tocHeadings.push({
-          num: subMatch[1].endsWith(".") ? subMatch[1] : `${subMatch[1]}.`,
-          title: subMatch[2].trim(),
-          isSub: true,
+  const bodyNode = getElements(xmlDoc, "body")[0];
+  if (!bodyNode) {
+    return {
+      tocHeadings: [{ num: "1.0", title: "ISI DOKUMEN", isSub: false }],
+      originalHtmlBody: "",
+      paragraphs: [],
+      tables: [],
+      rawText: "",
+    };
+  }
+
+  // Helper mengekstrak teks run termasuk tag tab (<w:tab/>) dan enter (<w:br/>)
+  const getRunText = (r: Element): string => {
+    let text = "";
+    for (let i = 0; i < r.childNodes.length; i++) {
+      const child = r.childNodes[i];
+      if (child.nodeType !== 1) continue;
+      const el = child as Element;
+      const tag = (el.localName || el.nodeName.split(":").pop() || el.nodeName).toLowerCase();
+      if (tag === "t") {
+        text += el.textContent || "";
+      } else if (tag === "tab") {
+        text += " "; // Konversi tab OpenXML ke spasi
+      } else if (tag === "br") {
+        text += "<br/>";
+      }
+    }
+    return text;
+  };
+
+  const isRunBold = (r: Element): boolean => {
+    const rPrList = getElements(r, "rPr");
+    if (rPrList.length === 0) return false;
+    const bList = getElements(rPrList[0], "b");
+    if (bList.length === 0) return false;
+    const val = bList[0].getAttribute("w:val") || bList[0].getAttribute("val");
+    return val !== "0" && val !== "false";
+  };
+
+  const isRunItalic = (r: Element): boolean => {
+    const rPrList = getElements(r, "rPr");
+    if (rPrList.length === 0) return false;
+    const itList = getElements(rPrList[0], "i");
+    if (itList.length === 0) return false;
+    const val = itList[0].getAttribute("w:val") || itList[0].getAttribute("val");
+    return val !== "0" && val !== "false";
+  };
+
+  interface ParsedItem {
+    type: "p" | "tbl";
+    text: string;
+    html: string;
+    isHeading: boolean;
+    headingNum?: string;
+    headingTitle?: string;
+    isSub?: boolean;
+    rows?: string[][];
+  }
+
+  const allItems: ParsedItem[] = [];
+
+  for (let i = 0; i < bodyNode.childNodes.length; i++) {
+    const child = bodyNode.childNodes[i];
+    if (child.nodeType !== 1) continue;
+    const el = child as Element;
+    const localTag = (el.localName || el.nodeName.split(":").pop() || el.nodeName).toLowerCase();
+
+    if (localTag === "p") {
+      const p = child as Element;
+      const rNodes = getElements(p, "r");
+      let pText = "";
+      let pHtml = "";
+
+      for (let j = 0; j < rNodes.length; j++) {
+        const r = rNodes[j];
+        const t = getRunText(r);
+        if (!t) continue;
+        pText += t;
+        let formatted = t;
+        if (isRunBold(r)) formatted = `<strong>${formatted}</strong>`;
+        if (isRunItalic(r)) formatted = `<em>${formatted}</em>`;
+        pHtml += formatted;
+      }
+
+      const trimmed = pText.trim();
+      if (!trimmed || trimmed === "<br/>") continue;
+
+      // Deteksi pola heading/bab bernomor seperti:
+      // "1. TUJUAN", "1.0 TUJUAN", "2. RUANG LINGKUP", "5. URAIAN PROSEDUR", "5.1 Ketentuan...", "VI. LAMPIRAN"
+      const hMatch = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.+)$/);
+      if (hMatch) {
+        const numPart = hMatch[1];
+        const titlePart = hMatch[2];
+        const isMain = !numPart.includes(".") || numPart.endsWith(".0") || /^[0-9]+\.?$/.test(numPart);
+        allItems.push({
+          type: "p",
+          text: trimmed,
+          isHeading: true,
+          headingNum: numPart.endsWith(".") ? numPart : `${numPart}.`,
+          headingTitle: titlePart.trim(),
+          isSub: !isMain,
+          html: `<p style="margin: ${isMain ? "14px" : "8px"} 0 4px 0; font-weight: bold; color: #000000; font-size: ${
+            isMain ? "11pt" : "10.5pt"
+          }; font-family: Arial, sans-serif; padding-left: 0.5in; text-indent: -0.5in; line-height: 1.4;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span>${titlePart}</p>`,
+        });
+      } else {
+        allItems.push({
+          type: "p",
+          text: trimmed,
+          isHeading: false,
+          html: `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial, sans-serif; color: #3B3838;">${pHtml}</p>`,
         });
       }
-      el.setAttribute(
-        "style",
-        "font-family: Arial, sans-serif; font-size: 10.5pt; color: #3B3838; margin-left: 0.5in; text-align: justify; margin-bottom: 4px; line-height: 1.5;"
-      );
-    } else {
-      el.setAttribute(
-        "style",
-        "font-family: Arial, sans-serif; font-size: 10.5pt; color: #3B3838; text-align: justify; margin-bottom: 6px; line-height: 1.5;"
-      );
-    }
-  });
+    } else if (localTag === "tbl") {
+      const tbl = child as Element;
+      const trNodes = getElements(tbl, "tr");
+      const rows: string[][] = [];
+      let tblHtml =
+        '<table style="width: 100%; border-collapse: collapse; margin: 14px 0; font-family: Arial, sans-serif; font-size: 10pt;">';
 
-  // Pertahankan seluruh Tabel Asli di dalam dokumen (contoh: Tabel Kegiatan | Penanggungjawab)
-  htmlDoc.body.querySelectorAll("table").forEach((tbl) => {
-    tbl.setAttribute(
-      "style",
-      "width: 100%; border-collapse: collapse; margin: 14px 0; font-family: Arial, sans-serif; font-size: 10pt;"
-    );
-    tbl.querySelectorAll("tr").forEach((tr, rIdx) => {
-      tr.querySelectorAll("td, th").forEach((cell) => {
-        const isHeaderRow = rIdx === 0 || cell.tagName === "TH";
-        cell.setAttribute(
-          "style",
-          `border: 1px solid #BFBFBF; padding: 6px 10px; vertical-align: top; ${
-            isHeaderRow
+      for (let r = 0; r < trNodes.length; r++) {
+        tblHtml += "<tr>";
+        const tcNodes = getElements(trNodes[r], "tc");
+        const rowCells: string[] = [];
+        const isHeader = r === 0;
+
+        for (let c = 0; c < tcNodes.length; c++) {
+          const tNodes = getElements(tcNodes[c], "t");
+          let ct = "";
+          for (let k = 0; k < tNodes.length; k++) ct += tNodes[k].textContent || "";
+          const trimmedCell = ct.trim();
+          rowCells.push(trimmedCell);
+          const cellStyle = `border: 1px solid #BFBFBF; padding: 6px 10px; vertical-align: top; ${
+            isHeader
               ? "background-color: #D9E1F2; font-weight: bold; text-align: center; color: #000000;"
               : "color: #3B3838; text-align: justify;"
-          }`
-        );
-      });
-    });
-  });
+          }`;
+          tblHtml += isHeader
+            ? `<th style="${cellStyle}">${trimmedCell}</th>`
+            : `<td style="${cellStyle}">${trimmedCell}</td>`;
+        }
+        tblHtml += "</tr>";
+        if (rowCells.some((cell) => cell.length > 0)) {
+          rows.push(rowCells);
+        }
+      }
+      tblHtml += "</table>";
 
-  // Jika tidak ditemukan bab bernomor, coba ekstrak dari heading tag h1-h4
-  if (tocHeadings.length === 0) {
-    htmlDoc.body.querySelectorAll("h1, h2, h3, h4").forEach((h, idx) => {
-      const hText = (h.textContent || "").trim();
-      if (hText) {
-        tocHeadings.push({
-          num: `${idx + 1}.0`,
-          title: hText.toUpperCase(),
-          isSub: h.tagName === "H3" || h.tagName === "H4",
+      if (rows.length > 0) {
+        allItems.push({
+          type: "tbl",
+          text: "",
+          isHeading: false,
+          rows,
+          html: tblHtml,
         });
       }
-    });
+    }
   }
 
+  // Filter front-matter (Cover / Tabel Revisi Asal / TOC Asal) jika berkas asal memuatnya,
+  // karena sistem sudah menyediakan Cover Baku, Revision Index Baku, dan TOC Baku (Aturan Mutlak Pengguna).
+  const tocHeadingIdx = allItems.findIndex(
+    (it) => it.type === "p" && /^(TABLE OF CONTENTS|DAFTAR ISI)$/i.test(it.text.replace(/<[^>]+>/g, "").trim())
+  );
+
+  let bodyStartIndex = 0;
+  if (tocHeadingIdx !== -1) {
+    // Cari bab pertama bernomor setelah daftar isi
+    for (let i = tocHeadingIdx + 1; i < allItems.length; i++) {
+      const it = allItems[i];
+      if (it.isHeading && i + 1 < allItems.length && !allItems[i + 1].isHeading) {
+        bodyStartIndex = i;
+        break;
+      }
+    }
+    if (bodyStartIndex === 0) {
+      for (let i = tocHeadingIdx + 1; i < allItems.length; i++) {
+        const it = allItems[i];
+        if (it.isHeading && (/^1(\.0|\.)/i.test(it.headingNum || "") || /^1(\.0|\.)/i.test(it.text))) {
+          bodyStartIndex = i;
+          break;
+        }
+      }
+    }
+  } else {
+    // Jika tidak ada bab Daftar Isi terpisah, periksa apakah elemen-elemen awal adalah kop/cover
+    const firstHeadingIdx = allItems.findIndex(
+      (it) => it.isHeading && (/^1(\.0|\.)/i.test(it.headingNum || "") || /^1(\.0|\.)/i.test(it.text))
+    );
+    if (firstHeadingIdx > 0 && firstHeadingIdx <= 6) {
+      bodyStartIndex = firstHeadingIdx;
+    }
+  }
+
+  // Guardrail ketat: Pastikan pemotongan front-matter tidak pernah membuat body kosong
+  let bodyItems = allItems.slice(bodyStartIndex);
+  if (bodyItems.length === 0 && allItems.length > 0) {
+    bodyItems = allItems;
+  }
+  const htmlParts = bodyItems.map((it) => it.html);
+
+  // Kumpulkan daftar heading untuk halaman 3: Table of Contents
+  const tocHeadings: TocHeadingItem[] = [];
+  bodyItems.forEach((it) => {
+    if (it.isHeading && it.headingNum && it.headingTitle) {
+      tocHeadings.push({
+        num: it.headingNum,
+        title: it.headingTitle,
+        isSub: it.isSub,
+      });
+    }
+  });
+
+  const paragraphs = bodyItems.filter((it) => it.type === "p").map((it) => it.text);
+  const tables: DocxTableData[] = bodyItems
+    .filter((it) => it.type === "tbl" && it.rows)
+    .map((it) => ({ rows: it.rows! }));
+
+  const rawText = paragraphs.join("\n");
   const finalToc =
     tocHeadings.length > 0
       ? tocHeadings
@@ -222,8 +334,10 @@ export async function extractOriginalDocxContent(
 
   return {
     tocHeadings: finalToc,
-    originalHtmlBody: htmlDoc.body.innerHTML,
-    rawText: htmlDoc.body.textContent || "",
+    originalHtmlBody: htmlParts.join(""),
+    paragraphs,
+    tables,
+    rawText,
   };
 }
 
@@ -278,7 +392,7 @@ const SOP_TRANSLATION_MAP: Array<[RegExp, string]> = [
   [/\bPermenaker No\b/gi, "Ministerial Regulation No."],
   [/\bsub\.\s*Elemen\b/gi, "Sub-element"],
 
-  // Frasa Spesifik SOP & K3 (Visitor & Contractor Briefing)
+  // Frasa Spesifik SOP & K3
   [/\bProsedur ini dibuat untuk memastikan bahwa semua pengunjung termasuk tamu dan pihak ke tiga mengetahui informasi K3 yang harus ditaati selama berada di lingkungan\b/gi, "This procedure is established to ensure that all visitors, including guests and third parties, are aware of the HSE information that must be complied with while within the premises of"],
   [/\bProsedur ini dibuat untuk memastikan\b/gi, "This procedure is established to ensure"],
   [/\bProsedur ini mencakup kegiatan pemberian briefing kepada pengunjung termasuk tamu dan pihak ketiga mengenai Kebijakan K3 dan Peraturan K3 yang berlaku di Kantor dan kantor lapangan\b/gi, "This procedure covers the provision of briefings to visitors, including guests and third parties, regarding the HSE Policies and HSE Regulations applicable at the Head Office and field offices"],
@@ -303,7 +417,7 @@ const SOP_TRANSLATION_MAP: Array<[RegExp, string]> = [
 ];
 
 /**
- * Menerjemahkan sepotong teks bahasa Indonesia ke British English
+ * Menerjemahkan sepotong teks bahasa Indonesia ke British English secara murni
  */
 export function quickTranslateTextToEn(idText: string): string {
   if (!idText || !idText.trim()) return idText;
@@ -345,7 +459,7 @@ export async function translateExtractedHtml(
   };
 
   if (targetMode === "en") {
-    // Mode English: Terjemahkan seluruh text node secara mendalam (termasuk di dalam <strong>, <span>, <td>, <th>, dsb.)
+    // Mode English: Terjemahkan seluruh text node secara mendalam tanpa merusak elemen HTML
     const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT, null);
     const textNodes: Text[] = [];
     let currentNode = walker.nextNode();
@@ -365,13 +479,12 @@ export async function translateExtractedHtml(
     return doc.body.innerHTML;
   }
 
-  // Mode Bilingual (ID di Kiri | EN-GB di Kanan, sementara Tabel Asli tetap utuh & dwibahasa di dalam sel)
+  // Mode Bilingual (ID di Kiri | EN-GB di Kanan, tabel dwibahasa di dalam sel)
   const bilingualContainer = document.createElement("div");
   const children = Array.from(doc.body.children);
 
   for (const child of children) {
     if (child.tagName === "TABLE") {
-      // Salin tabel asli apa adanya dan jadikan teks selnya dwibahasa (ID / EN)
       const clonedTable = child.cloneNode(true) as HTMLTableElement;
       const cells = Array.from(clonedTable.querySelectorAll("td, th"));
       for (const cell of cells) {
@@ -489,4 +602,3 @@ export function paginateHtmlContent(htmlContent: string, maxWeightPerPage = 750)
 
   return pages.length > 0 ? pages : [htmlContent];
 }
-
