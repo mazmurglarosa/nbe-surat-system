@@ -48,6 +48,7 @@ import {
   createDocumentFolderInDriveViaBot,
   ensureCategoryFolderInDriveViaBot,
   createCategoryFolderInDriveViaBot,
+  extractDriveFolderId,
   TARGET_FOLDER_URL,
   TARGET_FOLDER_ID,
 } from '../services/googleDriveBot';
@@ -524,7 +525,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     setIsBotUploading(true);
     setBotUploadError(null);
     try {
-      const targetFolderId = currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID;
+      const extractedFolderId = extractDriveFolderId(googleDriveLink);
+      const targetFolderId = (extractedFolderId && extractedFolderId !== TARGET_FOLDER_ID)
+        ? extractedFolderId
+        : (currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID);
+
       const result = await uploadFileToDriveViaBot(
         uploadedFile.dataUrl,
         uploadedFile.name,
@@ -533,6 +538,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         {
           folderId: targetFolderId,
           documentCode: activeCode,
+          title: title.trim() || activeCode,
           uploadedBy: createdBy.trim() || 'Staff NBE',
         }
       );
@@ -639,53 +645,17 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     try {
       const romanMonth = getRomanMonth(monthNumber);
 
-      // Auto Bot Google Drive upload / registration
-      let finalDriveLink = googleDriveLink.trim();
-      const targetFolderId = currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID;
+      // Resolusi folder ID dan URL dari link yang tertera di form atau fixed folders
+      const extractedFolderId = extractDriveFolderId(googleDriveLink);
+      const effectiveFolderId = (extractedFolderId && extractedFolderId !== TARGET_FOLDER_ID)
+        ? extractedFolderId
+        : (currentFixedFolder?.id || driveSettings.folderId || TARGET_FOLDER_ID);
 
-      if (driveSettings.botWebhookUrl) {
-        setSubmittingStatus('Bot sedang mendaftarkan dokumen ke Google Drive...');
-        try {
-          const botResult = await registerDocumentInDriveViaBot(
-            {
-              code: activeCode,
-              title: title.trim(),
-              typeCode: selectedType,
-              divisionCode: selectedDivision,
-              approverCode: selectedApprover,
-              createdBy: createdBy.trim(),
-              approvedBy: approvedBy.trim() || undefined,
-              issueDate: issueDate,
-              description: description.trim() || undefined,
-            },
-            uploadedFile
-              ? {
-                  dataUrl: uploadedFile.dataUrl,
-                  name: uploadedFile.name,
-                  type: uploadedFile.type,
-                }
-              : null,
-            driveSettings.botWebhookUrl,
-            targetFolderId
-          );
+      const effectiveFolderUrl = (googleDriveLink && googleDriveLink.includes('/folders/'))
+        ? googleDriveLink.trim()
+        : (currentFixedFolder?.url || (effectiveFolderId ? `https://drive.google.com/drive/folders/${effectiveFolderId}` : undefined));
 
-          if (botResult.success && botResult.viewUrl) {
-            finalDriveLink = botResult.viewUrl;
-            setAutoDriveUploaded(true);
-          } else {
-            console.warn('Bot Drive info:', botResult.error);
-          }
-        } catch (botErr) {
-          console.warn('Bot Drive communication error:', botErr);
-        }
-      } else {
-        // Fallback to company folder if no direct link entered
-        if (!finalDriveLink) {
-          finalDriveLink = currentFixedFolder?.url || driveSettings.folderUrl || TARGET_FOLDER_URL;
-        }
-      }
-
-      setSubmittingStatus('Menyimpan ke sistem...');
+      const finalDriveLink = googleDriveLink.trim() || effectiveFolderUrl;
 
       const newDoc: DocumentRecord = {
         id: generateDocumentId(),
@@ -711,8 +681,8 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         fileType: uploadedFile?.type,
         fileData: uploadedFile?.dataUrl,
         googleDriveLink: finalDriveLink || undefined,
-        driveFolderId: currentFixedFolder?.id,
-        driveFolderUrl: currentFixedFolder?.url,
+        driveFolderId: effectiveFolderId,
+        driveFolderUrl: effectiveFolderUrl,
         isFixed: isCodeFixed,
         isManualCode: isManualOverride,
         legacyNotes: legacyNotes.trim() || undefined,
@@ -728,10 +698,11 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         updatedAt: getNowIsoString(),
       };
 
+      // 1. Simpan seketika ke database lokal sistem (< 10ms) agar user tidak menunggu
       await onSaveDocument(newDoc);
       setSavedSuccessDoc(newDoc);
 
-      // Reset form partially
+      // Reset form partially seketika
       setTitle('');
       setDescription('');
       setUploadedFile(null);
@@ -740,6 +711,47 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       if (isManualOverride) {
         setIsManualOverride(false);
         setManualCode('');
+      }
+
+      const webhookUrl = driveSettings.botWebhookUrl;
+      if (webhookUrl) {
+        (async () => {
+          try {
+            const botResult = await registerDocumentInDriveViaBot(
+              {
+                code: activeCode,
+                title: newDoc.title,
+                typeCode: selectedType,
+                divisionCode: selectedDivision,
+                approverCode: selectedApprover,
+                createdBy: createdBy.trim(),
+                approvedBy: approvedBy.trim() || undefined,
+                issueDate: issueDate,
+                description: description.trim() || undefined,
+              },
+              uploadedFile
+                ? {
+                    dataUrl: uploadedFile.dataUrl,
+                    name: uploadedFile.name,
+                    type: uploadedFile.type,
+                  }
+                : null,
+              webhookUrl,
+              effectiveFolderId || TARGET_FOLDER_ID
+            );
+
+            if (botResult.success && botResult.viewUrl) {
+              const updatedDocWithDrive: DocumentRecord = {
+                ...newDoc,
+                googleDriveLink: botResult.viewUrl,
+                updatedAt: getNowIsoString(),
+              };
+              await onSaveDocument(updatedDocWithDrive);
+            }
+          } catch (botErr) {
+            console.warn('Bot Drive background registration error:', botErr);
+          }
+        })();
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal menyimpan dokumen.');

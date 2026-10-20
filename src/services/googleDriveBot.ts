@@ -541,6 +541,7 @@ export async function uploadFileToDriveViaBot(
   options?: {
     folderId?: string;
     documentCode?: string;
+    title?: string;
     uploadedBy?: string;
     isRevision?: boolean;
     revision?: number;
@@ -569,10 +570,14 @@ export async function uploadFileToDriveViaBot(
       mimeType: mimeType || 'application/pdf',
       base64: cleanBase64,
       documentCode: options?.documentCode || '',
+      title: options?.title || '',
       uploadedBy: options?.uploadedBy || 'Admin NBE',
       isRevision: options?.isRevision || false,
       revision: options?.revision,
     };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     const response = await fetch(webhookUrl, {
       method: 'POST',
@@ -580,7 +585,9 @@ export async function uploadFileToDriveViaBot(
         'Content-Type': 'text/plain;charset=utf-8', // Prevents CORS preflight in Apps Script
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const result = await response.json();
     if (result.status === 'success' || result.success) {
@@ -711,13 +718,18 @@ export async function registerDocumentInDriveViaBot(
       uploadedBy: doc.createdBy,
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const result = await response.json();
     if (result.status === 'success' || result.success) {
@@ -1452,6 +1464,20 @@ function doPost(e) {
     // ========================================================
     var folderId = data.folderId || TARGET_FOLDER_ID;
     var folder = DriveApp.getFolderById(folderId);
+
+    // Pastikan folder Google Drive terupdate dengan sempurna memuat Kode Dokumen dan Judul Lengkap
+    if (folder && folderId !== TARGET_FOLDER_ID && (data.title || data.documentTitle)) {
+      var docFullTitle = (data.title || data.documentTitle || "").trim();
+      var desiredFolderName = data.documentCode 
+        ? (docFullTitle.indexOf(data.documentCode) === 0 ? docFullTitle : data.documentCode + " - " + docFullTitle)
+        : docFullTitle;
+      try {
+        if (folder.getName() !== desiredFolderName && desiredFolderName.length > 0) {
+          folder.setName(desiredFolderName);
+        }
+      } catch (eRename) {}
+    }
+
     var file;
     var rawFileName = data.fileName || (data.documentCode ? data.documentCode + ".pdf" : "dokumen-nbe.pdf");
     var fileName = rawFileName;
@@ -1493,11 +1519,6 @@ function doPost(e) {
                         "Deskripsi         : " + (data.description || "-") + "\\n" +
                         "Waktu Pendaftaran : " + new Date().toISOString() + "\\n";
       file = txtTargetFolder.createFile(regFileName, summaryText, MimeType.PLAIN_TEXT);
-
-      // Otomatis rapikan juga file .txt lama yang tercecer di root folder
-      try {
-        organizeLooseTxtFiles(rootFolder, txtTargetFolder);
-      } catch (eSweep) {}
     }
 
     var desc = "Dokumen Resmi PT Nirwana Bhumi Energi\\n" +
