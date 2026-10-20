@@ -41,6 +41,13 @@ import {
   Heading2,
   Type,
   Minus,
+  Rows,
+  Columns,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  Grid,
 } from "lucide-react";
 import "./ms-word-ribbon.css";
 import { DocumentLanguage } from "../types";
@@ -209,7 +216,11 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     lastLanguageRef.current = language;
   }, [language, documentId]);
 
-  const [activeTab, setActiveTab] = useState<"Home" | "Insert" | "Layout" | "View">("Home");
+  const [activeTab, setActiveTab] = useState<"Home" | "Insert" | "Layout" | "Table" | "View">("Home");
+  const [activeTable, setActiveTable] = useState<HTMLTableElement | null>(null);
+  const [activeTableCell, setActiveTableCell] = useState<HTMLTableCellElement | null>(null);
+  const activeTableCellRef = useRef<HTMLTableCellElement | null>(null);
+  const activeTableRef = useRef<HTMLTableElement | null>(null);
   const [currentFontFamily, setCurrentFontFamily] = useState<string>("Arial");
   const [currentFontSizePt, setCurrentFontSizePt] = useState<number>(10.5);
   const [currentAlign, setCurrentAlign] = useState<"left" | "center" | "right" | "justify">("justify");
@@ -317,6 +328,25 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
       setActiveIndentCm(0);
       setFirstLineIndentCm(0);
     }
+
+    // Deteksi apakah kursor berada di dalam sel tabel (TD/TH)
+    let foundCell: HTMLTableCellElement | null = null;
+    let foundTable: HTMLTableElement | null = null;
+    let currNode: HTMLElement | null = node instanceof HTMLElement ? node : null;
+    while (currNode && currNode !== pageRefs.current[activePageIdx]) {
+      if (currNode.tagName === "TD" || currNode.tagName === "TH") {
+        foundCell = currNode as HTMLTableCellElement;
+      }
+      if (currNode.tagName === "TABLE") {
+        foundTable = currNode as HTMLTableElement;
+        break;
+      }
+      currNode = currNode.parentElement;
+    }
+    setActiveTableCell(foundCell);
+    activeTableCellRef.current = foundCell;
+    setActiveTable(foundTable);
+    activeTableRef.current = foundTable;
   };
 
   const adjustParagraphIndent = (deltaInches: number) => {
@@ -698,6 +728,339 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     setTimeout(runAutoPaginationPass, 50);
   };
 
+  // =========================================================================
+  // OPERASI MANAJEMEN TABEL INTERAKTIF (KENDALI PENUH UKURAN & TATA LETAK)
+  // =========================================================================
+  const getActiveTableCell = (): HTMLTableCellElement | null => {
+    if (activeTableCellRef.current && document.contains(activeTableCellRef.current)) {
+      return activeTableCellRef.current;
+    }
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    let node: Node | null = sel.anchorNode;
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    while (node && node instanceof HTMLElement) {
+      if (node.tagName === "TD" || node.tagName === "TH") return node as HTMLTableCellElement;
+      node = node.parentElement;
+    }
+    return null;
+  };
+
+  const getActiveTable = (): HTMLTableElement | null => {
+    if (activeTableRef.current && document.contains(activeTableRef.current)) {
+      return activeTableRef.current;
+    }
+    const cell = getActiveTableCell();
+    return cell ? cell.closest("table") : null;
+  };
+
+  const focusCell = (targetCell: HTMLElement) => {
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(targetCell);
+    range.collapse(false);
+    sel?.removeAllRanges();
+    sel?.addRange(range);
+    setActiveTableCell(targetCell as HTMLTableCellElement);
+    activeTableCellRef.current = targetCell as HTMLTableCellElement;
+  };
+
+  const insertTableRow = (below: boolean) => {
+    restoreSelection();
+    const cell = getActiveTableCell();
+    if (!cell) return;
+    const tr = cell.closest("tr");
+    const table = cell.closest("table");
+    if (!tr || !table) return;
+
+    const colCount = Math.max(
+      ...Array.from(table.rows).map((r) => r.cells.length),
+      tr.cells.length
+    );
+    const newTr = document.createElement("tr");
+
+    for (let i = 0; i < colCount; i++) {
+      const newTd = document.createElement("td");
+      newTd.style.border = "1px solid #000000";
+      newTd.style.padding = "6px 8px";
+      newTd.style.verticalAlign = "top";
+      newTd.innerHTML = "<br/>";
+      newTr.appendChild(newTd);
+    }
+
+    if (below) {
+      tr.parentNode?.insertBefore(newTr, tr.nextSibling);
+    } else {
+      tr.parentNode?.insertBefore(newTr, tr);
+    }
+
+    const firstCell = newTr.cells[0];
+    if (firstCell) {
+      focusCell(firstCell);
+    }
+
+    saveCurrentSelection();
+    runAutoPaginationPass();
+    notifyAutoSaveBody();
+  };
+
+  const deleteTableRow = () => {
+    restoreSelection();
+    const cell = getActiveTableCell();
+    if (!cell) return;
+    const tr = cell.closest("tr");
+    const table = cell.closest("table");
+    if (!tr || !table) return;
+
+    if (table.rows.length <= 1) {
+      table.remove();
+      setActiveTable(null);
+      setActiveTableCell(null);
+      activeTableRef.current = null;
+      activeTableCellRef.current = null;
+    } else {
+      const nextRow = tr.nextElementSibling || tr.previousElementSibling;
+      tr.remove();
+      if (nextRow && nextRow instanceof HTMLTableRowElement && nextRow.cells[0]) {
+        const targetCell = nextRow.cells[Math.min(cell.cellIndex, nextRow.cells.length - 1)];
+        focusCell(targetCell);
+      }
+    }
+
+    saveCurrentSelection();
+    runAutoPaginationPass();
+    notifyAutoSaveBody();
+  };
+
+  const insertTableColumn = (right: boolean) => {
+    restoreSelection();
+    const cell = getActiveTableCell();
+    if (!cell) return;
+    const table = cell.closest("table");
+    if (!table) return;
+
+    const targetIdx = right ? cell.cellIndex + 1 : cell.cellIndex;
+
+    for (let r = 0; r < table.rows.length; r++) {
+      const row = table.rows[r];
+      const isHeaderRow =
+        row.parentNode?.nodeName.toLowerCase() === "thead" ||
+        (r === 0 && row.cells[0]?.tagName.toLowerCase() === "th");
+      const newCell = document.createElement(isHeaderRow ? "th" : "td");
+      newCell.style.border = "1px solid #000000";
+      newCell.style.padding = "6px 8px";
+      newCell.style.verticalAlign = "top";
+      if (isHeaderRow) {
+        newCell.style.backgroundColor = "#f1f5f9";
+        newCell.style.fontWeight = "bold";
+      }
+      newCell.innerHTML = "<br/>";
+
+      if (targetIdx >= row.cells.length) {
+        row.appendChild(newCell);
+      } else {
+        row.insertBefore(newCell, row.cells[targetIdx]);
+      }
+    }
+
+    saveCurrentSelection();
+    runAutoPaginationPass();
+    notifyAutoSaveBody();
+  };
+
+  const deleteTableColumn = () => {
+    restoreSelection();
+    const cell = getActiveTableCell();
+    if (!cell) return;
+    const table = cell.closest("table");
+    if (!table) return;
+
+    const colIdx = cell.cellIndex;
+    let allRowsHaveOneCol = true;
+    for (let r = 0; r < table.rows.length; r++) {
+      if (table.rows[r].cells.length > 1) {
+        allRowsHaveOneCol = false;
+        break;
+      }
+    }
+
+    if (allRowsHaveOneCol) {
+      table.remove();
+      setActiveTable(null);
+      setActiveTableCell(null);
+      activeTableRef.current = null;
+      activeTableCellRef.current = null;
+    } else {
+      for (let r = 0; r < table.rows.length; r++) {
+        const row = table.rows[r];
+        if (row.cells[colIdx]) {
+          row.deleteCell(colIdx);
+        }
+      }
+      setActiveTableCell(null);
+      activeTableCellRef.current = null;
+    }
+
+    saveCurrentSelection();
+    runAutoPaginationPass();
+    notifyAutoSaveBody();
+  };
+
+  const deleteCurrentTable = () => {
+    restoreSelection();
+    const table = getActiveTable();
+    if (!table) return;
+    table.remove();
+    setActiveTable(null);
+    setActiveTableCell(null);
+    activeTableRef.current = null;
+    activeTableCellRef.current = null;
+    saveCurrentSelection();
+    runAutoPaginationPass();
+    notifyAutoSaveBody();
+  };
+
+  const setTableLayout = (width: string, align: "left" | "center" | "right") => {
+    restoreSelection();
+    const table = getActiveTable();
+    if (!table) return;
+
+    table.style.width = width;
+    if (align === "center") {
+      table.style.marginLeft = "auto";
+      table.style.marginRight = "auto";
+    } else if (align === "right") {
+      table.style.marginLeft = "auto";
+      table.style.marginRight = "0";
+    } else {
+      table.style.marginLeft = "0";
+      table.style.marginRight = "auto";
+    }
+
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const adjustActiveColumnWidth = (deltaPercent: number) => {
+    restoreSelection();
+    const cell = getActiveTableCell();
+    if (!cell) return;
+    const table = cell.closest("table");
+    if (!table) return;
+
+    const colIdx = cell.cellIndex;
+    const currentWidthPercent =
+      parseFloat(cell.style.width) ||
+      100 / (cell.closest("tr")?.cells.length || 2);
+    const newWidthPercent = Math.max(
+      5,
+      Math.min(90, Math.round(currentWidthPercent + deltaPercent))
+    );
+
+    for (let r = 0; r < table.rows.length; r++) {
+      const c = table.rows[r].cells[colIdx];
+      if (c) {
+        c.style.width = `${newWidthPercent}%`;
+      }
+    }
+
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const distributeColumnsEvenly = () => {
+    restoreSelection();
+    const table = getActiveTable();
+    if (!table) return;
+
+    const maxCols = Math.max(
+      ...Array.from(table.rows).map((r) => r.cells.length),
+      1
+    );
+    const equalWidth = (100 / maxCols).toFixed(1) + "%";
+
+    for (let r = 0; r < table.rows.length; r++) {
+      for (let c = 0; c < table.rows[r].cells.length; c++) {
+        table.rows[r].cells[c].style.width = equalWidth;
+      }
+    }
+
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
+  const moveCellText = (direction: "left" | "right" | "up" | "down") => {
+    restoreSelection();
+    const cell = getActiveTableCell();
+    if (!cell) return;
+    const tr = cell.closest("tr");
+    const table = cell.closest("table");
+    if (!tr || !table) return;
+
+    const rowIdx = tr.rowIndex;
+    const colIdx = cell.cellIndex;
+    let targetCell: HTMLTableCellElement | null = null;
+
+    if (
+      direction === "right" &&
+      cell.nextElementSibling instanceof HTMLTableCellElement
+    ) {
+      targetCell = cell.nextElementSibling;
+    } else if (
+      direction === "left" &&
+      cell.previousElementSibling instanceof HTMLTableCellElement
+    ) {
+      targetCell = cell.previousElementSibling;
+    } else if (
+      direction === "down" &&
+      table.rows[rowIdx + 1]?.cells[colIdx]
+    ) {
+      targetCell = table.rows[rowIdx + 1].cells[colIdx];
+    } else if (
+      direction === "up" &&
+      table.rows[rowIdx - 1]?.cells[colIdx]
+    ) {
+      targetCell = table.rows[rowIdx - 1].cells[colIdx];
+    }
+
+    if (targetCell) {
+      const currentHtml = cell.innerHTML;
+      const targetHtml = targetCell.innerHTML;
+      cell.innerHTML = targetHtml || "<br/>";
+      targetCell.innerHTML = currentHtml || "<br/>";
+      focusCell(targetCell);
+    }
+
+    saveCurrentSelection();
+    runAutoPaginationPass();
+    notifyAutoSaveBody();
+  };
+
+  const formatTableHeaderRow = () => {
+    restoreSelection();
+    const table = getActiveTable();
+    if (!table || table.rows.length === 0) return;
+
+    const firstRow = table.rows[0];
+    const isAlreadyHeader =
+      firstRow.style.backgroundColor.includes("f1f5f9") ||
+      firstRow.style.fontWeight === "bold";
+
+    for (let c = 0; c < firstRow.cells.length; c++) {
+      const cellEl = firstRow.cells[c];
+      if (isAlreadyHeader) {
+        cellEl.style.backgroundColor = "transparent";
+        cellEl.style.fontWeight = "normal";
+      } else {
+        cellEl.style.backgroundColor = "#f1f5f9";
+        cellEl.style.fontWeight = "bold";
+      }
+    }
+
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  };
+
   const handleInsertCallout = () => {
     restoreSelection();
     const calloutHtml = `
@@ -963,6 +1326,11 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
               { id: "Home", label: "Beranda (Home)" },
               { id: "Insert", label: "Sisipkan (Insert)" },
               { id: "Layout", label: "Tata Letak (Layout)" },
+              {
+                id: "Table",
+                label: "Desain & Tata Letak Tabel",
+                badge: activeTable ? "Aktif" : undefined,
+              },
               { id: "View", label: "Tampilan (View)" },
             ].map((tab) => (
               <button
@@ -970,8 +1338,35 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
                 className={`ms-word-tab ${activeTab === tab.id ? "active" : ""}`}
+                style={
+                  tab.id === "Table" && activeTable
+                    ? {
+                        color: activeTab === "Table" ? "#ffffff" : "#0284c7",
+                        fontWeight: 700,
+                        backgroundColor:
+                          activeTab === "Table" ? undefined : "rgba(2, 132, 199, 0.08)",
+                      }
+                    : undefined
+                }
               >
                 {tab.label}
+                {tab.badge && (
+                  <span
+                    style={{
+                      marginLeft: "6px",
+                      background: activeTab === "Table" ? "#ffffff" : "#0284c7",
+                      color: activeTab === "Table" ? "#0284c7" : "#ffffff",
+                      fontSize: "0.62rem",
+                      padding: "1px 6px",
+                      borderRadius: "10px",
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                    }}
+                  >
+                    {tab.badge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -1637,6 +2032,312 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
               </>
             )}
 
+            {/* Tab Desain & Tata Letak Tabel (Table Tools) */}
+            {activeTab === "Table" && (
+              <>
+                {/* GRUP BARIS */}
+                <div className="ms-word-group">
+                  <div className="ms-word-group-content" style={{ flexDirection: "row", gap: "0.4rem" }}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertTableRow(false);
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Sisipkan Baris Baru di Atas Baris Ini"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "60px", gap: "3px" }}
+                    >
+                      <ArrowUp size={16} color="#0284c7" />
+                      <span style={{ fontSize: "0.68rem" }}>Baris Atas</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertTableRow(true);
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Sisipkan Baris Baru di Bawah Baris Ini (Bisa juga tekan Tab di sel terakhir)"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "60px", gap: "3px" }}
+                    >
+                      <ArrowDown size={16} color="#059669" />
+                      <span style={{ fontSize: "0.68rem" }}>Baris Bawah</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        deleteTableRow();
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Hapus Baris Terpilih"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "60px", gap: "3px" }}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                      <span style={{ fontSize: "0.68rem", color: "#dc2626" }}>Hapus Baris</span>
+                    </button>
+                  </div>
+                  <span className="ms-word-group-label">Baris Tabel</span>
+                </div>
+
+                {/* GRUP KOLOM */}
+                <div className="ms-word-group">
+                  <div className="ms-word-group-content" style={{ flexDirection: "row", gap: "0.4rem" }}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertTableColumn(false);
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Sisipkan Kolom Baru di Sebelah Kiri"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "60px", gap: "3px" }}
+                    >
+                      <ArrowLeft size={16} color="#0284c7" />
+                      <span style={{ fontSize: "0.68rem" }}>Kolom Kiri</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        insertTableColumn(true);
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Sisipkan Kolom Baru di Sebelah Kanan"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "60px", gap: "3px" }}
+                    >
+                      <ArrowRight size={16} color="#059669" />
+                      <span style={{ fontSize: "0.68rem" }}>Kolom Kanan</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        deleteTableColumn();
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Hapus Kolom Terpilih"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "60px", gap: "3px" }}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                      <span style={{ fontSize: "0.68rem", color: "#dc2626" }}>Hapus Kolom</span>
+                    </button>
+                  </div>
+                  <span className="ms-word-group-label">Kolom Tabel</span>
+                </div>
+
+                {/* GRUP UKURAN & TATA LETAK */}
+                <div className="ms-word-group">
+                  <div className="ms-word-group-content" style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 600, minWidth: "75px" }}>Lebar Tabel:</span>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setTableLayout("100%", "center");
+                        }}
+                        className="ms-word-kop-btn-pill"
+                        title="Atur lebar tabel 100% penuh halaman"
+                        disabled={!activeTable}
+                      >
+                        100% Penuh
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setTableLayout("85%", "center");
+                        }}
+                        className="ms-word-kop-btn-pill"
+                        title="Atur lebar tabel 85% rata tengah"
+                        disabled={!activeTable}
+                      >
+                        85% Tengah
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setTableLayout("70%", "center");
+                        }}
+                        className="ms-word-kop-btn-pill"
+                        title="Atur lebar tabel 70% rata tengah"
+                        disabled={!activeTable}
+                      >
+                        70% Tengah
+                      </button>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 600, minWidth: "75px" }}>Lebar Kolom:</span>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          adjustActiveColumnWidth(5);
+                        }}
+                        className="ms-word-kop-btn-pill"
+                        title="Perlebar kolom aktif (+5%)"
+                        disabled={!activeTable}
+                      >
+                        Lebar +5%
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          adjustActiveColumnWidth(-5);
+                        }}
+                        className="ms-word-kop-btn-pill"
+                        title="Persempit kolom aktif (-5%)"
+                        disabled={!activeTable}
+                      >
+                        Lebar -5%
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          distributeColumnsEvenly();
+                        }}
+                        className="ms-word-kop-btn-pill"
+                        title="Bagi rata proporsi lebar semua kolom"
+                        disabled={!activeTable}
+                      >
+                        <Grid size={11} style={{ marginRight: "3px" }} />
+                        Bagi Rata Kolom
+                      </button>
+                    </div>
+                  </div>
+                  <span className="ms-word-group-label">Ukuran & Tata Letak</span>
+                </div>
+
+                {/* GRUP PINDAHKAN TULISAN */}
+                <div className="ms-word-group">
+                  <div className="ms-word-group-content" style={{ display: "flex", flexDirection: "column", gap: "0.25rem", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          moveCellText("up");
+                        }}
+                        className="ms-word-tool-btn"
+                        title="Tukar Tulisan ke Sel Atas"
+                        disabled={!activeTableCell}
+                      >
+                        <ArrowUp size={13} />
+                      </button>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          moveCellText("left");
+                        }}
+                        className="ms-word-tool-btn"
+                        title="Tukar Tulisan ke Sel Kiri"
+                        disabled={!activeTableCell}
+                      >
+                        <ArrowLeft size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          moveCellText("down");
+                        }}
+                        className="ms-word-tool-btn"
+                        title="Tukar Tulisan ke Sel Bawah"
+                        disabled={!activeTableCell}
+                      >
+                        <ArrowDown size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          moveCellText("right");
+                        }}
+                        className="ms-word-tool-btn"
+                        title="Tukar Tulisan ke Sel Kanan"
+                        disabled={!activeTableCell}
+                      >
+                        <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                  <span className="ms-word-group-label">Pindahkan Tulisan</span>
+                </div>
+
+                {/* GRUP GAYA & HAPUS */}
+                <div className="ms-word-group ms-word-group-last">
+                  <div className="ms-word-group-content" style={{ flexDirection: "row", gap: "0.4rem", alignItems: "center" }}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        formatTableHeaderRow();
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Format Baris Pertama Sebagai Judul Header Tabel (Warna Abu / Bold)"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "65px", gap: "3px" }}
+                    >
+                      <Sparkles size={16} color="#0284c7" />
+                      <span style={{ fontSize: "0.68rem" }}>Header Abu</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        deleteCurrentTable();
+                      }}
+                      className="ms-word-tool-btn"
+                      title="Hapus Keseluruhan Tabel Ini dari Dokumen"
+                      disabled={!activeTable}
+                      style={{ flexDirection: "column", height: "auto", padding: "4px 8px", minWidth: "65px", gap: "3px" }}
+                    >
+                      <Trash2 size={16} color="#dc2626" />
+                      <span style={{ fontSize: "0.68rem", color: "#dc2626", fontWeight: 700 }}>Hapus Tabel</span>
+                    </button>
+                  </div>
+                  <span className="ms-word-group-label">Opsi Tabel</span>
+                </div>
+
+                {!activeTable && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0 0.5rem", color: "#64748b", fontSize: "0.78rem" }}>
+                    <span>ℹ️ Klik pada sel tabel di halaman untuk mengaktifkan seluruh alat edit tabel di atas.</span>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleInsertTable();
+                      }}
+                      className="ms-word-kop-btn-pill"
+                      style={{ color: "#0284c7", borderColor: "#38bdf8" }}
+                    >
+                      + Buat Tabel Baru
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
             {/* Tab Tampilan (View) */}
             {activeTab === "View" && (
               <>
@@ -1957,6 +2658,40 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                       saveCurrentSelection();
                       handleInsertPageBreak();
                     } else if (e.key === "Tab") {
+                      const currentCell = getActiveTableCell();
+                      if (currentCell) {
+                        e.preventDefault();
+                        const currentTr = currentCell.closest("tr");
+                        const currentTable = currentCell.closest("table");
+                        if (currentTr && currentTable) {
+                          if (e.shiftKey) {
+                            const prevCell = currentCell.previousElementSibling as HTMLElement | null;
+                            if (prevCell) {
+                              focusCell(prevCell);
+                            } else {
+                              const prevTr = currentTr.previousElementSibling as HTMLTableRowElement | null;
+                              if (prevTr && prevTr.cells.length > 0) {
+                                focusCell(prevTr.cells[prevTr.cells.length - 1]);
+                              }
+                            }
+                          } else {
+                            const nextCell = currentCell.nextElementSibling as HTMLElement | null;
+                            if (nextCell) {
+                              focusCell(nextCell);
+                            } else {
+                              const nextTr = currentTr.nextElementSibling as HTMLTableRowElement | null;
+                              if (nextTr && nextTr.cells.length > 0) {
+                                focusCell(nextTr.cells[0]);
+                              } else {
+                                // Di sel terakhir dari baris terakhir: otomatis tambahkan baris baru (gaya baku MS Word)
+                                insertTableRow(true);
+                              }
+                            }
+                          }
+                          return;
+                        }
+                      }
+
                       e.preventDefault();
                       saveCurrentSelection();
                       if (e.shiftKey) {
@@ -2018,6 +2753,167 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
           );
         })}
       </div>
+
+      {/* FLOATING ACTION DOCK UNTUK KENDALI TABEL CEPAT */}
+      {isEditing && activeTable && (
+        <div className="ms-word-table-dock">
+          <div className="ms-word-table-dock-title">
+            <Table size={14} color="#38bdf8" />
+            <span>Tabel:</span>
+          </div>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              insertTableRow(true);
+            }}
+            className="ms-word-table-dock-btn"
+            title="Tambah Baris Baru di Bawah (Bisa juga tekan Tab pada sel terakhir)"
+          >
+            <Rows size={13} />
+            <span>+ Baris</span>
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              insertTableColumn(true);
+            }}
+            className="ms-word-table-dock-btn"
+            title="Tambah Kolom Baru di Kanan"
+          >
+            <Columns size={13} />
+            <span>+ Kolom</span>
+          </button>
+
+          <div className="ms-word-table-dock-divider" />
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              adjustActiveColumnWidth(5);
+            }}
+            className="ms-word-table-dock-btn"
+            title="Perlebar Kolom Aktif (+5%)"
+          >
+            <span>Kolom +</span>
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              adjustActiveColumnWidth(-5);
+            }}
+            className="ms-word-table-dock-btn"
+            title="Persempit Kolom Aktif (-5%)"
+          >
+            <span>Kolom -</span>
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              distributeColumnsEvenly();
+            }}
+            className="ms-word-table-dock-btn"
+            title="Bagi Rata Lebar Seluruh Kolom"
+          >
+            <Grid size={13} />
+            <span>Bagi Rata</span>
+          </button>
+
+          <div className="ms-word-table-dock-divider" />
+
+          {/* Move cell text buttons */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              moveCellText("left");
+            }}
+            className="ms-word-table-dock-btn"
+            title="Pindahkan / Tukar Tulisan Sel ke Kiri"
+          >
+            <ArrowLeft size={13} />
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              moveCellText("right");
+            }}
+            className="ms-word-table-dock-btn"
+            title="Pindahkan / Tukar Tulisan Sel ke Kanan"
+          >
+            <ArrowRight size={13} />
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              moveCellText("up");
+            }}
+            className="ms-word-table-dock-btn"
+            title="Pindahkan / Tukar Tulisan Sel ke Atas"
+          >
+            <ArrowUp size={13} />
+          </button>
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              moveCellText("down");
+            }}
+            className="ms-word-table-dock-btn"
+            title="Pindahkan / Tukar Tulisan Sel ke Bawah"
+          >
+            <ArrowDown size={13} />
+          </button>
+
+          <div className="ms-word-table-dock-divider" />
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              deleteTableRow();
+            }}
+            className="ms-word-table-dock-btn danger"
+            title="Hapus Baris Ini"
+          >
+            <Trash2 size={13} />
+            <span>Hapus Baris</span>
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              deleteTableColumn();
+            }}
+            className="ms-word-table-dock-btn danger"
+            title="Hapus Kolom Ini"
+          >
+            <Trash2 size={13} />
+            <span>Hapus Kolom</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("Table")}
+            className="ms-word-table-dock-btn"
+            style={{ background: "#0284c7", borderColor: "#38bdf8", color: "#ffffff", fontWeight: 700 }}
+            title="Buka Menu Lengkap Tata Letak Tabel di Ribbon"
+          >
+            <span>Alat Lengkap ⚙️</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
