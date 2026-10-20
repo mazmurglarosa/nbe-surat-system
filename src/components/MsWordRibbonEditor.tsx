@@ -254,6 +254,22 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
   const savedRangeRef = useRef<Range | null>(null);
 
+  // Snapshot-based Undo & Redo History State (Tracking table & document mutations)
+  const [historyStack, setHistoryStack] = useState<string[][]>([]);
+  const [futureStack, setFutureStack] = useState<string[][]>([]);
+  const historyStackRef = useRef<string[][]>([]);
+  const futureStackRef = useRef<string[][]>([]);
+  historyStackRef.current = historyStack;
+  futureStackRef.current = futureStack;
+
+  const isTypingSessionRef = useRef<boolean>(false);
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const pushHistorySnapshotRef = useRef<(customPages?: string[]) => void>(() => {});
+  const pushHistorySnapshot = useCallback((customPages?: string[]) => {
+    pushHistorySnapshotRef.current(customPages);
+  }, []);
+
   const saveCurrentSelection = () => {
     const sel = window.getSelection();
     if (sel && sel.rangeCount > 0) {
@@ -350,6 +366,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const adjustParagraphIndent = (deltaInches: number) => {
+    pushHistorySnapshot();
     restoreSelection();
     const block = getActiveBlockElement();
     if (block) {
@@ -369,6 +386,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const setSpecificIndentCm = (targetCm: number) => {
+    pushHistorySnapshot();
     restoreSelection();
     const block = getActiveBlockElement();
     if (block) {
@@ -381,6 +399,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const setFirstLineIndent = (deltaCm: number) => {
+    pushHistorySnapshot();
     restoreSelection();
     const block = getActiveBlockElement();
     if (block) {
@@ -393,6 +412,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const setHangingIndent = () => {
+    pushHistorySnapshot();
     restoreSelection();
     const block = getActiveBlockElement();
     if (block) {
@@ -406,6 +426,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const resetIndent = () => {
+    pushHistorySnapshot();
     restoreSelection();
     const block = getActiveBlockElement();
     if (block) {
@@ -513,8 +534,135 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     }, 400);
   }, [onAutoSaveBodyPages]);
 
+  // =========================================================================
+  // SNAPSHOT-BASED UNDO & REDO ENGINE (Full Document & Table State Tracking)
+  // =========================================================================
+  const getCurrentBodyPagesSnapshot = useCallback((): string[] => {
+    const domPages = pageRefs.current
+      .filter((el): el is HTMLDivElement => el !== null)
+      .map((el) => el.innerHTML);
+    if (domPages.length > 0) {
+      return domPages;
+    }
+    return bodyPagesHtml;
+  }, [bodyPagesHtml]);
+
+  pushHistorySnapshotRef.current = (customPages?: string[]) => {
+    const currentSnapshot = customPages || getCurrentBodyPagesSnapshot();
+    setHistoryStack((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && JSON.stringify(last) === JSON.stringify(currentSnapshot)) {
+        return prev;
+      }
+      return [...prev.slice(-49), currentSnapshot];
+    });
+    setFutureStack([]);
+  };
+
+  const applyDocumentSnapshot = useCallback((snapshot: string[]) => {
+    if (document.activeElement instanceof HTMLElement && document.activeElement.isContentEditable) {
+      document.activeElement.blur();
+    }
+
+    setBodyPagesHtml(snapshot);
+    snapshot.forEach((html, i) => {
+      const el = pageRefs.current[i];
+      if (el) {
+        el.innerHTML = html;
+      }
+    });
+
+    setActiveTable(null);
+    setActiveTableCell(null);
+    activeTableRef.current = null;
+    activeTableCellRef.current = null;
+
+    hasUserEditedRef.current = true;
+    setTimeout(() => {
+      snapshot.forEach((html, i) => {
+        const el = pageRefs.current[i];
+        if (el && el.innerHTML !== html) {
+          el.innerHTML = html;
+        }
+      });
+      runAutoPaginationPass();
+      notifyAutoSaveBody();
+    }, 40);
+  }, [runAutoPaginationPass, notifyAutoSaveBody]);
+
+  const handleUndo = useCallback(() => {
+    isTypingSessionRef.current = false;
+    if (historyStackRef.current.length === 0) return;
+    const currentState = getCurrentBodyPagesSnapshot();
+    const previousState = historyStackRef.current[historyStackRef.current.length - 1];
+    const newHistory = historyStackRef.current.slice(0, -1);
+
+    setFutureStack((prev) => [...prev, currentState]);
+    setHistoryStack(newHistory);
+    applyDocumentSnapshot(previousState);
+  }, [getCurrentBodyPagesSnapshot, applyDocumentSnapshot]);
+
+  const handleRedo = useCallback(() => {
+    isTypingSessionRef.current = false;
+    if (futureStackRef.current.length === 0) return;
+    const currentState = getCurrentBodyPagesSnapshot();
+    const nextState = futureStackRef.current[futureStackRef.current.length - 1];
+    const newFuture = futureStackRef.current.slice(0, -1);
+
+    setHistoryStack((prev) => [...prev, currentState]);
+    setFutureStack(newFuture);
+    applyDocumentSnapshot(nextState);
+  }, [getCurrentBodyPagesSnapshot, applyDocumentSnapshot]);
+
+  const registerTypingStart = useCallback(() => {
+    if (!isTypingSessionRef.current) {
+      pushHistorySnapshot();
+      isTypingSessionRef.current = true;
+    }
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
+    typingTimerRef.current = setTimeout(() => {
+      isTypingSessionRef.current = false;
+    }, 1000);
+  }, [pushHistorySnapshot]);
+
+  const executeFormatting = useCallback((command: string, value: string | undefined = undefined) => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
+    restoreSelection();
+    document.execCommand(command, false, value);
+    saveCurrentSelection();
+    notifyAutoSaveBody();
+  }, [pushHistorySnapshot, notifyAutoSaveBody]);
+
+  // Global Keyboard Shortcuts for Undo (Ctrl+Z) & Redo (Ctrl+Y / Ctrl+Shift+Z)
+  useEffect(() => {
+    if (!isEditing) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) {
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        if (!e.shiftKey && e.key.toLowerCase() === "z") {
+          e.preventDefault();
+          handleUndo();
+        } else if (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z")) {
+          e.preventDefault();
+          handleRedo();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleGlobalKeyDown);
+    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
+  }, [isEditing, handleUndo, handleRedo]);
+
   // Format Actions
   const applyAlignment = (alignment: "left" | "center" | "right" | "justify") => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     setCurrentAlign(alignment);
     const cmdMap: Record<string, string> = {
@@ -525,9 +673,12 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     };
     document.execCommand(cmdMap[alignment], false);
     saveCurrentSelection();
+    notifyAutoSaveBody();
   };
 
   const applyFontSizePt = (newSizePt: number) => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     const clampedSize = Math.max(6, Math.min(72, newSizePt));
     restoreSelection();
     setCurrentFontSizePt(clampedSize);
@@ -568,14 +719,18 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     }
 
     saveCurrentSelection();
+    notifyAutoSaveBody();
     setTimeout(runAutoPaginationPass, 50);
   };
 
   const applyFontFamily = (fontName: string) => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     setCurrentFontFamily(fontName);
     document.execCommand("fontName", false, fontName);
     saveCurrentSelection();
+    notifyAutoSaveBody();
   };
 
   const handleToggleFormatPainter = () => {
@@ -597,6 +752,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
         }
       }
     } else {
+      isTypingSessionRef.current = false;
+      pushHistorySnapshot();
       const sel = window.getSelection();
       if (sel && sel.rangeCount > 0) {
         const range = sel.getRangeAt(0);
@@ -615,6 +772,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
         }
       }
       setFormatPainterStyle(null);
+      notifyAutoSaveBody();
     }
   };
 
@@ -623,6 +781,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
     if (!sel || sel.rangeCount === 0) return;
     const text = sel.toString();
     if (!text) return;
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     let newText = text.toUpperCase();
     if (text === text.toUpperCase()) {
       newText = text.toLowerCase();
@@ -630,10 +790,13 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
       newText = text.replace(/\b\w/g, (c) => c.toUpperCase());
     }
     document.execCommand("insertText", false, newText);
+    notifyAutoSaveBody();
   };
 
   // Insert Features
   const handleInsertPageBreak = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const activeContainer = pageRefs.current[activePageIdx];
     if (!activeContainer) return;
@@ -695,6 +858,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const handleInsertTable = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const tableHtml = `
       <table style="width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 10pt; font-family: Arial;">
@@ -766,6 +931,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const insertTableRow = (below: boolean) => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const cell = getActiveTableCell();
     if (!cell) return;
@@ -805,6 +972,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const deleteTableRow = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const cell = getActiveTableCell();
     if (!cell) return;
@@ -833,6 +1002,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const insertTableColumn = (right: boolean) => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const cell = getActiveTableCell();
     if (!cell) return;
@@ -869,6 +1040,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const deleteTableColumn = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const cell = getActiveTableCell();
     if (!cell) return;
@@ -907,6 +1080,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const deleteCurrentTable = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const table = getActiveTable();
     if (!table) return;
@@ -921,6 +1096,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const setTableLayout = (width: string, align: "left" | "center" | "right") => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const table = getActiveTable();
     if (!table) return;
@@ -942,6 +1119,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const adjustActiveColumnWidth = (deltaPercent: number) => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const cell = getActiveTableCell();
     if (!cell) return;
@@ -969,6 +1148,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const distributeColumnsEvenly = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const table = getActiveTable();
     if (!table) return;
@@ -990,6 +1171,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const moveCellText = (direction: "left" | "right" | "up" | "down") => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const cell = getActiveTableCell();
     if (!cell) return;
@@ -1037,6 +1220,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const formatTableHeaderRow = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const table = getActiveTable();
     if (!table || table.rows.length === 0) return;
@@ -1062,6 +1247,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const handleInsertCallout = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const calloutHtml = `
       <div style="margin: 1.25rem 0; padding: 0.85rem 1.25rem; background-color: #f0f9ff; border-left: 4px solid #0284c7; border-radius: 4px; font-family: Arial; font-size: 10pt; color: #0c4a6e;">
@@ -1076,6 +1263,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const handleInsertDivider = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const dividerHtml = `<hr style="border: 0; height: 1.5px; background: #cbd5e1; margin: 1.5rem 0;" /><p><br/></p>`;
     document.execCommand("insertHTML", false, dividerHtml);
@@ -1083,6 +1272,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
   };
 
   const handleInsertDate = () => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     const todayStr = new Date().toLocaleDateString("id-ID", {
       day: "numeric",
@@ -1095,6 +1286,8 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
 
   // Quick Styles application
   const applyQuickStyle = (styleType: "normal" | "heading1" | "heading2" | "title" | "subtitle") => {
+    isTypingSessionRef.current = false;
+    pushHistorySnapshot();
     restoreSelection();
     switch (styleType) {
       case "normal":
@@ -1143,22 +1336,26 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
 
   // Daftar Fitur untuk Smart Search
   const searchableFeatures = [
-    { id: "bold", title: "Tebal (Bold)", shortcut: "Ctrl+B", action: () => document.execCommand("bold") },
-    { id: "italic", title: "Miring (Italic)", shortcut: "Ctrl+I", action: () => document.execCommand("italic") },
-    { id: "underline", title: "Garis Bawah (Underline)", shortcut: "Ctrl+U", action: () => document.execCommand("underline") },
+    { id: "undo", title: "Undo / Batalkan Perubahan (Ctrl+Z)", shortcut: "Ctrl+Z", action: handleUndo },
+    { id: "redo", title: "Redo / Ulangi Perubahan (Ctrl+Y)", shortcut: "Ctrl+Y", action: handleRedo },
+    { id: "bold", title: "Tebal (Bold)", shortcut: "Ctrl+B", action: () => executeFormatting("bold") },
+    { id: "italic", title: "Miring (Italic)", shortcut: "Ctrl+I", action: () => executeFormatting("italic") },
+    { id: "underline", title: "Garis Bawah (Underline)", shortcut: "Ctrl+U", action: () => executeFormatting("underline") },
     { id: "align_left", title: "Rata Kiri (Align Left)", shortcut: "Ctrl+L", action: () => applyAlignment("left") },
     { id: "align_center", title: "Rata Tengah (Center)", shortcut: "Ctrl+E", action: () => applyAlignment("center") },
     { id: "align_right", title: "Rata Kanan (Align Right)", shortcut: "Ctrl+R", action: () => applyAlignment("right") },
     { id: "align_justify", title: "Rata Kiri-Kanan (Justify)", shortcut: "Ctrl+J", action: () => applyAlignment("justify") },
     { id: "page_break", title: "Potong Halaman Baru (Page Break)", shortcut: "Ctrl+Enter", action: handleInsertPageBreak },
     { id: "table", title: "Sisipkan Tabel Baru", shortcut: "Insert", action: handleInsertTable },
+    { id: "table_add_row", title: "Tambah Baris Tabel di Bawah", shortcut: "Table", action: () => insertTableRow(true) },
+    { id: "table_add_col", title: "Tambah Kolom Tabel di Kanan", shortcut: "Table", action: () => insertTableColumn(true) },
     { id: "callout", title: "Sisipkan Kotak Catatan / CSMS Notice", shortcut: "Box", action: handleInsertCallout },
     { id: "divider", title: "Sisipkan Garis Pembatas Horisontal", shortcut: "Line", action: handleInsertDivider },
     { id: "date", title: "Sisipkan Tanggal Resmi Hari Ini", shortcut: "Date", action: handleInsertDate },
     { id: "style_h1", title: "Gaya Heading 1 (Bab Dokumen)", shortcut: "13pt Bold", action: () => applyQuickStyle("heading1") },
     { id: "style_h2", title: "Gaya Heading 2 (Sub-bab)", shortcut: "11.5pt Bold", action: () => applyQuickStyle("heading2") },
     { id: "style_normal", title: "Gaya Normal Standar", shortcut: "10.5pt", action: () => applyQuickStyle("normal") },
-    { id: "clear_format", title: "Hapus Semua Format (Clear Formatting)", shortcut: "Eraser", action: () => document.execCommand("removeFormat") },
+    { id: "clear_format", title: "Hapus Semua Format (Clear Formatting)", shortcut: "Eraser", action: () => executeFormatting("removeFormat") },
     { id: "case_change", title: "Ubah Huruf Besar/Kecil (Change Case)", shortcut: "Aa", action: handleChangeCase },
     { id: "save", title: "Simpan Semua Perubahan", shortcut: "Ctrl+S", action: handleSaveAll },
   ];
@@ -1189,11 +1386,20 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  document.execCommand("undo");
+                  handleUndo();
                 }}
-                title="Undo (Ctrl+Z)"
+                disabled={historyStack.length === 0}
+                title={
+                  historyStack.length > 0
+                    ? `Undo (Ctrl+Z) - Batalkan Perubahan Terakhir (${historyStack.length} langkah tersimpan)`
+                    : "Undo (Ctrl+Z) - Belum ada riwayat perubahan"
+                }
                 className="ms-word-quick-btn"
-                style={{ padding: "0.35rem 0.5rem" }}
+                style={{
+                  padding: "0.35rem 0.5rem",
+                  opacity: historyStack.length === 0 ? 0.35 : 1,
+                  cursor: historyStack.length === 0 ? "not-allowed" : "pointer",
+                }}
               >
                 <Undo2 size={15} />
               </button>
@@ -1202,11 +1408,20 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                 type="button"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  document.execCommand("redo");
+                  handleRedo();
                 }}
-                title="Redo (Ctrl+Y)"
+                disabled={futureStack.length === 0}
+                title={
+                  futureStack.length > 0
+                    ? `Redo (Ctrl+Y / Ctrl+Shift+Z) - Ulangi Perubahan (${futureStack.length} langkah)`
+                    : "Redo (Ctrl+Y) - Belum ada riwayat untuk diulang"
+                }
                 className="ms-word-quick-btn"
-                style={{ padding: "0.35rem 0.5rem" }}
+                style={{
+                  padding: "0.35rem 0.5rem",
+                  opacity: futureStack.length === 0 ? 0.35 : 1,
+                  cursor: futureStack.length === 0 ? "not-allowed" : "pointer",
+                }}
               >
                 <Redo2 size={15} />
               </button>
@@ -1383,8 +1598,12 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                       type="button"
                       onMouseDown={(e) => {
                         e.preventDefault();
+                        pushHistorySnapshot();
                         if (navigator.clipboard) {
-                          navigator.clipboard.readText().then((t) => document.execCommand("insertText", false, t));
+                          navigator.clipboard.readText().then((t) => {
+                            document.execCommand("insertText", false, t);
+                            notifyAutoSaveBody();
+                          });
                         }
                       }}
                       className="ms-word-large-btn"
@@ -1399,7 +1618,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("cut");
+                          executeFormatting("cut");
                         }}
                         className="ms-word-tool-btn"
                         title="Potong Teks (Cut - Ctrl+X)"
@@ -1508,7 +1727,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("removeFormat");
+                          executeFormatting("removeFormat");
                         }}
                         className="ms-word-tool-btn"
                         title="Bersihkan Semua Format (Clear Formatting)"
@@ -1523,7 +1742,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("bold");
+                          executeFormatting("bold");
                         }}
                         className="ms-word-tool-btn"
                         title="Tebal (Bold - Ctrl+B)"
@@ -1535,7 +1754,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("italic");
+                          executeFormatting("italic");
                         }}
                         className="ms-word-tool-btn"
                         title="Miring (Italic - Ctrl+I)"
@@ -1547,7 +1766,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("underline");
+                          executeFormatting("underline");
                         }}
                         className="ms-word-tool-btn"
                         title="Garis Bawah (Underline - Ctrl+U)"
@@ -1559,7 +1778,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("strikeThrough");
+                          executeFormatting("strikeThrough");
                         }}
                         className="ms-word-tool-btn"
                         title="Coret Teks (Strikethrough)"
@@ -1571,7 +1790,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("subscript");
+                          executeFormatting("subscript");
                         }}
                         className="ms-word-tool-btn"
                         title="Subskrip (x₂)"
@@ -1583,7 +1802,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("superscript");
+                          executeFormatting("superscript");
                         }}
                         className="ms-word-tool-btn"
                         title="Superskrip (x²)"
@@ -1600,8 +1819,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                           value={highlightColor}
                           onChange={(e) => {
                             setHighlightColor(e.target.value);
-                            restoreSelection();
-                            document.execCommand("hiliteColor", false, e.target.value);
+                            executeFormatting("hiliteColor", e.target.value);
                           }}
                           className="ms-word-color-native-input"
                         />
@@ -1616,8 +1834,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                           value={textColor}
                           onChange={(e) => {
                             setTextColor(e.target.value);
-                            restoreSelection();
-                            document.execCommand("foreColor", false, e.target.value);
+                            executeFormatting("foreColor", e.target.value);
                           }}
                           className="ms-word-color-native-input"
                         />
@@ -1636,7 +1853,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("insertUnorderedList");
+                          executeFormatting("insertUnorderedList");
                         }}
                         className="ms-word-tool-btn"
                         title="Daftar Poin (Bullets)"
@@ -1648,7 +1865,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                         type="button"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          document.execCommand("insertOrderedList");
+                          executeFormatting("insertOrderedList");
                         }}
                         className="ms-word-tool-btn"
                         title="Daftar Penomoran (Numbering)"
@@ -2035,6 +2252,66 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
             {/* Tab Desain & Tata Letak Tabel (Table Tools) */}
             {activeTab === "Table" && (
               <>
+                {/* GRUP RIWAYAT TABEL */}
+                <div className="ms-word-group">
+                  <div className="ms-word-group-content" style={{ flexDirection: "row", gap: "0.4rem" }}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleUndo();
+                      }}
+                      disabled={historyStack.length === 0}
+                      className="ms-word-tool-btn"
+                      title={
+                        historyStack.length > 0
+                          ? `Undo (Ctrl+Z) - Batalkan Perubahan Tabel / Dokumen (${historyStack.length} tersimpan)`
+                          : "Undo (Ctrl+Z) - Belum ada riwayat perubahan"
+                      }
+                      style={{
+                        flexDirection: "column",
+                        height: "auto",
+                        padding: "4px 8px",
+                        minWidth: "55px",
+                        gap: "3px",
+                        opacity: historyStack.length === 0 ? 0.35 : 1,
+                        cursor: historyStack.length === 0 ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <Undo2 size={16} color="#003366" />
+                      <span style={{ fontSize: "0.68rem" }}>Undo</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleRedo();
+                      }}
+                      disabled={futureStack.length === 0}
+                      className="ms-word-tool-btn"
+                      title={
+                        futureStack.length > 0
+                          ? `Redo (Ctrl+Y) - Ulangi Perubahan Tabel / Dokumen (${futureStack.length} langkah)`
+                          : "Redo (Ctrl+Y) - Belum ada riwayat untuk diulang"
+                      }
+                      style={{
+                        flexDirection: "column",
+                        height: "auto",
+                        padding: "4px 8px",
+                        minWidth: "55px",
+                        gap: "3px",
+                        opacity: futureStack.length === 0 ? 0.35 : 1,
+                        cursor: futureStack.length === 0 ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      <Redo2 size={16} color="#003366" />
+                      <span style={{ fontSize: "0.68rem" }}>Redo</span>
+                    </button>
+                  </div>
+                  <span className="ms-word-group-label">Riwayat</span>
+                </div>
+
                 {/* GRUP BARIS */}
                 <div className="ms-word-group">
                   <div className="ms-word-group-content" style={{ flexDirection: "row", gap: "0.4rem" }}>
@@ -2642,6 +2919,7 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                     handleSelectionChange();
                   }}
                   onInput={() => {
+                    registerTypingStart();
                     saveCurrentSelection();
                     runAutoPaginationPass();
                     notifyAutoSaveBody();
@@ -2653,6 +2931,22 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
                     notifyAutoSaveBody();
                   }}
                   onKeyDown={(e) => {
+                    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+                      e.preventDefault();
+                      handleUndo();
+                      return;
+                    }
+                    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))) {
+                      e.preventDefault();
+                      handleRedo();
+                      return;
+                    }
+                    if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key.length === 1) {
+                      registerTypingStart();
+                    } else if (e.key === "Backspace" || e.key === "Delete" || e.key === "Enter") {
+                      registerTypingStart();
+                    }
+
                     if (e.ctrlKey && e.key === "Enter") {
                       e.preventDefault();
                       saveCurrentSelection();
@@ -2761,6 +3055,53 @@ export const MsWordRibbonEditor: React.FC<MsWordEditorProps> = ({
             <Table size={14} color="#38bdf8" />
             <span>Tabel:</span>
           </div>
+
+          {/* UNDO & REDO KHUSUS TABEL / DOKUMEN */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleUndo();
+            }}
+            disabled={historyStack.length === 0}
+            className="ms-word-table-dock-btn"
+            title={
+              historyStack.length > 0
+                ? `Undo (Ctrl+Z) - Batalkan Perubahan Terakhir (${historyStack.length} langkah tersimpan)`
+                : "Undo (Ctrl+Z) - Belum ada riwayat"
+            }
+            style={{
+              opacity: historyStack.length === 0 ? 0.35 : 1,
+              cursor: historyStack.length === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            <Undo2 size={13} color="#38bdf8" />
+            <span>Undo</span>
+          </button>
+
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleRedo();
+            }}
+            disabled={futureStack.length === 0}
+            className="ms-word-table-dock-btn"
+            title={
+              futureStack.length > 0
+                ? `Redo (Ctrl+Y) - Ulangi Perubahan (${futureStack.length} langkah)`
+                : "Redo (Ctrl+Y) - Belum ada riwayat untuk diulang"
+            }
+            style={{
+              opacity: futureStack.length === 0 ? 0.35 : 1,
+              cursor: futureStack.length === 0 ? "not-allowed" : "pointer",
+            }}
+          >
+            <Redo2 size={13} color="#38bdf8" />
+            <span>Redo</span>
+          </button>
+
+          <div className="ms-word-table-dock-divider" />
 
           <button
             type="button"
