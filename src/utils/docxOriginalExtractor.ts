@@ -204,6 +204,26 @@ export async function extractOriginalDocxContent(
         items.push({ type: "table", rows: currentTableRows });
       }
 
+      // Perbaikan baris tabel 2 kolom yang terbelah oleh karakter enter (\r) biner .doc
+      items.forEach((it) => {
+        if (it.type === "table" && it.rows && it.rows.length > 0) {
+          const maxCols = Math.max(...it.rows.map((r) => r.length));
+          if (maxCols === 2) {
+            const fixedRows: string[][] = [];
+            for (let i = 0; i < it.rows.length; i++) {
+              const r = it.rows[i];
+              if (r.length === 1 && i + 1 < it.rows.length && it.rows[i + 1].length === 1) {
+                fixedRows.push([r[0], it.rows[i + 1][0]]);
+                i++;
+              } else {
+                fixedRows.push(r);
+              }
+            }
+            it.rows = fixedRows;
+          }
+        }
+      });
+
       // Potong front-matter dokumen lama (Cover lama, Nomor Dokumen BMT/..., tanda tangan)
       // Dokumen Halaman 4 dst harus mulai dari klausul pertama (1. TUJUAN, 1.0, dsb.)
       const firstClauseRegex = /(?:^[1-9]\d*(?:\.0|\.)?\s*[:.-]?\s*(?:TUJUAN|RUANG LINGKUP|PENDAHULUAN|DEFINISI|REFERENSI|DASAR|KEBIJAKAN|URAIAN|KETENTUAN|PROSEDUR|PELAKSANAAN|TANGGUNG JAWAB)|^[1-9]\.0?\s+[A-Z]{3,}|^BAB\s+[IVXLCDM]+)/i;
@@ -220,16 +240,19 @@ export async function extractOriginalDocxContent(
 
       for (const item of bodyItems) {
         if (item.type === "paragraph" && item.text) {
-          paragraphs.push(item.text);
-          const matchH = item.text.match(
+          // Bersihkan bullet atau titik liar awal seperti ".Briefing" -> "Briefing"
+          const cleanText = item.text.replace(/^[.·•\u2022\uF0B7-]\s*/, "").trim();
+          paragraphs.push(cleanText);
+
+          const matchH = cleanText.match(
             /^([0-9]+(?:\.[0-9]+)*\.?|[A-Z]\.|\b(?:BAB\s+[IVXLCDM]+|[IVXLCDM]+\.)\b)\s*[:.-]?\s*(.+)$/i
           );
           const isPureHeading =
             !matchH &&
-            item.text.length <= 40 &&
-            item.text === item.text.toUpperCase() &&
-            !item.text.includes(":") &&
-            /^[A-Z\s]+$/.test(item.text);
+            cleanText.length <= 45 &&
+            cleanText === cleanText.toUpperCase() &&
+            !cleanText.includes(":") &&
+            /^[A-Z\s&/()-]+$/.test(cleanText);
 
           if (matchH) {
             const rawNum = matchH[1].trim();
@@ -239,12 +262,13 @@ export async function extractOriginalDocxContent(
               !rawNum.endsWith(".0") &&
               rawNum.split(".").length > 2;
             toc.push({ num, title: matchH[2].trim(), isSub });
-            html += `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; padding-left: 0.5in; text-indent: -0.5in;"><span style="display: inline-block; min-width: 0.5in;">${num}</span>${matchH[2]}</p>`;
+            html += `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; padding-left: 0.5in; text-indent: -0.5in;"><span style="display: inline-block; min-width: 0.5in;">${num}</span> ${matchH[2].trim()}</p>`;
           } else if (isPureHeading) {
-            toc.push({ num: "", title: item.text, isSub: false });
-            html += `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; text-align: left;">${item.text}</p>`;
+            const isMajorSop = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS)$/i.test(cleanText);
+            toc.push({ num: "", title: cleanText, isSub: false });
+            html += `<p style="margin: ${isMajorSop ? "18px" : "14px"} 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; text-align: left;">${cleanText}</p>`;
           } else {
-            html += `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; color: #3B3838;">${item.text}</p>`;
+            html += `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; color: #3B3838;">${cleanText}</p>`;
           }
         } else if (item.type === "table" && item.rows) {
           tables.push({ rows: item.rows });
@@ -329,7 +353,7 @@ export async function extractOriginalDocxContent(
           const matchH = line.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.+)$/);
           if (matchH) {
             toc.push({ num: matchH[1], title: matchH[2].trim(), isSub: matchH[1].includes(".") && !matchH[1].endsWith(".0") });
-            return `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; padding-left: 0.5in; text-indent: -0.5in;"><span style="display: inline-block; min-width: 0.5in;">${matchH[1]}</span>${matchH[2]}</p>`;
+            return `<p style="margin: 14px 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial; padding-left: 0.5in; text-indent: -0.5in;"><span style="display: inline-block; min-width: 0.5in;">${matchH[1]}</span> ${matchH[2].trim()}</p>`;
           }
           return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; color: #3B3838;">${line}</p>`;
         })
@@ -522,28 +546,48 @@ export async function extractOriginalDocxContent(
       const trimmed = pText.trim();
       if (!trimmed || trimmed === "<br/>") continue;
 
-      // Deteksi pola heading/bab bernomor seperti:
-      // "1. TUJUAN", "1.0 TUJUAN", "2. RUANG LINGKUP", "5. URAIAN PROSEDUR", "5.1 Ketentuan...", "VI. LAMPIRAN"
-      const hMatch = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.+)$/);
+      // Bersihkan bullet liar dan deteksi pola heading/bab bernomor atau bab baku
+      const cleanPText = trimmed.replace(/^[.·•\u2022\uF0B7-]\s*/, "").trim();
+      const hMatch = cleanPText.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s*(.+)$/);
+      const isPureHeading =
+        !hMatch &&
+        cleanPText.length <= 45 &&
+        cleanPText === cleanPText.toUpperCase() &&
+        !cleanPText.includes(":") &&
+        /^[A-Z\s&/()-]+$/.test(cleanPText) &&
+        /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS|TUJUAN|RUANG\s*LINGKUP|DEFINISI|REFERENSI)$/i.test(cleanPText);
+
       if (hMatch) {
-        const numPart = hMatch[1];
-        const titlePart = hMatch[2];
+        const numPart = hMatch[1].trim();
+        const titlePart = hMatch[2].trim();
+        const numFormatted = numPart.endsWith(".") ? numPart : `${numPart}.`;
         const isMain = !numPart.includes(".") || numPart.endsWith(".0") || /^[0-9]+\.?$/.test(numPart);
         allItems.push({
           type: "p",
-          text: trimmed,
+          text: cleanPText,
           isHeading: true,
-          headingNum: numPart.endsWith(".") ? numPart : `${numPart}.`,
-          headingTitle: titlePart.trim(),
+          headingNum: numFormatted,
+          headingTitle: titlePart,
           isSub: !isMain,
           html: `<p style="margin: ${isMain ? "14px" : "8px"} 0 4px 0; font-weight: bold; color: #000000; font-size: ${
             isMain ? "11pt" : "10.5pt"
-          }; font-family: Arial, sans-serif; padding-left: 0.5in; text-indent: -0.5in; line-height: 1.4;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span>${titlePart}</p>`,
+          }; font-family: Arial, sans-serif; padding-left: 0.5in; text-indent: -0.5in; line-height: 1.4;"><span style="display: inline-block; min-width: 0.5in;">${numFormatted}</span> ${titlePart}</p>`,
+        });
+      } else if (isPureHeading) {
+        const isMajorSop = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS)$/i.test(cleanPText);
+        allItems.push({
+          type: "p",
+          text: cleanPText,
+          isHeading: true,
+          headingNum: "",
+          headingTitle: cleanPText,
+          isSub: false,
+          html: `<p style="margin: ${isMajorSop ? "18px" : "14px"} 0 4px 0; font-weight: bold; color: #000000; font-size: 11pt; font-family: Arial, sans-serif; text-align: left; line-height: 1.4;">${cleanPText}</p>`,
         });
       } else {
         allItems.push({
           type: "p",
-          text: trimmed,
+          text: cleanPText,
           isHeading: false,
           html: `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial, sans-serif; color: #3B3838;">${pHtml}</p>`,
         });
@@ -673,7 +717,25 @@ export async function extractOriginalDocxContent(
  * Kamus istilah baku dokumen SOP K3, CSMS, dan Prosedur Operasional NBE
  */
 const SOP_TRANSLATION_MAP: Array<[RegExp, string]> = [
-  // Heading Bab Utama
+  // 1. Frasa Kalimat Panjang & Spesifik (Wajib di awal agar kata perkata tidak merusak kalimat penuh)
+  [/\bProsedur ini dibuat untuk memastikan bahwa semua pengunjung termasuk tamu dan pihak ke tiga mengetahui informasi K3 yang harus ditaati selama berada di lingkungan\b/gi, "This procedure is established to ensure that all visitors, including guests and third parties, are aware of the HSE information that must be complied with while within the premises of"],
+  [/\bProsedur ini dibuat untuk memastikan\b/gi, "This procedure is established to ensure"],
+  [/\bProsedur ini mencakup kegiatan pemberian briefing kepada pengunjung termasuk tamu dan pihak ketiga mengenai Kebijakan K3 dan Peraturan K3 yang berlaku di Kantor dan kantor lapangan\b/gi, "This procedure covers the provision of briefings to visitors, including guests and third parties, regarding the HSE Policies and HSE Regulations applicable at the Head Office and field offices"],
+  [/\bProsedur ini mencakup kegiatan pemberian briefing\b/gi, "This procedure covers briefing activities"],
+  [/\bBriefing adalah petunjuk lisan untuk melaksanakan tugas \/ pekerjaan yang harus dijadikan panduan\b/gi, "Briefing is oral guidance for carrying out tasks / work that must serve as reference"],
+  [/\bPengunjung adalah semua pihak yang tidak terikat oleh kontrak yang atas kemauan sendiri atau atas undangan\b/gi, "Visitors refer to all parties not bound by a contract who, of their own accord or upon invitation,"],
+  [/\byang memerlukan atau yang diperlukan kehadirannya di area kantor atau area kerja\b/gi, "whose presence is required or necessary in the office area or operational site of"],
+  [/\bPihak ke tiga adalah pihak yang diikat oleh Kontrak Kerja dengan\b/gi, "Third party refers to any party bound by an Employment/Work Contract with"],
+  [/\bPengunjung \(termasuk tamu, PKL dan pihak ke tiga\) baik yang datang maupun yang pulang diwajibkan lapor kepada petugas Satpam yang sedang jaga\b/gi, "Visitors (including guests, interns, and third parties), both arriving and departing, are required to report to the Security Officer on duty"],
+  [/\bMelakukan identifikasi baik terhadap orang maupun terhadap barang bawaannya jika kondisi mengharuskannya\b/gi, "Conduct identification of both persons and their luggage/belongings if conditions require"],
+  [/\bMemberikan briefing, kepada pengunjung \(termasuk tamu dan pihak ke tiga\) mengenai Kebijakan K3 dan Peraturan K3 yang berlaku di lingkungan\b/gi, "Provide briefings to visitors (including guests and third parties) regarding the HSE Policy and HSE Regulations applicable within the premises of"],
+  [/\bBagi pengunjung yang sering datang ke kantor atau tempat kerja\b/gi, "For frequent visitors to the office or operational workplace,"],
+  [/\bcukup diberi briefing pada saat kunjungan pertama dan dapat diulang untuk kunjungan berikutnya\b/gi, "a briefing upon the first visit suffices and may be repeated for subsequent visits"],
+  [/\bProsedur ini menetapkan tata cara\b/gi, "This procedure establishes the guidelines and protocols"],
+  [/\bProsedur ini berlaku untuk\b/gi, "This procedure applies to"],
+  [/\bSeluruh pekerja, kontraktor, dan pengunjung\b/gi, "All workers, contractors, and visitors"],
+
+  // 2. Heading Bab Utama
   [/\bMAKSUD DAN TUJUAN\b/gi, "PURPOSE AND OBJECTIVE"],
   [/\bTUJUAN\b/gi, "PURPOSE / OBJECTIVE"],
   [/\bRUANG LINGKUP\b/gi, "SCOPE"],
@@ -696,52 +758,37 @@ const SOP_TRANSLATION_MAP: Array<[RegExp, string]> = [
   [/\bLAMPIRAN\b/gi, "ATTACHMENTS"],
   [/\bFORMULIR TERKAIT\b/gi, "ASSOCIATED FORMS"],
 
-  // Istilah Tabel & Peran
-  [/\bKegiatan\b/g, "Activity"],
-  [/\bPenanggungjawab\b/gi, "Person in Charge"],
-  [/\bPenanggung Jawab\b/gi, "Person in Charge"],
-  [/\bPelaksana\b/gi, "Executor"],
-  [/\bPengunjung\b/g, "Visitor"],
-  [/\bSatpam\b/g, "Security Officer"],
+  // 3. Istilah Multi-Kata (Wajib sebelum kata tunggal seperti "Tamu", "Satpam")
   [/\bPetugas Satpam yang sedang jaga\b/gi, "Security Officer on duty"],
   [/\bPetugas Keamanan\b/gi, "Security Personnel"],
   [/\bYang Menerima Tamu\b/g, "Host / Receptionist"],
-  [/\bTamu\b/g, "Guest"],
-  [/\bKontraktor\b/gi, "Contractor"],
-  [/\bKaryawan\b/gi, "Employee"],
-  [/\bTidak ada\b/gi, "None"],
-  [/\bKeterangan\b/gi, "Remarks"],
-  [/\bNomor Dokumen\b/gi, "Document Number"],
-  [/\bTanggal Berlaku\b/gi, "Effective Date"],
-  [/\bTanggal Penerbitan\b/gi, "Issue Date"],
-  [/\bStatus Revisi\b/gi, "Revision Status"],
   [/\bBuku Tamu\b/gi, "Guest Book"],
-  [/\bUndang-Undang No\b/gi, "Law No."],
-  [/\bPermenaker No\b/gi, "Ministerial Regulation No."],
+  [/\bUndang-Undang No\.?\b/gi, "Law No."],
+  [/\bPermenaker No\.?\b/gi, "Ministerial Regulation No."],
   [/\bsub\.\s*Elemen\b/gi, "Sub-element"],
-
-  // Frasa Spesifik SOP & K3
-  [/\bProsedur ini dibuat untuk memastikan bahwa semua pengunjung termasuk tamu dan pihak ke tiga mengetahui informasi K3 yang harus ditaati selama berada di lingkungan\b/gi, "This procedure is established to ensure that all visitors, including guests and third parties, are aware of the HSE information that must be complied with while within the premises of"],
-  [/\bProsedur ini dibuat untuk memastikan\b/gi, "This procedure is established to ensure"],
-  [/\bProsedur ini mencakup kegiatan pemberian briefing kepada pengunjung termasuk tamu dan pihak ketiga mengenai Kebijakan K3 dan Peraturan K3 yang berlaku di Kantor dan kantor lapangan\b/gi, "This procedure covers the provision of briefings to visitors, including guests and third parties, regarding the HSE Policies and HSE Regulations applicable at the Head Office and field offices"],
-  [/\bProsedur ini mencakup kegiatan pemberian briefing\b/gi, "This procedure covers briefing activities"],
-  [/\bBriefing adalah petunjuk lisan untuk melaksanakan tugas \/ pekerjaan yang harus dijadikan panduan\b/gi, "Briefing is oral guidance for carrying out tasks / work that must serve as reference"],
-  [/\bPengunjung adalah semua pihak yang tidak terikat oleh kontrak yang atas kemauan sendiri atau atas undangan\b/gi, "Visitors refer to all parties not bound by a contract who, of their own accord or upon invitation"],
-  [/\byang memerlukan atau yang diperlukan kehadirannya di area kantor atau area kerja\b/gi, "whose presence is required or necessary in the office area or operational site"],
-  [/\bPihak ke tiga adalah pihak yang diikat oleh Kontrak Kerja dengan\b/gi, "Third party refers to any party bound by an Employment/Work Contract with"],
-  [/\bPengunjung \(termasuk tamu, PKL dan pihak ke tiga\) baik yang datang maupun yang pulang diwajibkan lapor kepada petugas Satpam yang sedang jaga\b/gi, "Visitors (including guests, interns, and third parties), both arriving and departing, are required to report to the Security Officer on duty"],
-  [/\bMelakukan identifikasi baik terhadap orang maupun terhadap barang bawaannya jika kondisi mengharuskannya\b/gi, "Conduct identification of both persons and their luggage/belongings if conditions require"],
-  [/\bMemberikan briefing, kepada pengunjung \(termasuk tamu dan pihak ke tiga\) mengenai Kebijakan K3 dan Peraturan K3 yang berlaku di lingkungan\b/gi, "Provide briefings to visitors (including guests and third parties) regarding the HSE Policy and HSE Regulations applicable within the premises of"],
-  [/\bBagi pengunjung yang sering datang ke kantor atau tempat kerja\b/gi, "For frequent visitors to the office or operational workplace"],
-  [/\bcukup diberi briefing pada saat kunjungan pertama dan dapat diulang untuk kunjungan berikutnya\b/gi, "a briefing upon the first visit suffices and may be repeated for subsequent visits"],
-  [/\bProsedur ini menetapkan tata cara\b/gi, "This procedure establishes the guidelines and protocols"],
-  [/\bProsedur ini berlaku untuk\b/gi, "This procedure applies to"],
-  [/\bSeluruh pekerja, kontraktor, dan pengunjung\b/gi, "All workers, contractors, and visitors"],
+  [/\bTahun\s*([0-9]{4})\b/gi, "Year $1"],
+  [/\bPenanggungjawab\b/gi, "Person in Charge"],
+  [/\bPenanggung Jawab\b/gi, "Person in Charge"],
   [/\bAlat Pelindung Diri\b/gi, "Personal Protective Equipment (PPE)"],
   [/\bKeselamatan dan Kesehatan Kerja\b/gi, "Occupational Health and Safety (HSE)"],
   [/\bKondisi Darurat\b/gi, "Emergency Condition"],
   [/\bIzin Kerja Aman\b/gi, "Permit to Work (PTW)"],
   [/\bInduksi Keselamatan\b/gi, "Safety Induction / Briefing"],
+  [/\bTidak ada\b/gi, "None"],
+  [/\bNomor Dokumen\b/gi, "Document Number"],
+  [/\bTanggal Berlaku\b/gi, "Effective Date"],
+  [/\bTanggal Penerbitan\b/gi, "Issue Date"],
+  [/\bStatus Revisi\b/gi, "Revision Status"],
+
+  // 4. Kata Tunggal Terakhir
+  [/\bKegiatan\b/g, "Activity"],
+  [/\bPelaksana\b/gi, "Executor"],
+  [/\bPengunjung\b/g, "Visitor"],
+  [/\bSatpam\b/g, "Security Officer"],
+  [/\bTamu\b/g, "Guest"],
+  [/\bKontraktor\b/gi, "Contractor"],
+  [/\bKaryawan\b/gi, "Employee"],
+  [/\bKeterangan\b/gi, "Remarks"],
 ];
 
 /**

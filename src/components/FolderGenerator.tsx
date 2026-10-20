@@ -82,7 +82,7 @@ import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx, generateNbeDocxBlob, NbeDocumentPayload } from '../utils/nbeDocxGenerator';
 import { extractDocxData, extractDocxParagraphs, DEFAULT_NBE_BODY_PARAGRAPHS, DocxTableData } from '../utils/docxExtractor';
 import { formatNbeStandardDate } from '../utils/dateFormatter';
-import { extractOriginalDocxContent, ExtractedDocSection, TocHeadingItem, paginateHtmlContent } from '../utils/docxOriginalExtractor';
+import { extractOriginalDocxContent, ExtractedDocSection, TocHeadingItem, paginateHtmlContent, translateExtractedHtml } from '../utils/docxOriginalExtractor';
 import { SignerFieldGroup } from './SignerFieldGroup';
 
 function generateDocumentId(): string {
@@ -1204,6 +1204,16 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         }
       }
 
+      let effectiveHtmlPages = custom.bodyPagesHtml;
+      if (selectedLang !== 'id' && custom.originalHtmlBody) {
+        try {
+          const translatedHtml = await translateExtractedHtml(custom.originalHtmlBody, selectedLang);
+          effectiveHtmlPages = paginateHtmlContent(translatedHtml);
+        } catch (e) {
+          console.warn('Translation error for docx download:', e);
+        }
+      }
+
       await generateAndDownloadNbeDocx({
         docCode: custom.code,
         titleId: custom.title,
@@ -1220,7 +1230,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
         approvedRole: custom.approvedRole || approvedRole || 'President Director / CEO',
         language: selectedLang,
-        bodyPagesHtml: custom.bodyPagesHtml,
+        bodyPagesHtml: effectiveHtmlPages,
         tocList: custom.tocList,
         preservedBodyParagraphs: custom.preservedBodyParagraphs,
         bodyTables: custom.preservedBodyTables,
@@ -1316,6 +1326,25 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       // 3. Generate standardized .docx with Cover, Kop & Revision Table for EACH file and upload to Level 4
       const uploadedFileItems: DocumentFileItem[] = [];
 
+      let coverLogoBuf: ArrayBuffer | undefined;
+      let kopLogoBuf: ArrayBuffer | undefined;
+      if (templateSettings.coverLogoDataUrl) {
+        try {
+          const res = await fetch(templateSettings.coverLogoDataUrl);
+          coverLogoBuf = await res.arrayBuffer();
+        } catch (e) {
+          console.warn('Could not buffer cover logo:', e);
+        }
+      }
+      if (templateSettings.kopLogoDataUrl) {
+        try {
+          const res = await fetch(templateSettings.kopLogoDataUrl);
+          kopLogoBuf = await res.arrayBuffer();
+        } catch (e) {
+          console.warn('Could not buffer kop logo:', e);
+        }
+      }
+
       for (let i = 0; i < wordFiles.length; i++) {
         const wf = wordFiles[i];
         const custom = fileCustomizations[wf.id] || activeCustomization;
@@ -1325,6 +1354,16 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           total: wordFiles.length,
           currentFileName: `${custom.code} - ${custom.title}.docx`,
         });
+
+        let effectiveHtmlPages = custom.bodyPagesHtml;
+        if (selectedLang !== 'id' && custom.originalHtmlBody) {
+          try {
+            const translatedHtml = await translateExtractedHtml(custom.originalHtmlBody, selectedLang);
+            effectiveHtmlPages = paginateHtmlContent(translatedHtml);
+          } catch (e) {
+            console.warn('Translation error for drive upload:', e);
+          }
+        }
 
         // Generate genuine DOCX matching A4 4-Page Standard and preserved docx content
         const divDef = divs.find((d) => d.code.toUpperCase() === custom.divisionCode?.toUpperCase());
@@ -1344,8 +1383,22 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
           approvedRole: custom.approvedRole || approvedRole || 'President Director / CEO',
           language: selectedLang,
+          bodyPagesHtml: effectiveHtmlPages,
+          tocList: custom.tocList,
+          isProcedureOrSop: custom.typeCode !== 'KB' && !custom.code.includes('-KB-'),
           preservedBodyParagraphs: custom.preservedBodyParagraphs,
           bodyTables: custom.preservedBodyTables,
+          revisionRows: (custom.revisions || []).map((r) => ({
+            rev: String(r.revision),
+            date: r.date,
+            description: r.description,
+            revisedBy: r.revisedBy,
+          })),
+          coverLogoBuffer: coverLogoBuf,
+          kopLogoBuffer: kopLogoBuf,
+          coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
+          kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
+          paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
         });
 
         const uploadFileName = `${custom.code} - ${custom.title}.docx`;
@@ -2983,6 +3036,16 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         } catch (e) {}
                       }
 
+                      let saveHtmlPages = updatedCustomization.bodyPagesHtml;
+                      if (selectedLang !== 'id' && updatedCustomization.originalHtmlBody) {
+                        try {
+                          const translatedHtml = await translateExtractedHtml(updatedCustomization.originalHtmlBody, selectedLang);
+                          saveHtmlPages = paginateHtmlContent(translatedHtml);
+                        } catch (e) {
+                          console.warn('Translation error for modal update:', e);
+                        }
+                      }
+
                       const docTypeLabel = docTypes.find((d) => d.code === updatedCustomization.typeCode)?.label || updatedCustomization.typeCode;
                       const divisionLabel = divs.find((d) => d.code === updatedCustomization.divisionCode)?.label || updatedCustomization.divisionCode;
                       const regenerated = await generateNbeDocxBlob({
@@ -3001,7 +3064,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         approvedBy: updatedCustomization.approvedBy,
                         approvedRole: updatedCustomization.approvedRole || approvedRole || 'President Director / CEO',
                         language: selectedLang,
-                        bodyPagesHtml: updatedCustomization.bodyPagesHtml,
+                        bodyPagesHtml: saveHtmlPages,
                         tocList: updatedCustomization.tocList,
                         isProcedureOrSop: updatedCustomization.typeCode !== 'KB' && !updatedCustomization.code.includes('-KB-'),
                         preservedBodyParagraphs: updatedCustomization.preservedBodyParagraphs,

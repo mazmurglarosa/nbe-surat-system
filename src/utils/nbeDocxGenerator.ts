@@ -22,6 +22,7 @@ import {
 import { saveAs } from "file-saver";
 import { DocxTableData } from "./docxExtractor";
 import { formatNbeStandardDate } from "./dateFormatter";
+import { paginateHtmlContent } from "./docxOriginalExtractor";
 
 export type LanguageMode = "id" | "en" | "bi";
 
@@ -341,6 +342,19 @@ function convertTableElementToDocx(tableEl: HTMLTableElement): Table | null {
       );
     });
 
+    // Pad row with empty cells if colIdx < maxCols to ensure table geometry is preserved
+    while (colIdx < maxCols) {
+      rowCells.push(
+        new TableCell({
+          width: { size: finalColWidths[colIdx] || Math.floor(100 / maxCols), type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: isHeaderRow ? COLOR_HEADER_FILL : rIdx % 2 === 0 ? "FFFFFF" : COLOR_ALT_ROW, type: ShadingType.CLEAR },
+          children: [new Paragraph({ children: [new TextRun({ text: "" })] })],
+        })
+      );
+      colIdx++;
+    }
+
     return new TableRow({
       cantSplit: true,
       tableHeader: isHeaderRow,
@@ -356,21 +370,27 @@ function convertTableElementToDocx(tableEl: HTMLTableElement): Table | null {
 }
 
 function convertHeadingElementToDocx(el: HTMLElement): Paragraph | null {
-  const text = (el.textContent || "").trim();
-  if (!text) return null;
+  const rawText = (el.textContent || "").trim();
+  if (!rawText) return null;
 
-  const matchHeading = text.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.*)$/);
+  // Bersihkan bullet atau titik liar
+  const text = rawText.replace(/^[.·•\u2022\uF0B7-]\s*/, "").trim();
+
+  // Fleksibel: mendukung baik ada spasi maupun tanpa spasi setelah titik (1.PURPOSE maupun 1. PURPOSE)
+  const matchHeading = text.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s*(.*)$/);
   const tagName = el.tagName.toLowerCase();
   const isMainH = tagName === "h1" || (matchHeading && (!matchHeading[1].includes(".") || matchHeading[1].endsWith(".0")));
+  const isKnownSop = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS|TUJUAN|RUANG\s*LINGKUP|DEFINISI|REFERENSI|PURPOSE(\s*[/&]\s*OBJECTIVE)?|SCOPE|REFERENCES|DEFINITIONS)$/i.test(text);
 
-  if (matchHeading) {
+  if (matchHeading && matchHeading[2].trim()) {
     const [, numPart, titlePart] = matchHeading;
+    const cleanNum = numPart.endsWith(".") ? numPart : `${numPart}.`;
     return new Paragraph({
       tabStops: [{ type: TabStopType.LEFT, position: 720 }],
       spacing: { before: isMainH ? 240 : 160, after: 80, line: 276 },
       children: [
         new TextRun({
-          text: `${numPart.replace(/\.$/, "")}\t${titlePart}`,
+          text: `${cleanNum}\t${titlePart.trim()}`,
           font: "Arial",
           size: isMainH ? 24 : 22,
           bold: true,
@@ -382,37 +402,52 @@ function convertHeadingElementToDocx(el: HTMLElement): Paragraph | null {
 
   const spans = parseFormattedSpans(el);
   return new Paragraph({
-    spacing: { before: isMainH ? 240 : 160, after: 80, line: 276 },
+    spacing: { before: isMainH || isKnownSop ? 240 : 160, after: 80, line: 276 },
     children: spansToTextRuns(spans, { isHeading: true }),
   });
 }
 
 function convertParagraphElementToDocx(el: HTMLElement): Paragraph | null {
   const textContent = el.textContent || "";
-  const trimmed = textContent.trim();
+  const rawTrimmed = textContent.trim();
 
-  if (!trimmed && el.querySelector("img, table") === null) {
+  if (!rawTrimmed && el.querySelector("img, table") === null) {
     return new Paragraph({ spacing: { before: 0, after: 120 } });
   }
 
-  const matchHeading = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.*)$/);
-  const isBold = el.style?.fontWeight === "bold" || el.querySelector("b, strong") !== null;
+  // Bersihkan bullet atau titik liar
+  const trimmed = rawTrimmed.replace(/^[.·•\u2022\uF0B7-]\s*/, "").trim();
 
-  if (matchHeading && (isBold || trimmed.length < 80)) {
+  // Fleksibel: mendukung baik ada spasi maupun tanpa spasi setelah titik (1.PURPOSE maupun 1. PURPOSE)
+  const matchHeading = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s*(.*)$/);
+  const isBold = el.style?.fontWeight === "bold" || el.querySelector("b, strong") !== null;
+  const isKnownSop = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS|TUJUAN|RUANG\s*LINGKUP|DEFINISI|REFERENSI|PURPOSE(\s*[/&]\s*OBJECTIVE)?|SCOPE|REFERENCES|DEFINITIONS)$/i.test(trimmed);
+
+  if (matchHeading && matchHeading[2].trim() && (isBold || trimmed.length < 90)) {
     const [, numPart, titlePart] = matchHeading;
+    const cleanNum = numPart.endsWith(".") ? numPart : `${numPart}.`;
     const isMainHeading = !numPart.includes(".") || numPart.endsWith(".0");
     return new Paragraph({
       tabStops: [{ type: TabStopType.LEFT, position: 720 }],
       spacing: { before: isMainHeading ? 220 : 140, after: 80, line: 276 },
       children: [
         new TextRun({
-          text: `${numPart.replace(/\.$/, "")}\t${titlePart}`,
+          text: `${cleanNum}\t${titlePart.trim()}`,
           font: "Arial",
           size: isMainHeading ? 24 : 22,
           bold: true,
           color: COLOR_BLACK,
         }),
       ],
+    });
+  }
+
+  if (isKnownSop) {
+    const isMajor = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS)$/i.test(trimmed);
+    const spans = parseFormattedSpans(el);
+    return new Paragraph({
+      spacing: { before: isMajor ? 240 : 180, after: 90, line: 276 },
+      children: spansToTextRuns(spans, { isHeading: true }),
     });
   }
 
@@ -951,7 +986,11 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   }
 
   // HALAMAN 4+: JIKA DOKUMEN MEMILIKI BODY PAGES / ISI ASLI / TABEL ASLI / DOKUMEN PROSEDUR
-  const hasBodyPagesHtml = data.bodyPagesHtml && data.bodyPagesHtml.length > 0;
+  const htmlPagesToUse = (data.bodyPagesHtml && data.bodyPagesHtml.length > 0)
+    ? data.bodyPagesHtml
+    : (data.originalHtmlBody ? paginateHtmlContent(data.originalHtmlBody) : null);
+
+  const hasBodyPagesHtml = htmlPagesToUse && htmlPagesToUse.length > 0;
   const hasPreservedParagraphs = data.preservedBodyParagraphs && data.preservedBodyParagraphs.length > 0;
   const hasPreservedTables = data.bodyTables && data.bodyTables.length > 0;
   const hasBodyPages = data.bodyPages && data.bodyPages.length > 0;
@@ -959,29 +998,30 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   if (hasBodyPagesHtml || hasBodyPages || hasPreservedParagraphs || hasPreservedTables || !isKB) {
     const proceduralBodyChildren: (Paragraph | Table)[] = [];
 
-    // Prioritas 1: Jika memiliki bodyPagesHtml (HTML yang diedit langsung di editor web / WYSIWYG presisi)
-    if (hasBodyPagesHtml && data.bodyPagesHtml) {
-      data.bodyPagesHtml.forEach((pageHtml, pIdx) => {
+    // Prioritas 1: Jika memiliki bodyPagesHtml atau originalHtmlBody terpaginasi (HTML WYSIWYG presisi)
+    if (hasBodyPagesHtml && htmlPagesToUse) {
+      htmlPagesToUse.forEach((pageHtml, pIdx) => {
         const pageElements = convertHtmlPageToDocxElements(pageHtml);
         proceduralBodyChildren.push(...pageElements);
-        if (pIdx < data.bodyPagesHtml!.length - 1) {
+        if (pIdx < htmlPagesToUse.length - 1) {
           proceduralBodyChildren.push(new Paragraph({ children: [new PageBreak()] }));
         }
       });
     } else if (hasBodyPages && data.bodyPages) {
       data.bodyPages.forEach((pageParagraphs, pIdx) => {
         pageParagraphs.forEach((rawLine) => {
-          const matchHeading = rawLine.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
-          if (matchHeading) {
+          const matchHeading = rawLine.trim().match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s*(.*)$/);
+          if (matchHeading && matchHeading[2].trim()) {
             const [, numPart, titlePart] = matchHeading;
-            const isMainHeading = numPart.endsWith(".0");
+            const cleanNum = numPart.endsWith(".") ? numPart : `${numPart}.`;
+            const isMainHeading = !numPart.includes(".") || numPart.endsWith(".0");
             proceduralBodyChildren.push(
               new Paragraph({
                 tabStops: [{ type: TabStopType.LEFT, position: 720 }],
                 spacing: { before: isMainHeading ? 220 : 140, after: 80, line: 276 },
                 children: [
                   new TextRun({
-                    text: `${numPart}\t${titlePart}`,
+                    text: `${cleanNum}\t${titlePart.trim()}`,
                     font: "Arial",
                     size: isMainHeading ? 24 : 22,
                     bold: true,
@@ -1013,19 +1053,81 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
         }
       });
     } else if (hasPreservedParagraphs && data.preservedBodyParagraphs) {
-      // Tambahkan paragraf body asli jika ada
-      data.preservedBodyParagraphs.forEach((paraText) => {
-        const matchHeading = paraText.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
-        if (matchHeading) {
+      // Helper untuk membangun tabel docx dari data.bodyTables
+      const buildDocxTables = (): (Paragraph | Table)[] => {
+        const result: (Paragraph | Table)[] = [];
+        if (!data.bodyTables) return result;
+        data.bodyTables.forEach((tblData) => {
+          if (!tblData.rows || tblData.rows.length === 0) return;
+          const colCount = Math.max(...tblData.rows.map((r) => r.length), 1);
+          const colWidth = Math.floor(100 / colCount);
+          const docxRows = tblData.rows.map((rowCells, rIdx) => {
+            const isHeader = rIdx === 0;
+            return new TableRow({
+              cantSplit: true,
+              tableHeader: isHeader,
+              children: rowCells.map((cellText) =>
+                new TableCell({
+                  width: { size: colWidth, type: WidthType.PERCENTAGE },
+                  verticalAlign: VerticalAlign.CENTER,
+                  shading: {
+                    fill: isHeader ? COLOR_HEADER_FILL : rIdx % 2 === 0 ? "FFFFFF" : COLOR_ALT_ROW,
+                    type: ShadingType.CLEAR,
+                  },
+                  children: [
+                    new Paragraph({
+                      alignment: isHeader ? AlignmentType.CENTER : AlignmentType.LEFT,
+                      spacing: { before: 60, after: 60 },
+                      children: [
+                        new TextRun({
+                          text: cellText,
+                          font: "Arial",
+                          size: isHeader ? 18 : 17,
+                          bold: isHeader,
+                          color: isHeader ? COLOR_BLACK : COLOR_BODY,
+                        }),
+                      ],
+                    }),
+                  ],
+                })
+              ),
+            });
+          });
+
+          result.push(
+            new Table({
+              width: { size: 100, type: WidthType.PERCENTAGE },
+              borders: tableBorders,
+              rows: docxRows,
+            }),
+            new Paragraph({ spacing: { after: 240 } })
+          );
+        });
+        return result;
+      };
+
+      let tablesInserted = false;
+
+      data.preservedBodyParagraphs.forEach((paraText, idx) => {
+        const trimmed = paraText.trim();
+        const isTableAnchor = /^(URAIAN\s*PROSEDUR|PROCEDURE\s*DESCRIPTION|5\.0|5\.)/i.test(trimmed);
+        const nextPara = idx + 1 < data.preservedBodyParagraphs!.length ? data.preservedBodyParagraphs![idx + 1].trim() : "";
+        const isNextAttachment = /^(LAMPIRAN|ATTACHMENTS|6\.0|6\.)/i.test(nextPara);
+
+        const matchHeading = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s*(.*)$/);
+        const isKnownSop = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS|TUJUAN|RUANG\s*LINGKUP|DEFINISI|REFERENSI|PURPOSE(\s*[/&]\s*OBJECTIVE)?|SCOPE|REFERENCES|DEFINITIONS)$/i.test(trimmed);
+
+        if (matchHeading && matchHeading[2].trim()) {
           const [, numPart, titlePart] = matchHeading;
-          const isMainHeading = numPart.endsWith(".0");
+          const cleanNum = numPart.endsWith(".") ? numPart : `${numPart}.`;
+          const isMainHeading = !numPart.includes(".") || numPart.endsWith(".0");
           proceduralBodyChildren.push(
             new Paragraph({
               tabStops: [{ type: TabStopType.LEFT, position: 720 }],
               spacing: { before: isMainHeading ? 220 : 140, after: 80, line: 276 },
               children: [
                 new TextRun({
-                  text: `${numPart}\t${titlePart}`,
+                  text: `${cleanNum}\t${titlePart.trim()}`,
                   font: "Arial",
                   size: isMainHeading ? 24 : 22,
                   bold: true,
@@ -1034,8 +1136,24 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
               ],
             })
           );
+        } else if (isKnownSop) {
+          const isMajor = /^(URAIAN\s*PROSEDUR|LAMPIRAN|PROCEDURE\s*DESCRIPTION|ATTACHMENTS)$/i.test(trimmed);
+          proceduralBodyChildren.push(
+            new Paragraph({
+              spacing: { before: isMajor ? 240 : 180, after: 90, line: 276 },
+              children: [
+                new TextRun({
+                  text: trimmed,
+                  font: "Arial",
+                  size: 24,
+                  bold: true,
+                  color: COLOR_BLACK,
+                }),
+              ],
+            })
+          );
         } else {
-          const isCapsHeading = /^[A-Z0-9\s:/-]{4,}$/.test(paraText.trim());
+          const isCapsHeading = /^[A-Z0-9\s:/-]{4,}$/.test(trimmed) && trimmed.length < 50;
           proceduralBodyChildren.push(
             new Paragraph({
               alignment: isCapsHeading ? AlignmentType.LEFT : AlignmentType.JUSTIFIED,
@@ -1044,7 +1162,7 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
               spacing: { before: isCapsHeading ? 240 : 80, after: isCapsHeading ? 100 : 80, line: 276 },
               children: [
                 new TextRun({
-                  text: paraText,
+                  text: trimmed,
                   font: "Arial",
                   size: isCapsHeading ? 22 : 21,
                   bold: isCapsHeading,
@@ -1054,7 +1172,18 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
             })
           );
         }
+
+        // Sisipkan tabel di bawah klausul Uraian Prosedur atau tepat sebelum Lampiran!
+        if (!tablesInserted && (isTableAnchor || isNextAttachment) && hasPreservedTables) {
+          proceduralBodyChildren.push(...buildDocxTables());
+          tablesInserted = true;
+        }
       });
+
+      // Jika belum disisipkan karena tidak ada kata kunci yang cocok, sisipkan sekarang
+      if (!tablesInserted && hasPreservedTables) {
+        proceduralBodyChildren.push(...buildDocxTables());
+      }
     } else if (!isKB) {
       proceduralBodyChildren.push(
         new Paragraph({
@@ -1071,56 +1200,6 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
           ],
         })
       );
-    }
-
-    // Tambahkan tabel asli dari berkas pengguna jika ada
-    if (hasPreservedTables && data.bodyTables) {
-      data.bodyTables.forEach((tblData) => {
-        if (!tblData.rows || tblData.rows.length === 0) return;
-        const colCount = Math.max(...tblData.rows.map((r) => r.length), 1);
-        const colWidth = Math.floor(100 / colCount);
-        const docxRows = tblData.rows.map((rowCells, rIdx) => {
-          const isHeader = rIdx === 0;
-          return new TableRow({
-            cantSplit: true,
-            tableHeader: isHeader,
-            children: rowCells.map((cellText) =>
-              new TableCell({
-                width: { size: colWidth, type: WidthType.PERCENTAGE },
-                verticalAlign: VerticalAlign.CENTER,
-                shading: {
-                  fill: isHeader ? COLOR_HEADER_FILL : rIdx % 2 === 0 ? "FFFFFF" : COLOR_ALT_ROW,
-                  type: ShadingType.CLEAR,
-                },
-                children: [
-                  new Paragraph({
-                    alignment: isHeader ? AlignmentType.CENTER : AlignmentType.LEFT,
-                    spacing: { before: 60, after: 60 },
-                    children: [
-                      new TextRun({
-                        text: cellText,
-                        font: "Arial",
-                        size: isHeader ? 18 : 17,
-                        bold: isHeader,
-                        color: isHeader ? COLOR_BLACK : COLOR_BODY,
-                      }),
-                    ],
-                  }),
-                ],
-              })
-            ),
-          });
-        });
-
-        proceduralBodyChildren.push(
-          new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            borders: tableBorders,
-            rows: docxRows,
-          }),
-          new Paragraph({ spacing: { after: 240 } })
-        );
-      });
     }
 
     // Poin 6: DOKUMEN PROSEDUR LANGSUNG BERAKHIR BERSIH TANPA LEMBAR VALIDASI AKHIR!

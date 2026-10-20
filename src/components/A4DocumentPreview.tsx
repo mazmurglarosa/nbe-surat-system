@@ -1033,7 +1033,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                   isMainH ? '0.75rem' : '0.45rem'
                 } 0 0.3rem 0; font-weight: bold; color: #000000; font-size: ${
                   isMainH ? '11pt' : '10.5pt'
-                }; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span>${titlePart}</p>`;
+                }; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span> ${titlePart}</p>`;
               }
               return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; word-break: normal; overflow-wrap: break-word;">${line}</p>`;
             })
@@ -1664,7 +1664,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
                 isMainH ? '0.75rem' : '0.45rem'
               } 0 0.3rem 0; font-weight: bold; color: #000000; font-size: ${
                 isMainH ? '11pt' : '10.5pt'
-              }; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span>${titlePart}</p>`;
+              }; font-family: Arial; line-height: 1.5; padding-left: 0.5in; text-indent: -0.5in; word-break: normal; overflow-wrap: break-word;"><span style="display: inline-block; min-width: 0.5in;">${numPart}</span> ${titlePart}</p>`;
             }
             return `<p style="padding-left: 0.5in; text-align: justify; line-height: 1.6; margin-bottom: 0.5rem; font-size: 10pt; font-family: Arial; word-break: normal; overflow-wrap: break-word;">${line}</p>`;
           })
