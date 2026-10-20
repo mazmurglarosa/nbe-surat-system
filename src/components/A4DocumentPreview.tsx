@@ -84,7 +84,8 @@ export interface A4DocumentPreviewProps {
   tocHeadings?: TocHeadingItem[];
   documentId?: string;
   onCopyCode?: () => void;
-  onDownloadDocx?: () => void;
+  onDownloadDocx?: (htmlPages?: string[]) => void;
+  onHtmlPagesChange?: (htmlPages: string[]) => void;
   onSaveDocument?: (updated: DocumentSavePayload) => void;
   initialPaperSize?: 'A4' | 'F4';
   paperSize?: 'A4' | 'F4';
@@ -122,6 +123,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   documentId,
   onCopyCode,
   onDownloadDocx,
+  onHtmlPagesChange,
   onSaveDocument,
   initialPaperSize = 'A4',
   paperSize: propPaperSize,
@@ -1112,6 +1114,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     ];
 
     if (onSaveDocument) {
+      const pagesToSave = currentHtmlPages && currentHtmlPages.length > 0 ? currentHtmlPages : initialHtmlPages;
       onSaveDocument({
         title: displayTitle,
         code: effectiveCode,
@@ -1127,6 +1130,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         approvedRole: editableApprovedRole,
         revisions: editableRevisionsList,
         tocList: editableTocItems,
+        bodyPagesHtml: pagesToSave,
         preservedBodyParagraphs: finalParagraphs,
         bodyTables: editableTables,
         kopSettings: kopSettings,
@@ -1161,8 +1165,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   };
 
   const handleDownloadWord = async () => {
+    const pagesToDownload = currentHtmlPages && currentHtmlPages.length > 0 ? currentHtmlPages : initialHtmlPages;
     if (onDownloadDocx) {
-      onDownloadDocx();
+      onDownloadDocx(pagesToDownload);
       return;
     }
     setIsDownloadingWord(true);
@@ -1682,8 +1687,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   React.useEffect(() => {
     if (!isUserModifiedRef.current && initialHtmlPages && initialHtmlPages.length > 0) {
       setCurrentHtmlPages(initialHtmlPages);
+      onHtmlPagesChange?.(initialHtmlPages);
     }
-  }, [initialHtmlPages]);
+  }, [initialHtmlPages, onHtmlPagesChange]);
 
   // Otomatis ekstrak bab dan klausul asli ke Daftar Isi jika masih kosong atau default
   React.useEffect(() => {
@@ -1757,6 +1763,8 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         bodyTables: editableTables,
       });
     }
+
+    onHtmlPagesChange?.(updatedHtmlPages);
 
     setSaveSuccessNotice('Perubahan dokumen berhasil disimpan ke format Word & Pratinjau!');
     setTimeout(() => {

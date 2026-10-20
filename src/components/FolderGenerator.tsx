@@ -1205,12 +1205,14 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
       }
 
       let effectiveHtmlPages = custom.bodyPagesHtml;
-      if (selectedLang !== 'id' && custom.originalHtmlBody) {
-        try {
-          const translatedHtml = await translateExtractedHtml(custom.originalHtmlBody, selectedLang);
-          effectiveHtmlPages = paginateHtmlContent(translatedHtml);
-        } catch (e) {
-          console.warn('Translation error for docx download:', e);
+      if (!effectiveHtmlPages || effectiveHtmlPages.length === 0) {
+        if (selectedLang !== 'id' && custom.originalHtmlBody) {
+          try {
+            const translatedHtml = await translateExtractedHtml(custom.originalHtmlBody, selectedLang);
+            effectiveHtmlPages = paginateHtmlContent(translatedHtml);
+          } catch (e) {
+            console.warn('Translation error for docx download:', e);
+          }
         }
       }
 
@@ -1356,12 +1358,14 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         });
 
         let effectiveHtmlPages = custom.bodyPagesHtml;
-        if (selectedLang !== 'id' && custom.originalHtmlBody) {
-          try {
-            const translatedHtml = await translateExtractedHtml(custom.originalHtmlBody, selectedLang);
-            effectiveHtmlPages = paginateHtmlContent(translatedHtml);
-          } catch (e) {
-            console.warn('Translation error for drive upload:', e);
+        if (!effectiveHtmlPages || effectiveHtmlPages.length === 0) {
+          if (selectedLang !== 'id' && custom.originalHtmlBody) {
+            try {
+              const translatedHtml = await translateExtractedHtml(custom.originalHtmlBody, selectedLang);
+              effectiveHtmlPages = paginateHtmlContent(translatedHtml);
+            } catch (e) {
+              console.warn('Translation error for drive upload:', e);
+            }
           }
         }
 
@@ -2931,7 +2935,17 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                     navigator.clipboard.writeText(activeCustomization.code);
                     alert(`Kode ${activeCustomization.code} berhasil disalin!`);
                   }}
-                  onDownloadDocx={async () => {
+                  onHtmlPagesChange={(pages) => {
+                    if (!activeWordFile) return;
+                    setFileCustomizations((prev) => ({
+                      ...prev,
+                      [activeWordFile.id]: {
+                        ...(prev[activeWordFile.id] || activeCustomization),
+                        bodyPagesHtml: pages,
+                      },
+                    }));
+                  }}
+                  onDownloadDocx={async (previewPages?: string[]) => {
                     try {
                       const docTypeLabel = docTypes.find((d) => d.code === activeCustomization.typeCode)?.label || activeCustomization.typeCode;
                       const divisionLabel = divs.find((d) => d.code === activeCustomization.divisionCode)?.label || activeCustomization.divisionCode;
@@ -2955,6 +2969,12 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         }
                       }
 
+                      const pagesToUse = (previewPages && previewPages.length > 0)
+                        ? previewPages
+                        : (activeCustomization.bodyPagesHtml && activeCustomization.bodyPagesHtml.length > 0)
+                        ? activeCustomization.bodyPagesHtml
+                        : undefined;
+
                       await generateAndDownloadNbeDocx({
                         docCode: activeCustomization.code,
                         titleId: activeCustomization.title,
@@ -2971,7 +2991,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         approvedBy: activeCustomization.approvedBy,
                         approvedRole: activeCustomization.approvedRole || approvedRole || 'President Director / CEO',
                         language: selectedLang,
-                        bodyPagesHtml: activeCustomization.bodyPagesHtml,
+                        bodyPagesHtml: pagesToUse,
                         tocList: activeCustomization.tocList,
                         preservedBodyParagraphs: activeCustomization.preservedBodyParagraphs,
                         bodyTables: activeCustomization.preservedBodyTables,
@@ -3037,12 +3057,14 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       }
 
                       let saveHtmlPages = updatedCustomization.bodyPagesHtml;
-                      if (selectedLang !== 'id' && updatedCustomization.originalHtmlBody) {
-                        try {
-                          const translatedHtml = await translateExtractedHtml(updatedCustomization.originalHtmlBody, selectedLang);
-                          saveHtmlPages = paginateHtmlContent(translatedHtml);
-                        } catch (e) {
-                          console.warn('Translation error for modal update:', e);
+                      if (!saveHtmlPages || saveHtmlPages.length === 0) {
+                        if (selectedLang !== 'id' && updatedCustomization.originalHtmlBody) {
+                          try {
+                            const translatedHtml = await translateExtractedHtml(updatedCustomization.originalHtmlBody, selectedLang);
+                            saveHtmlPages = paginateHtmlContent(translatedHtml);
+                          } catch (e) {
+                            console.warn('Translation error for modal update:', e);
+                          }
                         }
                       }
 
