@@ -495,13 +495,18 @@ export async function deleteDocumentAndFolderFromDriveViaBot(
       documentCode: options.documentCode,
     };
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
       body: JSON.stringify(payload),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
 
     const result = await response.json();
     if (result.status === 'success' || result.success) {
@@ -920,6 +925,9 @@ export async function deleteDocumentRecordFromCloudBot(
   }
 
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
     const res = await fetch(webhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -928,7 +936,9 @@ export async function deleteDocumentRecordFromCloudBot(
         documentId: docId,
         documentCode: docCode,
       }),
+      signal: controller.signal,
     });
+    clearTimeout(timeoutId);
     const result = await res.json();
     return {
       success: result.status === 'success' || result.success,

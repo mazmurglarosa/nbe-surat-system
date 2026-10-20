@@ -210,26 +210,8 @@ export function App() {
     const target = documents.find((d) => d.id === id);
     if (!target) return;
 
-    // Hapus juga dari Cloud Google Drive
-    removeDocumentFromCloud(id, target.code);
-
-    // Otomatis hapus folder dan file di Google Drive via Bot jika Webhook disetel
-    if (driveSettings.botWebhookUrl) {
-      try {
-        await deleteDocumentAndFolderFromDriveViaBot(
-          {
-            folderId: target.driveFolderId,
-            documentCode: target.code,
-          },
-          driveSettings.botWebhookUrl
-        );
-      } catch (driveErr) {
-        console.warn('Gagal menghapus folder Google Drive:', driveErr);
-      }
-    }
-
-    const updated = await deleteDocument(id);
-    setDocuments(updated);
+    // 1. Optimistic UI update: Hapus seketika dari state layar agar respons secepat kilat (0ms latency)
+    setDocuments((prev) => prev.filter((d) => d.id !== id));
     if (viewingDoc && viewingDoc.id === id) {
       setViewingDoc(null);
     }
@@ -240,15 +222,40 @@ export function App() {
       setRevisingDoc(null);
     }
 
+    // 2. Catat log aktivitas segera
     const updatedLogs = addActivityLog({
       userName: 'Mazmur Gusti Agung Larosa',
       userRole: 'Direktur Keuangan',
       action: 'Penghapusan Surat & Folder Drive',
-      details: `Menghapus surat ${target?.code || id} ("${target?.title || ''}") dan folder terkait di Google Drive`,
-      documentCode: target?.code,
+      details: `Menghapus surat ${target.code} ("${target.title}") dan folder terkait di Google Drive`,
+      documentCode: target.code,
       type: 'delete',
     });
     setActivityLogs(updatedLogs);
+
+    // 3. Hapus seketika dari IndexedDB & LocalStorage secara O(1) & catat tombstone
+    deleteDocument(id, target.code).catch((storageErr) => {
+      console.error('Gagal hapus dokumen dari storage lokal:', storageErr);
+    });
+
+    // 4. Jalankan sinkronisasi penghapusan ke Cloud & Google Drive di background secara asinkron
+    //    TIDAK MEMBLOKIR UI dan tidak membuat user menunggu Webhook Google Apps Script
+    (async () => {
+      try {
+        await removeDocumentFromCloud(id, target.code);
+        if (driveSettings.botWebhookUrl) {
+          await deleteDocumentAndFolderFromDriveViaBot(
+            {
+              folderId: target.driveFolderId,
+              documentCode: target.code,
+            },
+            driveSettings.botWebhookUrl
+          );
+        }
+      } catch (cloudErr) {
+        console.warn('Gagal menghapus dokumen di cloud/drive di background:', cloudErr);
+      }
+    })();
   };
 
   const handleSaveRevision = async (updatedDoc: DocumentRecord) => {

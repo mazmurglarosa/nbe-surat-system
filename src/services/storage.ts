@@ -85,6 +85,60 @@ function openDatabase(): Promise<IDBDatabase> {
 }
 
 const BACKUP_STORAGE_KEY = 'nbe_documents_backup_v1';
+const DELETED_DOCS_KEY = 'nbe_deleted_documents_tombstone_v1';
+const STORAGE_INITIALIZED_KEY = 'nbe_storage_initialized_v1';
+
+/**
+ * Mendapatkan daftar ID / Kode dokumen yang telah dihapus oleh pengguna.
+ * Mencegah dokumen yang baru dihapus muncul kembali saat sinkronisasi background dari cloud.
+ */
+export function getDeletedDocumentKeys(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_DOCS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(
+      Array.isArray(parsed)
+        ? parsed.map((s: string) => String(s).trim().toUpperCase())
+        : []
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+export function markDocumentAsDeleted(id: string, code?: string) {
+  try {
+    const keys = getDeletedDocumentKeys();
+    if (id) keys.add(id.trim().toUpperCase());
+    if (code) keys.add(code.trim().toUpperCase());
+    localStorage.setItem(DELETED_DOCS_KEY, JSON.stringify(Array.from(keys)));
+  } catch (e) {
+    console.warn('Failed to mark document as deleted:', e);
+  }
+}
+
+export function unmarkDocumentAsDeleted(id: string, code?: string) {
+  try {
+    const keys = getDeletedDocumentKeys();
+    if (id) keys.delete(id.trim().toUpperCase());
+    if (code) keys.delete(code.trim().toUpperCase());
+    localStorage.setItem(DELETED_DOCS_KEY, JSON.stringify(Array.from(keys)));
+  } catch (e) {
+    console.warn('Failed to unmark document as deleted:', e);
+  }
+}
+
+export function isDocumentDeleted(id?: string, code?: string): boolean {
+  try {
+    const keys = getDeletedDocumentKeys();
+    if (id && keys.has(id.trim().toUpperCase())) return true;
+    if (code && keys.has(code.trim().toUpperCase())) return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Load all documents from localStorage first, then IndexedDB
@@ -124,24 +178,38 @@ export async function loadDocuments(): Promise<DocumentRecord[]> {
           }
         }
 
-        if (docs.length === 0) {
+        const isInitialized = localStorage.getItem(STORAGE_INITIALIZED_KEY);
+        if (docs.length === 0 && !isInitialized) {
           docs = [...INITIAL_SEED_DOCUMENTS];
+          localStorage.setItem(STORAGE_INITIALIZED_KEY, 'true');
           saveAllDocuments(docs);
         }
 
-        resolve(docs);
+        // Filter out deleted documents
+        const activeDocs = docs.filter((d) => !isDocumentDeleted(d.id, d.code));
+        resolve(activeDocs);
       };
 
       request.onerror = () => {
         // Fallback to localStorage or backup
         const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(BACKUP_STORAGE_KEY);
-        resolve(local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS]);
+        try {
+          const parsed = local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS];
+          resolve(Array.isArray(parsed) ? parsed.filter((d: any) => !isDocumentDeleted(d.id, d.code)) : []);
+        } catch {
+          resolve([]);
+        }
       };
     });
   } catch (error) {
     console.warn('IndexedDB unavailable, falling back to LocalStorage:', error);
     const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(BACKUP_STORAGE_KEY);
-    return local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS];
+    try {
+      const parsed = local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS];
+      return Array.isArray(parsed) ? parsed.filter((d: any) => !isDocumentDeleted(d.id, d.code)) : [];
+    } catch {
+      return [];
+    }
   }
 }
 
@@ -154,34 +222,34 @@ export function getStoredDocumentsSync(): DocumentRecord[] {
     if (local) {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.filter((d) => !isDocumentDeleted(d.id, d.code));
       }
     }
     const backup = localStorage.getItem(BACKUP_STORAGE_KEY);
     if (backup) {
       const parsedB = JSON.parse(backup);
       if (Array.isArray(parsedB) && parsedB.length > 0) {
-        return parsedB;
+        return parsedB.filter((d) => !isDocumentDeleted(d.id, d.code));
       }
     }
   } catch (e) {
     console.error('Failed reading sync localStorage', e);
   }
-  return [...INITIAL_SEED_DOCUMENTS];
+  return [...INITIAL_SEED_DOCUMENTS].filter((d) => !isDocumentDeleted(d.id, d.code));
 }
 
 /**
  * Save all documents to both IndexedDB and LocalStorage
  */
 export async function saveAllDocuments(docs: DocumentRecord[]): Promise<void> {
-  if (!docs || docs.length === 0) {
-    // Proteksi mutlak: Jangan pernah menghapus database yang sudah ada jika array kosong
-    return;
-  }
+  if (!Array.isArray(docs)) return;
+
+  // Filter out any documents that have been marked as deleted
+  const filteredDocs = docs.filter((d) => !isDocumentDeleted(d.id, d.code));
 
   // 1. Save to LocalStorage (without heavy base64 to prevent quota error)
   try {
-    const lightweightDocs = docs.map((doc) => {
+    const lightweightDocs = filteredDocs.map((doc) => {
       // Don't store large base64 data in localStorage to stay under 5MB limit
       if (doc.fileData && doc.fileData.length > 50000) {
         const { fileData: _omit, ...rest } = doc;
@@ -205,7 +273,7 @@ export async function saveAllDocuments(docs: DocumentRecord[]): Promise<void> {
     store.clear();
 
     // Insert all
-    for (const doc of docs) {
+    for (const doc of filteredDocs) {
       store.put(doc);
     }
   } catch (err) {
@@ -217,6 +285,9 @@ export async function saveAllDocuments(docs: DocumentRecord[]): Promise<void> {
  * Save or update a single document
  */
 export async function saveDocument(newDoc: DocumentRecord): Promise<DocumentRecord[]> {
+  // Pastikan dokumen tidak lagi berada di tombstone deleted jika user membuat/mengupdate kembali
+  unmarkDocumentAsDeleted(newDoc.id, newDoc.code);
+
   const currentDocs = await loadDocuments();
   const index = currentDocs.findIndex((d) => d.id === newDoc.id);
 
@@ -236,12 +307,70 @@ export async function saveDocument(newDoc: DocumentRecord): Promise<DocumentReco
 }
 
 /**
- * Delete a document by ID
+ * Delete a document by ID and optional code.
+ * Menghapus instan dengan store.delete(id) O(1) di IndexedDB
+ * dan mencatat ke tombstone agar tidak dihidupkan lagi oleh sync cloud.
  */
-export async function deleteDocument(id: string): Promise<DocumentRecord[]> {
-  const currentDocs = await loadDocuments();
-  const updatedDocs = currentDocs.filter((d) => d.id !== id);
-  await saveAllDocuments(updatedDocs);
+export async function deleteDocument(id: string, code?: string): Promise<DocumentRecord[]> {
+  // 1. Catat ke tombstone
+  markDocumentAsDeleted(id, code);
+
+  // 2. Hapus langsung dari IndexedDB secara O(1) tanpa memuat ulang seluruh database
+  try {
+    const db = await openDatabase();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction(IDB_STORE_NAME, 'readwrite');
+      const store = transaction.objectStore(IDB_STORE_NAME);
+      const req = store.delete(id);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.error('Failed direct delete from IndexedDB:', err);
+  }
+
+  // 3. Filter LocalStorage & Backup Storage secara instan
+  let updatedDocs: DocumentRecord[] = [];
+  try {
+    const local = localStorage.getItem(STORAGE_KEY);
+    if (local) {
+      const parsed: DocumentRecord[] = JSON.parse(local);
+      updatedDocs = parsed.filter(
+        (d) => d.id !== id && (!code || d.code !== code)
+      );
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedDocs));
+    }
+    const backup = localStorage.getItem(BACKUP_STORAGE_KEY);
+    if (backup) {
+      const parsedB: DocumentRecord[] = JSON.parse(backup);
+      const filteredB = parsedB.filter(
+        (d) => d.id !== id && (!code || d.code !== code)
+      );
+      localStorage.setItem(BACKUP_STORAGE_KEY, JSON.stringify(filteredB));
+    }
+  } catch (e) {
+    console.error('Failed updating localStorage on delete:', e);
+  }
+
+  // 4. Jika di localStorage kosong tapi ada di IndexedDB, ambil sisa dokumen
+  if (updatedDocs.length === 0) {
+    try {
+      const db = await openDatabase();
+      const allDocs = await new Promise<DocumentRecord[]>((resolve) => {
+        const transaction = db.transaction(IDB_STORE_NAME, 'readonly');
+        const store = transaction.objectStore(IDB_STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      });
+      return allDocs.filter(
+        (d) => d.id !== id && (!code || d.code !== code) && !isDocumentDeleted(d.id, d.code)
+      );
+    } catch {
+      return [];
+    }
+  }
+
   return updatedDocs;
 }
 

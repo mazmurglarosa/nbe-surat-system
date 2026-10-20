@@ -9,6 +9,7 @@ import {
   getGoogleDriveSettings,
   saveAllDocuments,
   loadDocuments,
+  isDocumentDeleted,
 } from './storage';
 import { getMasterCodes, saveMasterCodes, normalizeMasterCodes, mergeMasterCodes } from './masterCodes';
 import { loadActivityLogs, saveActivityLogs } from './activityLogs';
@@ -51,7 +52,8 @@ export interface CloudSyncState {
 
 /**
  * Smart Two-Way Merge antara data dokumen Lokal dan Cloud
- * Memastikan tidak ada data yang terhapus secara sepihak
+ * Memastikan tidak ada data yang terhapus secara sepihak,
+ * sambil menghormati dokumen yang memang telah dihapus oleh pengguna.
  */
 export function mergeDocuments(
   localDocs: DocumentRecord[],
@@ -60,8 +62,12 @@ export function mergeDocuments(
   merged: DocumentRecord[];
   needsCloudPush: boolean;
 } {
-  const safeLocal = Array.isArray(localDocs) ? localDocs : [];
-  const safeCloud = Array.isArray(cloudDocs) ? cloudDocs : [];
+  const safeLocal = (Array.isArray(localDocs) ? localDocs : []).filter(
+    (l) => !isDocumentDeleted(l.id, l.code)
+  );
+  const safeCloud = (Array.isArray(cloudDocs) ? cloudDocs : []).filter(
+    (c) => !isDocumentDeleted(c.id, c.code)
+  );
 
   // Jika cloud kosong tapi lokal memiliki dokumen -> JANGAN HAPUS LOKAL!
   if (safeCloud.length === 0 && safeLocal.length > 0) {
@@ -89,9 +95,9 @@ export function mergeDocuments(
   const map = new Map<string, DocumentRecord>();
   let needsPush = false;
 
-  // 1. Masukkan semua data dari cloud ke Map
+  // 1. Masukkan semua data dari cloud ke Map (abaikan yang telah ditandai dihapus)
   for (const cDoc of safeCloud) {
-    if (!cDoc) continue;
+    if (!cDoc || isDocumentDeleted(cDoc.id, cDoc.code)) continue;
     const key = (cDoc.code || cDoc.id || '').trim().toUpperCase();
     if (key) {
       map.set(key, cDoc);
@@ -100,7 +106,7 @@ export function mergeDocuments(
 
   // 2. Gabungkan data lokal
   for (const lDoc of safeLocal) {
-    if (!lDoc) continue;
+    if (!lDoc || isDocumentDeleted(lDoc.id, lDoc.code)) continue;
     const key = (lDoc.code || lDoc.id || '').trim().toUpperCase();
     if (!key) continue;
 
