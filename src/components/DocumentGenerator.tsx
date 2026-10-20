@@ -58,6 +58,7 @@ import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
 import { DocumentTemplateSettings, loadTemplateSettings } from '../services/templateSettings';
 import { formatNbeStandardDate } from '../utils/dateFormatter';
+import { SignerFieldGroup } from './SignerFieldGroup';
 
 function generateDocumentId(): string {
   return `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -173,9 +174,9 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('Surat Keputusan Direksi PT Nirwana Bhumi Energy sesuai ACUAN_TEMPLATE_SURAT_KEPUTUSAN_DIREKSI_NBE.');
   const [createdBy, setCreatedBy] = useState<string>('Mazmur Gusti Agung Larosa');
-  const [preparedRole, setPreparedRole] = useState<string>('Lead Document Controller & Finance Director');
+  const [preparedRole, setPreparedRole] = useState<string>('Director of Finance and Internal Affairs / CFO');
   const [verifiedBy, setVerifiedBy] = useState<string>('Dennis Raditya');
-  const [verifiedRole, setVerifiedRole] = useState<string>('Director of Operations & Technology / CTO');
+  const [verifiedRole, setVerifiedRole] = useState<string>('Director of Operations & Technology / COO');
   const [approvedBy, setApprovedBy] = useState<string>('Bima Satryo Hartanto');
   const [approvedRole, setApprovedRole] = useState<string>('President Director / CEO');
   const [status, setStatus] = useState<DocumentStatus>('Published');
@@ -1999,80 +2000,42 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
               </span>
             </div>
 
-            {/* Dibuat Oleh */}
-            <div className="form-group">
-              <label className="form-label">
-                Dibuat Oleh (Created By) <span style={{ color: 'var(--danger)' }}>*</span>
-              </label>
-              <input
-                type="text"
-                required
-                value={createdBy}
-                onChange={(e) => setCreatedBy(e.target.value)}
-                placeholder="Contoh: Mazmur Gusti Agung Larosa"
-                className="form-input"
-              />
-            </div>
+            {/* Dibuat Oleh & Jabatan Pembuat (Auto-Fill Dropdown & Database Sync) */}
+            <SignerFieldGroup
+              labelName="Dibuat Oleh (Created By)"
+              labelRole="Jabatan Pembuat (Role)"
+              name={createdBy}
+              role={preparedRole}
+              onNameChange={setCreatedBy}
+              onRoleChange={setPreparedRole}
+              required
+              namePlaceholder="Contoh: Mazmur Gusti Agung Larosa"
+              rolePlaceholder="Contoh: Director of Finance and Internal Affairs / CFO"
+            />
 
-            {/* Jabatan Pembuat */}
-            <div className="form-group">
-              <label className="form-label">Jabatan Pembuat (Role)</label>
-              <input
-                type="text"
-                value={preparedRole}
-                onChange={(e) => setPreparedRole(e.target.value)}
-                placeholder="Lead Document Controller & Finance Director"
-                className="form-input"
-              />
-            </div>
+            {/* Diverifikasi Oleh & Jabatan Verifikator (Auto-Fill Dropdown & Database Sync) */}
+            <SignerFieldGroup
+              labelName="Diverifikasi Oleh (Verified By)"
+              labelRole="Jabatan Verifikator (Role)"
+              name={verifiedBy}
+              role={verifiedRole}
+              onNameChange={setVerifiedBy}
+              onRoleChange={setVerifiedRole}
+              namePlaceholder="Contoh: Dennis Raditya"
+              rolePlaceholder="Contoh: Director of Operations & Technology / COO"
+            />
 
-            {/* Diverifikasi Oleh */}
-            <div className="form-group">
-              <label className="form-label">Diverifikasi Oleh (Verified By)</label>
-              <input
-                type="text"
-                value={verifiedBy}
-                onChange={(e) => setVerifiedBy(e.target.value)}
-                placeholder="Contoh: Dennis Raditya"
-                className="form-input"
-              />
-            </div>
-
-            {/* Jabatan Verifikator */}
-            <div className="form-group">
-              <label className="form-label">Jabatan Verifikator (Role)</label>
-              <input
-                type="text"
-                value={verifiedRole}
-                onChange={(e) => setVerifiedRole(e.target.value)}
-                placeholder="Director of Operations & Technology / CTO"
-                className="form-input"
-              />
-            </div>
-
-            {/* Disetujui Oleh */}
-            <div className="form-group">
-              <label className="form-label">Disetujui Oleh (Approved By)</label>
-              <input
-                type="text"
-                value={approvedBy}
-                onChange={(e) => setApprovedBy(e.target.value)}
-                placeholder="Contoh: Bima Satryo Hartanto"
-                className="form-input"
-              />
-            </div>
-
-            {/* Jabatan Penyetuju */}
-            <div className="form-group">
-              <label className="form-label">Jabatan Penyetuju (Role)</label>
-              <input
-                type="text"
-                value={approvedRole}
-                onChange={(e) => setApprovedRole(e.target.value)}
-                placeholder="President Director / CEO"
-                className="form-input"
-              />
-            </div>
+            {/* Disetujui Oleh & Jabatan Penyetuju (Auto-Fill Dropdown & Database Sync) */}
+            <SignerFieldGroup
+              labelName="Disetujui Oleh (Approved By)"
+              labelRole="Jabatan Penyetuju (Role)"
+              name={approvedBy}
+              role={approvedRole}
+              onNameChange={setApprovedBy}
+              onRoleChange={setApprovedRole}
+              namePlaceholder="Contoh: Bima Satryo Hartanto"
+              rolePlaceholder="Contoh: President Director / CEO"
+            />
 
             {/* Status Dokumen */}
             <div className="form-group">
