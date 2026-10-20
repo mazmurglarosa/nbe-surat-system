@@ -52,6 +52,17 @@ export interface NbeDocumentPayload {
   bodyTables?: DocxTableData[];
   revisionRows?: Array<{ rev: string; date: string; description: string; revisedBy: string }>;
   paperSize?: "A4" | "F4";
+  bodyPagesHtml?: string[];
+  originalHtmlBody?: string;
+}
+
+export function cleanRole(role?: string): string {
+  if (!role) return "";
+  let clean = role.trim();
+  while (clean.startsWith("(") && clean.endsWith(")")) {
+    clean = clean.substring(1, clean.length - 1).trim();
+  }
+  return clean;
 }
 
 const COLOR_BLACK = "000000";
@@ -78,6 +89,480 @@ const noBorders = {
   insideHorizontal: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
   insideVertical: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
 };
+
+interface FormattedSpan {
+  text: string;
+  bold?: boolean;
+  italics?: boolean;
+  underline?: boolean;
+  strike?: boolean;
+  color?: string;
+  size?: number;
+  font?: string;
+}
+
+function parseColorToHex(colorStr?: string): string | undefined {
+  if (!colorStr) return undefined;
+  const c = colorStr.trim().toLowerCase();
+  if (c.startsWith("#")) {
+    const hex = c.replace("#", "");
+    if (hex.length === 3) {
+      return hex.split("").map((x) => x + x).join("").toUpperCase();
+    }
+    return hex.toUpperCase();
+  }
+  const rgbMatch = c.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (rgbMatch) {
+    const r = parseInt(rgbMatch[1], 10).toString(16).padStart(2, "0");
+    const g = parseInt(rgbMatch[2], 10).toString(16).padStart(2, "0");
+    const b = parseInt(rgbMatch[3], 10).toString(16).padStart(2, "0");
+    return `${r}${g}${b}`.toUpperCase();
+  }
+  if (c === "black") return "000000";
+  if (c === "white") return "FFFFFF";
+  if (c === "navy") return "003366";
+  if (c === "gray" || c === "grey") return "808080";
+  return undefined;
+}
+
+function parseFontSizeToPt(sizeStr?: string): number | undefined {
+  if (!sizeStr) return undefined;
+  const s = sizeStr.trim().toLowerCase();
+  if (s.endsWith("pt")) return parseFloat(s);
+  if (s.endsWith("px")) return parseFloat(s) * 0.75;
+  if (s.endsWith("rem") || s.endsWith("em")) return parseFloat(s) * 12;
+  return undefined;
+}
+
+function parseDimensionToTwip(dimStr?: string): number {
+  if (!dimStr) return 0;
+  const s = dimStr.trim().toLowerCase();
+  if (s.endsWith("in")) return Math.round(parseFloat(s) * 1440);
+  if (s.endsWith("cm")) return Math.round(parseFloat(s) * 567);
+  if (s.endsWith("mm")) return Math.round(parseFloat(s) * 56.7);
+  if (s.endsWith("pt")) return Math.round(parseFloat(s) * 20);
+  if (s.endsWith("px")) return Math.round(parseFloat(s) * 15);
+  return 0;
+}
+
+type AlignmentTypeValue = (typeof AlignmentType)[keyof typeof AlignmentType];
+
+function getParagraphAlignment(alignStr?: string): AlignmentTypeValue {
+  switch (alignStr?.toLowerCase()) {
+    case "center": return AlignmentType.CENTER;
+    case "right": return AlignmentType.RIGHT;
+    case "justify": return AlignmentType.JUSTIFIED;
+    default: return AlignmentType.LEFT;
+  }
+}
+
+function parseFormattedSpans(node: Node, currentFormat: FormattedSpan = { text: "" }): FormattedSpan[] {
+  const spans: FormattedSpan[] = [];
+
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent || "";
+    if (text) {
+      spans.push({ ...currentFormat, text });
+    }
+    return spans;
+  }
+
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const el = node as HTMLElement;
+    const tagName = el.tagName.toLowerCase();
+
+    if (tagName === "br") {
+      spans.push({ ...currentFormat, text: "\n" });
+      return spans;
+    }
+
+    const nextFormat: FormattedSpan = { ...currentFormat, text: "" };
+
+    if (tagName === "b" || tagName === "strong") nextFormat.bold = true;
+    if (tagName === "i" || tagName === "em") nextFormat.italics = true;
+    if (tagName === "u") nextFormat.underline = true;
+    if (tagName === "s" || tagName === "strike" || tagName === "del") nextFormat.strike = true;
+
+    const style = el.style;
+    if (style) {
+      if (style.fontWeight === "bold" || parseInt(style.fontWeight, 10) >= 600) nextFormat.bold = true;
+      if (style.fontStyle === "italic") nextFormat.italics = true;
+      if (style.textDecoration && style.textDecoration.includes("underline")) nextFormat.underline = true;
+      if (style.textDecoration && style.textDecoration.includes("line-through")) nextFormat.strike = true;
+      if (style.color) {
+        const hex = parseColorToHex(style.color);
+        if (hex) nextFormat.color = hex;
+      }
+      if (style.fontSize) {
+        const pt = parseFontSizeToPt(style.fontSize);
+        if (pt) nextFormat.size = Math.round(pt * 2);
+      }
+      if (style.fontFamily) {
+        const primary = style.fontFamily.split(",")[0].replace(/['"]/g, "").trim();
+        if (primary) nextFormat.font = primary;
+      }
+    }
+
+    el.childNodes.forEach((child) => {
+      spans.push(...parseFormattedSpans(child, nextFormat));
+    });
+  }
+
+  return spans;
+}
+
+function spansToTextRuns(spans: FormattedSpan[], options?: { isHeader?: boolean; isHeading?: boolean }): TextRun[] {
+  if (spans.length === 0) {
+    return [new TextRun({ text: "" })];
+  }
+
+  return spans.map((span) => {
+    return new TextRun({
+      text: span.text,
+      font: span.font || "Arial",
+      size: span.size || (options?.isHeader ? 18 : options?.isHeading ? 24 : 21),
+      bold: span.bold !== undefined ? span.bold : (options?.isHeader || options?.isHeading ? true : false),
+      italics: span.italics || false,
+      underline: span.underline ? {} : undefined,
+      strike: span.strike || false,
+      color: span.color || (options?.isHeader || options?.isHeading ? COLOR_BLACK : COLOR_BODY),
+    });
+  });
+}
+
+function convertTableElementToDocx(tableEl: HTMLTableElement): Table | null {
+  const trElements = Array.from(tableEl.querySelectorAll("tr"));
+  if (trElements.length === 0) return null;
+
+  let maxCols = 1;
+  trElements.forEach((tr) => {
+    const cells = Array.from(tr.querySelectorAll("th, td"));
+    let count = 0;
+    cells.forEach((c) => {
+      const span = parseInt(c.getAttribute("colspan") || "1", 10) || 1;
+      count += span;
+    });
+    if (count > maxCols) maxCols = count;
+  });
+
+  const firstRowCells = Array.from(trElements[0].querySelectorAll("th, td"));
+  const colWidths: number[] = [];
+  let explicitWidthsTotal = 0;
+  firstRowCells.forEach((c) => {
+    const wStr = (c as HTMLElement).style?.width || c.getAttribute("width") || "";
+    const pctMatch = wStr.match(/([0-9.]+)%/);
+    if (pctMatch) {
+      const val = parseFloat(pctMatch[1]);
+      colWidths.push(val);
+      explicitWidthsTotal += val;
+    } else {
+      colWidths.push(0);
+    }
+  });
+
+  const finalColWidths: number[] = [];
+  if (colWidths.length === maxCols && explicitWidthsTotal >= 90 && explicitWidthsTotal <= 110) {
+    colWidths.forEach((w) => finalColWidths.push(Math.round((w / explicitWidthsTotal) * 100)));
+  } else {
+    const defaultColWidth = Math.floor(100 / maxCols);
+    for (let i = 0; i < maxCols; i++) {
+      finalColWidths.push(defaultColWidth);
+    }
+  }
+
+  const docxRows: TableRow[] = trElements.map((tr, rIdx) => {
+    const cellElements = Array.from(tr.querySelectorAll("th, td"));
+    const isHeaderRow = rIdx === 0 || tr.parentElement?.tagName.toLowerCase() === "thead" || cellElements.every(c => c.tagName.toLowerCase() === "th");
+
+    const rowCells: TableCell[] = [];
+    let colIdx = 0;
+
+    cellElements.forEach((cellEl) => {
+      const htmlCell = cellEl as HTMLElement;
+      const isTh = htmlCell.tagName.toLowerCase() === "th";
+      const colSpan = parseInt(htmlCell.getAttribute("colspan") || "1", 10) || 1;
+      const rowSpan = parseInt(htmlCell.getAttribute("rowspan") || "1", 10) || 1;
+
+      let cellWidth = 0;
+      for (let s = 0; s < colSpan; s++) {
+        cellWidth += finalColWidths[colIdx + s] || Math.floor(100 / maxCols);
+      }
+      colIdx += colSpan;
+
+      let cellFill = isHeaderRow ? COLOR_HEADER_FILL : rIdx % 2 === 0 ? "FFFFFF" : COLOR_ALT_ROW;
+      const bg = htmlCell.style?.backgroundColor || htmlCell.getAttribute("bgcolor") || "";
+      if (bg) {
+        const hex = parseColorToHex(bg);
+        if (hex) cellFill = hex;
+      }
+
+      const alignStr = htmlCell.style?.textAlign || (isHeaderRow || isTh ? "center" : "left");
+      const alignment = getParagraphAlignment(alignStr);
+
+      const cellParagraphs: Paragraph[] = [];
+      const childParas = Array.from(htmlCell.querySelectorAll("p, div"));
+
+      if (childParas.length > 0) {
+        childParas.forEach((cp) => {
+          const spans = parseFormattedSpans(cp);
+          const cpAlign = getParagraphAlignment((cp as HTMLElement).style?.textAlign || alignStr);
+          cellParagraphs.push(
+            new Paragraph({
+              alignment: cpAlign,
+              spacing: { before: 40, after: 40, line: 260 },
+              children: spansToTextRuns(spans, { isHeader: isHeaderRow || isTh }),
+            })
+          );
+        });
+      } else {
+        const spans = parseFormattedSpans(htmlCell);
+        cellParagraphs.push(
+          new Paragraph({
+            alignment: alignment,
+            spacing: { before: 50, after: 50, line: 260 },
+            children: spansToTextRuns(spans, { isHeader: isHeaderRow || isTh }),
+          })
+        );
+      }
+
+      if (cellParagraphs.length === 0) {
+        cellParagraphs.push(new Paragraph({ children: [new TextRun({ text: "" })] }));
+      }
+
+      rowCells.push(
+        new TableCell({
+          columnSpan: colSpan > 1 ? colSpan : undefined,
+          rowSpan: rowSpan > 1 ? rowSpan : undefined,
+          width: { size: cellWidth, type: WidthType.PERCENTAGE },
+          verticalAlign: VerticalAlign.CENTER,
+          shading: { fill: cellFill, type: ShadingType.CLEAR },
+          children: cellParagraphs,
+        })
+      );
+    });
+
+    return new TableRow({
+      cantSplit: true,
+      tableHeader: isHeaderRow,
+      children: rowCells,
+    });
+  });
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: tableBorders,
+    rows: docxRows,
+  });
+}
+
+function convertHeadingElementToDocx(el: HTMLElement): Paragraph | null {
+  const text = (el.textContent || "").trim();
+  if (!text) return null;
+
+  const matchHeading = text.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.*)$/);
+  const tagName = el.tagName.toLowerCase();
+  const isMainH = tagName === "h1" || (matchHeading && (!matchHeading[1].includes(".") || matchHeading[1].endsWith(".0")));
+
+  if (matchHeading) {
+    const [, numPart, titlePart] = matchHeading;
+    return new Paragraph({
+      tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+      spacing: { before: isMainH ? 240 : 160, after: 80, line: 276 },
+      children: [
+        new TextRun({
+          text: `${numPart.replace(/\.$/, "")}\t${titlePart}`,
+          font: "Arial",
+          size: isMainH ? 24 : 22,
+          bold: true,
+          color: COLOR_BLACK,
+        }),
+      ],
+    });
+  }
+
+  const spans = parseFormattedSpans(el);
+  return new Paragraph({
+    spacing: { before: isMainH ? 240 : 160, after: 80, line: 276 },
+    children: spansToTextRuns(spans, { isHeading: true }),
+  });
+}
+
+function convertParagraphElementToDocx(el: HTMLElement): Paragraph | null {
+  const textContent = el.textContent || "";
+  const trimmed = textContent.trim();
+
+  if (!trimmed && el.querySelector("img, table") === null) {
+    return new Paragraph({ spacing: { before: 0, after: 120 } });
+  }
+
+  const matchHeading = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+(.*)$/);
+  const isBold = el.style?.fontWeight === "bold" || el.querySelector("b, strong") !== null;
+
+  if (matchHeading && (isBold || trimmed.length < 80)) {
+    const [, numPart, titlePart] = matchHeading;
+    const isMainHeading = !numPart.includes(".") || numPart.endsWith(".0");
+    return new Paragraph({
+      tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+      spacing: { before: isMainHeading ? 220 : 140, after: 80, line: 276 },
+      children: [
+        new TextRun({
+          text: `${numPart.replace(/\.$/, "")}\t${titlePart}`,
+          font: "Arial",
+          size: isMainHeading ? 24 : 22,
+          bold: true,
+          color: COLOR_BLACK,
+        }),
+      ],
+    });
+  }
+
+  const isCapsHeading = /^[A-Z0-9\s:/-]{4,60}$/.test(trimmed) && trimmed.length < 50;
+  const alignment = getParagraphAlignment(el.style?.textAlign || (isCapsHeading ? "left" : "justify"));
+  const spans = parseFormattedSpans(el);
+
+  let indentTwip = isCapsHeading ? 0 : 720;
+  if (el.style?.paddingLeft) {
+    indentTwip = parseDimensionToTwip(el.style.paddingLeft);
+  } else if (el.style?.marginLeft) {
+    indentTwip = parseDimensionToTwip(el.style.marginLeft);
+  }
+
+  let hangingTwip = 0;
+  if (el.style?.textIndent) {
+    const ti = parseDimensionToTwip(el.style.textIndent);
+    if (ti < 0) hangingTwip = Math.abs(ti);
+  }
+
+  return new Paragraph({
+    alignment: alignment,
+    indent: indentTwip > 0 ? { left: indentTwip, hanging: hangingTwip > 0 ? hangingTwip : undefined } : undefined,
+    tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+    spacing: { before: isCapsHeading ? 180 : 0, after: isCapsHeading ? 100 : 80, line: 276 },
+    children: spansToTextRuns(spans, { isHeading: isCapsHeading }),
+  });
+}
+
+function convertHtmlPageToDocxElements(pageHtml: string): (Paragraph | Table)[] {
+  const elements: (Paragraph | Table)[] = [];
+  if (typeof DOMParser === "undefined") {
+    return elements;
+  }
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(pageHtml, "text/html");
+  const children = Array.from(doc.body.children);
+
+  if (children.length === 0 && doc.body.textContent?.trim()) {
+    elements.push(
+      new Paragraph({
+        alignment: AlignmentType.JUSTIFIED,
+        indent: { left: 720 },
+        spacing: { before: 0, after: 100, line: 276 },
+        children: [new TextRun({ text: doc.body.textContent.trim(), font: "Arial", size: 21, color: COLOR_BODY })],
+      })
+    );
+    return elements;
+  }
+
+  children.forEach((el) => {
+    const tagName = el.tagName.toLowerCase();
+
+    if (tagName === "table") {
+      const table = convertTableElementToDocx(el as HTMLTableElement);
+      if (table) {
+        elements.push(table);
+        elements.push(new Paragraph({ spacing: { after: 180 } }));
+      }
+      return;
+    }
+
+    if (["h1", "h2", "h3", "h4", "h5", "h6"].includes(tagName)) {
+      const p = convertHeadingElementToDocx(el as HTMLElement);
+      if (p) elements.push(p);
+      return;
+    }
+
+    if (tagName === "ul" || tagName === "ol") {
+      const listItems = Array.from(el.querySelectorAll("li"));
+      listItems.forEach((li, liIdx) => {
+        const bulletText = tagName === "ol" ? `${liIdx + 1}.\t` : "•\t";
+        const spans = parseFormattedSpans(li);
+        elements.push(
+          new Paragraph({
+            indent: { left: 720, hanging: 360 },
+            tabStops: [{ type: TabStopType.LEFT, position: 720 }],
+            spacing: { before: 40, after: 60, line: 276 },
+            children: [
+              new TextRun({ text: bulletText, font: "Arial", size: 21, bold: true, color: COLOR_BLACK }),
+              ...spansToTextRuns(spans),
+            ],
+          })
+        );
+      });
+      return;
+    }
+
+    const p = convertParagraphElementToDocx(el as HTMLElement);
+    if (p) elements.push(p);
+  });
+
+  return elements;
+}
+
+export function extractTocFromContent(
+  bodyPagesHtml?: string[],
+  preservedParagraphs?: string[]
+): Array<{ num: string; title: string; isSub?: boolean }> {
+  const items: Array<{ num: string; title: string; isSub?: boolean }> = [];
+  const seen = new Set<string>();
+
+  const processLine = (text: string, isFromHeadingTag: boolean = false) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const match = trimmed.match(/^([0-9]+(?:\.[0-9]+)*\.?|[IVXLCDM]+\.?)\s+([A-Za-z0-9\s/&,()._-]+)$/);
+    if (match) {
+      let num = match[1].replace(/\.$/, "");
+      if (/^[0-9]+$/.test(num)) {
+        num = `${num}.0`;
+      }
+      const title = match[2].trim().toUpperCase();
+      const key = `${num}_${title}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        const isSub = num.includes(".") && !num.endsWith(".0");
+        items.push({ num, title, isSub });
+      }
+    } else if (isFromHeadingTag && trimmed.length < 80) {
+      const nextNum = `${items.length + 1}.0`;
+      const key = `${nextNum}_${trimmed.toUpperCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        items.push({ num: nextNum, title: trimmed.toUpperCase(), isSub: false });
+      }
+    }
+  };
+
+  if (bodyPagesHtml && bodyPagesHtml.length > 0 && typeof DOMParser !== "undefined") {
+    const parser = new DOMParser();
+    bodyPagesHtml.forEach((pageHtml) => {
+      const doc = parser.parseFromString(pageHtml, "text/html");
+      const headingsAndParas = doc.body.querySelectorAll("h1, h2, h3, h4, p, div");
+      headingsAndParas.forEach((el) => {
+        const isH = ["h1", "h2", "h3", "h4"].includes(el.tagName.toLowerCase());
+        const isBold = (el as HTMLElement).style?.fontWeight === "bold" || el.querySelector("b, strong") !== null;
+        const text = (el as HTMLElement).innerText || el.textContent || "";
+        if (isH || isBold || /^[0-9]+(?:\.[0-9]+)*\.?\s+/.test(text.trim())) {
+          processLine(text, isH);
+        }
+      });
+    });
+  } else if (preservedParagraphs && preservedParagraphs.length > 0) {
+    preservedParagraphs.forEach((p) => processLine(p));
+  }
+
+  return items;
+}
 
 function buildRunningHeader(data: NbeDocumentPayload): Header {
   const isKB = data.docCode.includes("-KB-") || (data.categoryNameId && data.categoryNameId.toUpperCase().includes("KEBIJAKAN"));
@@ -311,7 +796,12 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       spacing: { after: 60 },
       children: [
         new TextRun({ text: "Approved by\t: ", font: "Arial", size: 19, bold: true, color: COLOR_BLACK }),
-        new TextRun({ text: `${data.approvedBy} (${data.approvedRole})`, font: "Arial", size: 19, color: COLOR_BODY }),
+        new TextRun({
+          text: `${data.approvedBy}${cleanRole(data.approvedRole) ? ` (${cleanRole(data.approvedRole)})` : ""}`,
+          font: "Arial",
+          size: 19,
+          color: COLOR_BODY,
+        }),
       ],
     }),
     new Paragraph({
@@ -319,7 +809,12 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       spacing: { after: 60 },
       children: [
         new TextRun({ text: "Verified by\t: ", font: "Arial", size: 19, bold: true, color: COLOR_BLACK }),
-        new TextRun({ text: `${data.verifiedBy} (${data.verifiedRole})`, font: "Arial", size: 19, color: COLOR_BODY }),
+        new TextRun({
+          text: `${data.verifiedBy}${cleanRole(data.verifiedRole) ? ` (${cleanRole(data.verifiedRole)})` : ""}`,
+          font: "Arial",
+          size: 19,
+          color: COLOR_BODY,
+        }),
       ],
     }),
     new Paragraph({
@@ -327,7 +822,12 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
       spacing: { after: 120 },
       children: [
         new TextRun({ text: "Prepared by\t: ", font: "Arial", size: 19, bold: true, color: COLOR_BLACK }),
-        new TextRun({ text: `${data.preparedBy} (${data.preparedRole})`, font: "Arial", size: 19, color: COLOR_BODY }),
+        new TextRun({
+          text: `${data.preparedBy}${cleanRole(data.preparedRole) ? ` (${cleanRole(data.preparedRole)})` : ""}`,
+          font: "Arial",
+          size: 19,
+          color: COLOR_BODY,
+        }),
       ],
     }),
     new Paragraph({ children: [new PageBreak()] }),
@@ -405,13 +905,22 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   ];
 
   // POIN 8: HALAMAN 3 KHUSUS DAFTAR ISI (TABLE OF CONTENTS) DALAM 1 HALAMAN TERSENDIRI
-  const effectiveTocList = (data.tocList && data.tocList.length > 0)
-    ? data.tocList
-    : (!isKB
-      ? [
-          { num: "1.0", title: data.language === "en" ? "DOCUMENT CONTENT" : "ISI DOKUMEN" },
-        ]
-      : null);
+  let effectiveTocList = data.tocList && data.tocList.length > 0 ? data.tocList : null;
+
+  const isGenericPlaceholder =
+    !effectiveTocList ||
+    (effectiveTocList.length === 1 &&
+      (effectiveTocList[0].title.includes("DOCUMENT CONTENT") ||
+        effectiveTocList[0].title.includes("ISI DOKUMEN")));
+
+  if (isGenericPlaceholder) {
+    const extracted = extractTocFromContent(data.bodyPagesHtml, data.preservedBodyParagraphs);
+    if (extracted.length > 0) {
+      effectiveTocList = extracted;
+    } else if (!isKB) {
+      effectiveTocList = [{ num: "1.0", title: isEn ? "DOCUMENT CONTENT" : "ISI DOKUMEN" }];
+    }
+  }
 
   const page3TocChildren: Paragraph[] = [];
   if (effectiveTocList) {
@@ -427,7 +936,6 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
           tabStops: [{ type: TabStopType.LEFT, position: item.isSub ? 1440 : 720 }],
           spacing: { before: item.isSub ? 30 : 60, after: item.isSub ? 30 : 60, line: 260 },
           children: [
-            // Memisahkan nomor bab dan judul bab dengan tab (\t) agar rapi dan tidak pernah menempel (1.0    OBJECTIVE)
             new TextRun({
               text: `${item.num}\t${item.title}`,
               font: "Arial",
@@ -443,15 +951,24 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   }
 
   // HALAMAN 4+: JIKA DOKUMEN MEMILIKI BODY PAGES / ISI ASLI / TABEL ASLI / DOKUMEN PROSEDUR
+  const hasBodyPagesHtml = data.bodyPagesHtml && data.bodyPagesHtml.length > 0;
   const hasPreservedParagraphs = data.preservedBodyParagraphs && data.preservedBodyParagraphs.length > 0;
   const hasPreservedTables = data.bodyTables && data.bodyTables.length > 0;
   const hasBodyPages = data.bodyPages && data.bodyPages.length > 0;
 
-  if (hasBodyPages || hasPreservedParagraphs || hasPreservedTables || !isKB) {
+  if (hasBodyPagesHtml || hasBodyPages || hasPreservedParagraphs || hasPreservedTables || !isKB) {
     const proceduralBodyChildren: (Paragraph | Table)[] = [];
 
-    // Jika memiliki bodyPages array
-    if (hasBodyPages && data.bodyPages) {
+    // Prioritas 1: Jika memiliki bodyPagesHtml (HTML yang diedit langsung di editor web / WYSIWYG presisi)
+    if (hasBodyPagesHtml && data.bodyPagesHtml) {
+      data.bodyPagesHtml.forEach((pageHtml, pIdx) => {
+        const pageElements = convertHtmlPageToDocxElements(pageHtml);
+        proceduralBodyChildren.push(...pageElements);
+        if (pIdx < data.bodyPagesHtml!.length - 1) {
+          proceduralBodyChildren.push(new Paragraph({ children: [new PageBreak()] }));
+        }
+      });
+    } else if (hasBodyPages && data.bodyPages) {
       data.bodyPages.forEach((pageParagraphs, pIdx) => {
         pageParagraphs.forEach((rawLine) => {
           const matchHeading = rawLine.trim().match(/^([0-9]+\.[0-9]+)\s+(.*)$/);
@@ -1053,9 +1570,29 @@ export function buildNbeDocument(data: NbeDocumentPayload): Document {
   });
 }
 
+async function ensureLogoBuffers(data: NbeDocumentPayload): Promise<NbeDocumentPayload> {
+  const result = { ...data };
+  if (!result.coverLogoBuffer || !result.kopLogoBuffer) {
+    try {
+      if (typeof window !== "undefined" && typeof fetch === "function") {
+        const res = await fetch("/nbe-logo-tight.png");
+        if (res.ok) {
+          const buf = await res.arrayBuffer();
+          if (!result.coverLogoBuffer) result.coverLogoBuffer = buf;
+          if (!result.kopLogoBuffer) result.kopLogoBuffer = buf;
+        }
+      }
+    } catch (e) {
+      console.warn("Could not auto-fetch fallback logo for docx:", e);
+    }
+  }
+  return result;
+}
+
 export async function generateNbeDocxBlob(
-  data: NbeDocumentPayload
+  rawData: NbeDocumentPayload
 ): Promise<{ blob: Blob; fileName: string; dataUrl: string }> {
+  const data = await ensureLogoBuffers(rawData);
   const doc = buildNbeDocument(data);
   const blob = await Packer.toBlob(doc);
   const cleanTitle = data.titleId?.trim() || (data.language === "en" ? "Board of Directors Resolution" : "Surat Keputusan Direksi");

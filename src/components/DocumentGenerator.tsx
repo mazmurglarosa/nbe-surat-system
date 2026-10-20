@@ -54,8 +54,8 @@ import {
 import { addSubCategory, addSubSubCategory, addDocumentType } from '../services/masterCodes';
 import { pushAllLocalDataToCloud } from '../services/cloudSync';
 import { LanguageSelector } from './LanguageSelector';
-import { A4DocumentPreview } from './A4DocumentPreview';
-import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
+import { A4DocumentPreview, DocumentSavePayload } from './A4DocumentPreview';
+import { generateAndDownloadNbeDocx, cleanRole } from '../utils/nbeDocxGenerator';
 import { DocumentTemplateSettings, loadTemplateSettings } from '../services/templateSettings';
 import { formatNbeStandardDate } from '../utils/dateFormatter';
 import { SignerFieldGroup } from './SignerFieldGroup';
@@ -566,11 +566,12 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
     }
   };
 
+  const [editedDocPayload, setEditedDocPayload] = useState<DocumentSavePayload | null>(null);
+
   const handleDownloadDocx = async () => {
     try {
       const typeDef = docTypes.find((d) => d.code === selectedType);
       const divDef = divs.find((d) => d.code === selectedDivision);
-      const apprvDef = apprvs.find((a) => a.code === selectedApprover);
 
       await generateAndDownloadNbeDocx({
         docCode: activeCode,
@@ -582,13 +583,17 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         issueDateId: formatIssueDate(issueDate, 'id'),
         issueDateEn: formatIssueDate(issueDate, 'en'),
         preparedBy: createdBy.trim() || 'Mazmur Gusti Agung Larosa',
-        preparedRole: preparedRole || 'Lead Document Controller & Finance Director',
+        preparedRole: cleanRole(editedDocPayload?.preparedRole || preparedRole) || 'Lead Document Controller & Finance Director',
         verifiedBy: verifiedBy || 'Dennis Raditya',
-        verifiedRole: verifiedRole || 'Director of Operations & Technology / CTO',
+        verifiedRole: cleanRole(editedDocPayload?.verifiedRole || verifiedRole) || 'Director of Operations & Technology / CTO',
         approvedBy: approvedBy || 'Bima Satryo Hartanto',
-        approvedRole: approvedRole || 'President Director / CEO',
+        approvedRole: cleanRole(editedDocPayload?.approvedRole || approvedRole) || 'President Director / CEO',
         language: selectedLang,
         paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
+        bodyPagesHtml: editedDocPayload?.bodyPagesHtml,
+        tocList: editedDocPayload?.tocList,
+        preservedBodyParagraphs: editedDocPayload?.preservedBodyParagraphs,
+        bodyTables: editedDocPayload?.bodyTables,
       });
     } catch (err: any) {
       alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
@@ -2498,6 +2503,7 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         }}
         onDownloadDocx={handleDownloadDocx}
         onSaveDocument={(updated) => {
+          setEditedDocPayload(updated);
           setTitle(updated.title);
           setIssueDate(updated.issueDate);
           setRevision(updated.revision);

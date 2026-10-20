@@ -82,7 +82,7 @@ import { A4DocumentPreview } from './A4DocumentPreview';
 import { generateAndDownloadNbeDocx, generateNbeDocxBlob, NbeDocumentPayload } from '../utils/nbeDocxGenerator';
 import { extractDocxData, extractDocxParagraphs, DEFAULT_NBE_BODY_PARAGRAPHS, DocxTableData } from '../utils/docxExtractor';
 import { formatNbeStandardDate } from '../utils/dateFormatter';
-import { extractOriginalDocxContent, ExtractedDocSection, TocHeadingItem } from '../utils/docxOriginalExtractor';
+import { extractOriginalDocxContent, ExtractedDocSection, TocHeadingItem, paginateHtmlContent } from '../utils/docxOriginalExtractor';
 import { SignerFieldGroup } from './SignerFieldGroup';
 
 function generateDocumentId(): string {
@@ -197,6 +197,8 @@ export interface FileMetadataCustomization {
   preservedBodyTables?: DocxTableData[];
   originalHtmlBody?: string;
   tocHeadings?: TocHeadingItem[];
+  bodyPagesHtml?: string[];
+  tocList?: Array<{ num: string; title: string; isSub?: boolean }>;
 }
 
 interface FolderGeneratorProps {
@@ -760,6 +762,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
           preservedBodyTables: initialTables,
           originalHtmlBody: originalHtmlBody,
           tocHeadings: tocHeadings,
+          bodyPagesHtml: originalHtmlBody ? paginateHtmlContent(originalHtmlBody) : undefined,
+          tocList: tocHeadings && tocHeadings.length > 0 ? tocHeadings.map((h) => ({ num: h.num, title: h.title, isSub: h.isSub })) : undefined,
         };
 
         // Otomatis standarisasi berkas Word ke template baku OpenXML NBE dengan Cover, Kop, Revision & Konten Asli
@@ -782,8 +786,17 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             approvedBy: approvedBy,
             approvedRole: approvedRole,
             language: selectedLang,
+            bodyPagesHtml: initialCustoms[wf.id].bodyPagesHtml,
+            tocList: initialCustoms[wf.id].tocList,
+            isProcedureOrSop: docTypeCode !== 'KB' && !codeForThis.includes('-KB-'),
             preservedBodyParagraphs: initialParagraphs,
             bodyTables: initialTables,
+            revisionRows: initialCustoms[wf.id].revisions.map((r) => ({
+              rev: String(r.revision),
+              date: r.date,
+              description: r.description,
+              revisedBy: r.revisedBy,
+            })),
           });
           wf.dataUrl = docxStandard.dataUrl;
           wf.size = docxStandard.blob.size;
@@ -1207,13 +1220,22 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
         approvedBy: custom.approvedBy || 'Bima Satryo Hartanto',
         approvedRole: custom.approvedRole || approvedRole || 'President Director / CEO',
         language: selectedLang,
+        bodyPagesHtml: custom.bodyPagesHtml,
+        tocList: custom.tocList,
         preservedBodyParagraphs: custom.preservedBodyParagraphs,
         bodyTables: custom.preservedBodyTables,
+        revisionRows: (custom.revisions || []).map((r) => ({
+          rev: String(r.revision),
+          date: r.date,
+          description: r.description,
+          revisedBy: r.revisedBy,
+        })),
         coverLogoBuffer: coverLogoBuf,
         kopLogoBuffer: kopLogoBuf,
         coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
         kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
         isProcedureOrSop: custom.typeCode !== 'KB' && !custom.code.includes('-KB-'),
+        paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
       });
     } catch (err: any) {
       alert(`Gagal membuat file Word (.docx): ${err.message}`);
@@ -2896,6 +2918,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         approvedBy: activeCustomization.approvedBy,
                         approvedRole: activeCustomization.approvedRole || approvedRole || 'President Director / CEO',
                         language: selectedLang,
+                        bodyPagesHtml: activeCustomization.bodyPagesHtml,
+                        tocList: activeCustomization.tocList,
                         preservedBodyParagraphs: activeCustomization.preservedBodyParagraphs,
                         bodyTables: activeCustomization.preservedBodyTables,
                         revisionRows: (activeCustomization.revisions || []).map((r) => ({
@@ -2931,6 +2955,8 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                       approvedBy: updated.approvedBy,
                       approvedRole: updated.approvedRole || current.approvedRole || approvedRole,
                       revisions: updated.revisions || current.revisions,
+                      bodyPagesHtml: updated.bodyPagesHtml || current.bodyPagesHtml,
+                      tocList: updated.tocList || current.tocList,
                       preservedBodyParagraphs: updated.preservedBodyParagraphs || current.preservedBodyParagraphs,
                       preservedBodyTables: updated.bodyTables || current.preservedBodyTables,
                     };
@@ -2942,6 +2968,21 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
 
                     // Regenerate OpenXML Word file blob for activeWordFile in memory
                     try {
+                      let saveCoverBuf: ArrayBuffer | null = null;
+                      let saveKopBuf: ArrayBuffer | null = null;
+                      if (templateSettings.coverLogoDataUrl) {
+                        try {
+                          const res = await fetch(templateSettings.coverLogoDataUrl);
+                          saveCoverBuf = await res.arrayBuffer();
+                        } catch (e) {}
+                      }
+                      if (templateSettings.kopLogoDataUrl) {
+                        try {
+                          const res = await fetch(templateSettings.kopLogoDataUrl);
+                          saveKopBuf = await res.arrayBuffer();
+                        } catch (e) {}
+                      }
+
                       const docTypeLabel = docTypes.find((d) => d.code === updatedCustomization.typeCode)?.label || updatedCustomization.typeCode;
                       const divisionLabel = divs.find((d) => d.code === updatedCustomization.divisionCode)?.label || updatedCustomization.divisionCode;
                       const regenerated = await generateNbeDocxBlob({
@@ -2960,8 +3001,22 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                         approvedBy: updatedCustomization.approvedBy,
                         approvedRole: updatedCustomization.approvedRole || approvedRole || 'President Director / CEO',
                         language: selectedLang,
+                        bodyPagesHtml: updatedCustomization.bodyPagesHtml,
+                        tocList: updatedCustomization.tocList,
+                        isProcedureOrSop: updatedCustomization.typeCode !== 'KB' && !updatedCustomization.code.includes('-KB-'),
                         preservedBodyParagraphs: updatedCustomization.preservedBodyParagraphs,
                         bodyTables: updatedCustomization.preservedBodyTables,
+                        revisionRows: (updatedCustomization.revisions || []).map((r) => ({
+                          rev: String(r.revision),
+                          date: r.date,
+                          description: r.description,
+                          revisedBy: r.revisedBy,
+                        })),
+                        coverLogoBuffer: saveCoverBuf,
+                        kopLogoBuffer: saveKopBuf,
+                        coverLogoWidthInches: templateSettings.coverLogoWidthInches || 3.2,
+                        kopLogoWidthInches: templateSettings.kopLogoWidthInches || 0.95,
+                        paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
                       });
 
                       activeWordFile.dataUrl = regenerated.dataUrl;

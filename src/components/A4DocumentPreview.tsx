@@ -17,7 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { DocumentLanguage, RevisionRecord } from '../types';
-import { generateAndDownloadNbeDocx } from '../utils/nbeDocxGenerator';
+import { generateAndDownloadNbeDocx, cleanRole, extractTocFromContent } from '../utils/nbeDocxGenerator';
 import { DocxTableData } from '../utils/docxExtractor';
 import { MsWordRibbonEditor, KopTableSettings } from './MsWordRibbonEditor';
 import { loadTemplateSettings, DocumentTemplateSettings } from '../services/templateSettings';
@@ -211,11 +211,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
   const [editableIssueDate, setEditableIssueDate] = useState(issueDate || '2026-10-17');
   const [editableRevision, setEditableRevision] = useState(revision ?? 0);
   const [editablePreparedBy, setEditablePreparedBy] = useState(preparedBy || 'Mazmur Gusti Agung Larosa');
-  const [editablePreparedRole, setEditablePreparedRole] = useState(preparedRole || '(Lead Document Controller & Finance Director)');
+  const [editablePreparedRole, setEditablePreparedRole] = useState(cleanRole(preparedRole) || 'Lead Document Controller & Finance Director');
   const [editableVerifiedBy, setEditableVerifiedBy] = useState(verifiedBy || 'Dennis Raditya');
-  const [editableVerifiedRole, setEditableVerifiedRole] = useState(verifiedRole || '(Director of Operations & Technology / CTO)');
+  const [editableVerifiedRole, setEditableVerifiedRole] = useState(cleanRole(verifiedRole) || 'Director of Operations & Technology / CTO');
   const [editableApprovedBy, setEditableApprovedBy] = useState(approvedBy || 'Bima Satryo Hartanto');
-  const [editableApprovedRole, setEditableApprovedRole] = useState(approvedRole || '(President Director / CEO)');
+  const [editableApprovedRole, setEditableApprovedRole] = useState(cleanRole(approvedRole) || 'President Director / CEO');
   const [editableRevisionDesc, setEditableRevisionDesc] = useState(
     revisions?.[0]?.description ||
       `Edisi Awal – Penerbitan Dokumen Standar PT NBE (${code || '0001-KB-GNR-CEO-X-2026'})`
@@ -246,6 +246,9 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       { num: '1.0', title: language === 'en' ? 'DOCUMENT CONTENT' : 'ISI DOKUMEN', isSub: false },
     ];
   });
+
+  // State untuk menyimpan seluruh halaman HTML yang sedang diedit (WYSIWYG 1:1)
+  const [currentHtmlPages, setCurrentHtmlPages] = useState<string[]>([]);
 
   // Kop Table Sizing Settings State
   const [kopSettings, setKopSettings] = useState<KopTableSettings>(() => {
@@ -696,11 +699,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
       setEditableIssueDate(issueDate || '2026-10-17');
       setEditableRevision(revision ?? 0);
       setEditablePreparedBy(preparedBy || 'Mazmur Gusti Agung Larosa');
-      setEditablePreparedRole('(Lead Document Controller & Finance Director)');
+      setEditablePreparedRole('Lead Document Controller & Finance Director');
       setEditableVerifiedBy(verifiedBy || 'Dennis Raditya');
-      setEditableVerifiedRole('(Director of Operations & Technology / CTO)');
+      setEditableVerifiedRole('Director of Operations & Technology / CTO');
       setEditableApprovedBy(approvedBy || 'Bima Satryo Hartanto');
-      setEditableApprovedRole('(President Director / CEO)');
+      setEditableApprovedRole('President Director / CEO');
       setEditableParagraphs(preservedBodyParagraphs || []);
       setEditableTables(bodyTables || []);
       setEditableRevisionsList(revisions && revisions.length > 0 ? revisions : [
@@ -806,6 +809,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
 
   const handleAutoSaveFromRibbon = (updatedHtmlPages: string[]) => {
     isUserModifiedRef.current = true;
+    setCurrentHtmlPages(updatedHtmlPages);
     scheduleAutoSave({ bodyPagesHtml: updatedHtmlPages });
   };
 
@@ -1202,11 +1206,11 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         issueDateId: formattedDate,
         issueDateEn: formattedDateEn,
         preparedBy: effectivePreparedBy,
-        preparedRole: editablePreparedRole || 'Lead Document Controller & Finance Director',
+        preparedRole: cleanRole(editablePreparedRole) || 'Lead Document Controller & Finance Director',
         verifiedBy: effectiveVerifiedBy,
-        verifiedRole: editableVerifiedRole || 'Director of Operations & Technology / CTO',
+        verifiedRole: cleanRole(editableVerifiedRole) || 'Director of Operations & Technology / CTO',
         approvedBy: effectiveApprovedBy,
-        approvedRole: editableApprovedRole || 'President Director / CEO',
+        approvedRole: cleanRole(editableApprovedRole) || 'President Director / CEO',
         language: language,
         coverLogoBuffer: coverBuffer,
         kopLogoBuffer: kopBuffer,
@@ -1214,6 +1218,7 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         kopLogoWidthInches: (effectiveKopLogoWidthInches || 1.45) * (kopSettings.logoScale || 1.25),
         tocList: editableTocItems,
         bodyPages: effectiveBodyPages,
+        bodyPagesHtml: currentHtmlPages && currentHtmlPages.length > 0 ? currentHtmlPages : initialHtmlPages,
         isProcedureOrSop: isProceduralDoc,
         preservedBodyParagraphs: editableParagraphs,
         bodyTables: editableTables,
@@ -1673,7 +1678,32 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
     ];
   }, [translatedHtmlPages, originalHtmlBody, effectiveBodyPages, language]);
 
+  // Sync currentHtmlPages whenever initialHtmlPages changes and user hasn't made custom edits
+  React.useEffect(() => {
+    if (!isUserModifiedRef.current && initialHtmlPages && initialHtmlPages.length > 0) {
+      setCurrentHtmlPages(initialHtmlPages);
+    }
+  }, [initialHtmlPages]);
+
+  // Otomatis ekstrak bab dan klausul asli ke Daftar Isi jika masih kosong atau default
+  React.useEffect(() => {
+    const isGenericPlaceholder =
+      !editableTocItems ||
+      editableTocItems.length === 0 ||
+      (editableTocItems.length === 1 &&
+        (editableTocItems[0].title.includes('DOCUMENT CONTENT') ||
+          editableTocItems[0].title.includes('ISI DOKUMEN')));
+
+    if (isGenericPlaceholder && initialHtmlPages && initialHtmlPages.length > 0) {
+      const extracted = extractTocFromContent(initialHtmlPages, preservedBodyParagraphs);
+      if (extracted.length > 0) {
+        setEditableTocItems(extracted);
+      }
+    }
+  }, [initialHtmlPages, preservedBodyParagraphs]);
+
   const handleSaveFromRibbonEditor = (updatedHtmlPages: string[]) => {
+    setCurrentHtmlPages(updatedHtmlPages);
     const extractedParagraphs: string[] = [];
     updatedHtmlPages.forEach((pageHtml) => {
       const tempDiv = document.createElement('div');
@@ -1715,12 +1745,14 @@ export const A4DocumentPreview: React.FC<A4DocumentPreviewProps> = ({
         issueDate: effectiveDateStr,
         revision: effectiveRevision,
         preparedBy: effectivePreparedBy,
-        preparedRole: effectivePreparedRole,
+        preparedRole: cleanRole(editablePreparedRole),
         verifiedBy: effectiveVerifiedBy,
-        verifiedRole: effectiveVerifiedRole,
+        verifiedRole: cleanRole(editableVerifiedRole),
         approvedBy: effectiveApprovedBy,
-        approvedRole: effectiveApprovedRole,
+        approvedRole: cleanRole(editableApprovedRole),
         revisions: updatedRevs,
+        tocList: editableTocItems,
+        bodyPagesHtml: updatedHtmlPages,
         preservedBodyParagraphs: finalParagraphs,
         bodyTables: editableTables,
       });
