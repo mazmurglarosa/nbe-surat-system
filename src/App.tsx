@@ -621,7 +621,7 @@ export function App() {
             <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
               {activeTab === 'dashboard' && 'Dashboard Dokumen'}
               {activeTab === 'create' && 'Daftarkan Surat Baru'}
-              {activeTab === 'create-folder' && 'Daftarkan Folder (Multi-File)'}
+              {activeTab === 'create-folder' && 'Daftarkan Dokumen'}
               {activeTab === 'master-categories' && 'Kelola Master Kategori & Kode'}
               {activeTab === 'template-reference' && 'Acuan Template Dokumen & Panduan Standardisasi'}
               {activeTab.startsWith('div-') && (() => {

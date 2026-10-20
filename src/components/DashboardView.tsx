@@ -249,7 +249,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               title="Daftarkan banyak file / direktori folder sekaligus"
             >
               <FolderPlus size={15} />
-              <span>+ Daftarkan Folder</span>
+              <span>+ Daftarkan Dokumen</span>
             </button>
           )}
         </div>

@@ -235,7 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {activeTab === 'create' && <ChevronRight size={16} />}
           </button>
 
-          {/* 2b. Daftarkan Folder */}
+          {/* 2b. Daftarkan Dokumen */}
           <button
             onClick={() => onSelectTab('create-folder')}
             style={{
@@ -263,7 +263,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
               <FolderPlus size={18} />
-              <span>Daftarkan Folder</span>
+              <span>Daftarkan Dokumen</span>
             </div>
             {activeTab === 'create-folder' && <ChevronRight size={16} />}
           </button>

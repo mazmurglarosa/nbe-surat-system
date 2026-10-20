@@ -1637,7 +1637,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
                   className="btn btn-secondary btn-sm"
                 >
                   <RefreshCw size={14} />
-                  <span>Daftarkan Folder Baru</span>
+                  <span>Daftarkan Dokumen Baru</span>
                 </button>
               </div>
             </div>
@@ -1675,7 +1675,7 @@ export const FolderGenerator: React.FC<FolderGeneratorProps> = ({
             </div>
             <div>
               <h1 style={{ fontSize: '1.45rem', fontWeight: 800, color: 'var(--text-main)' }}>
-                Daftarkan Folder Dokumen (Sistem Otomatis Word & Drive)
+                Daftarkan Dokumen (Sistem Otomatis Word & Drive)
               </h1>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Alur 4-Tahap: Upload Folder, Analisis & Konversi Otomatis Word, Standarisasi Cover & Kop, dan Hierarki 4-Tingkat Google Drive.

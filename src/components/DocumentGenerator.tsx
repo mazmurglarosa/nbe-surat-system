@@ -31,7 +31,6 @@ import {
   DocumentRecord,
   DocumentStatus,
   CodeDefinition,
-  DocumentLanguage,
 } from '../types';
 import {
   generateDocumentCode,
@@ -54,9 +53,6 @@ import {
 } from '../services/googleDriveBot';
 import { addSubCategory, addSubSubCategory, addDocumentType } from '../services/masterCodes';
 import { pushAllLocalDataToCloud } from '../services/cloudSync';
-import { LanguageSelector } from './LanguageSelector';
-import { A4DocumentPreview, DocumentSavePayload } from './A4DocumentPreview';
-import { generateAndDownloadNbeDocx, cleanRole } from '../utils/nbeDocxGenerator';
 import { DocumentTemplateSettings, loadTemplateSettings } from '../services/templateSettings';
 import { formatNbeStandardDate } from '../utils/dateFormatter';
 import { SignerFieldGroup } from './SignerFieldGroup';
@@ -182,7 +178,6 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
   const [approvedRole, setApprovedRole] = useState<string>('President Director / CEO');
   const [status, setStatus] = useState<DocumentStatus>('Published');
   const [revision, setRevision] = useState<number>(0);
-  const [selectedLang, setSelectedLang] = useState<DocumentLanguage>('id');
 
   // File Upload & Google Drive
   const [uploadedFile, setUploadedFile] = useState<{
@@ -569,40 +564,6 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
       setIsManualOverride(false);
       setManualCode('');
       setCustomSequence('');
-    }
-  };
-
-  const [editedDocPayload, setEditedDocPayload] = useState<DocumentSavePayload | null>(null);
-
-  const handleDownloadDocx = async () => {
-    try {
-      const typeDef = docTypes.find((d) => d.code === selectedType);
-      const divDef = divs.find((d) => d.code === selectedDivision);
-
-      await generateAndDownloadNbeDocx({
-        docCode: activeCode,
-        titleId: title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN',
-        titleEn: title.trim().toUpperCase() || 'DOCUMENT CONTROL AND NUMBERING SYSTEM',
-        categoryNameId: typeDef?.label || selectedType,
-        divisionName: divDef?.label || selectedDivision,
-        revisionNo: String(revision),
-        issueDateId: formatIssueDate(issueDate, 'id'),
-        issueDateEn: formatIssueDate(issueDate, 'en'),
-        preparedBy: createdBy.trim() || 'Mazmur Gusti Agung Larosa',
-        preparedRole: cleanRole(editedDocPayload?.preparedRole || preparedRole) || 'Lead Document Controller & Finance Director',
-        verifiedBy: verifiedBy || 'Dennis Raditya',
-        verifiedRole: cleanRole(editedDocPayload?.verifiedRole || verifiedRole) || 'Director of Operations & Technology / CTO',
-        approvedBy: approvedBy || 'Bima Satryo Hartanto',
-        approvedRole: cleanRole(editedDocPayload?.approvedRole || approvedRole) || 'President Director / CEO',
-        language: selectedLang,
-        paperSize: templateSettings.paperSize === 'F4' ? 'F4' : 'A4',
-        bodyPagesHtml: editedDocPayload?.bodyPagesHtml,
-        tocList: editedDocPayload?.tocList,
-        preservedBodyParagraphs: editedDocPayload?.preservedBodyParagraphs,
-        bodyTables: editedDocPayload?.bodyTables,
-      });
-    } catch (err: any) {
-      alert('Gagal mengunduh berkas Word (.docx): ' + err.message);
     }
   };
 
@@ -2466,64 +2427,6 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
           </button>
         </div>
       </form>
-
-      {/* Real-Time Document Preview (Real Paper Size) TEPAT DI BAWAH form penomoran sesuai Panduan NBE */}
-      <LanguageSelector
-        selectedLang={selectedLang}
-        onSelectLang={(l) => {
-          setSelectedLang(l);
-          if (l === 'en' && (!title || title.trim().toUpperCase() === 'SISTEM KONTROL DAN PENOMORAN DOKUMEN')) {
-            setTitle('DOCUMENT CONTROL AND NUMBERING SYSTEM');
-          } else if (l === 'id' && (!title || title.trim().toUpperCase() === 'DOCUMENT CONTROL AND NUMBERING SYSTEM')) {
-            setTitle('SISTEM KONTROL DAN PENOMORAN DOKUMEN');
-          }
-        }}
-      />
-
-      <A4DocumentPreview
-        key={`${activeCode}-${selectedLang}`}
-        documentId={activeCode}
-        language={selectedLang}
-        title={
-          selectedLang === 'en'
-            ? (!title || title.trim().toUpperCase() === 'SISTEM KONTROL DAN PENOMORAN DOKUMEN'
-                ? 'DOCUMENT CONTROL AND NUMBERING SYSTEM'
-                : title.trim().toUpperCase())
-            : (title.trim().toUpperCase() || 'SISTEM KONTROL DAN PENOMORAN DOKUMEN')
-        }
-        code={activeCode}
-        issueDate={issueDate}
-        revision={revision}
-        preparedBy={createdBy.trim() || 'Mazmur Gusti Agung Larosa'}
-        preparedRole={preparedRole}
-        verifiedBy={verifiedBy || 'Dennis Raditya'}
-        verifiedRole={verifiedRole}
-        approvedBy={approvedBy || 'Bima Satryo Hartanto'}
-        approvedRole={approvedRole}
-        typeLabel={docTypes.find((d) => d.code === selectedType)?.label || selectedType}
-        divisionLabel={divs.find((d) => d.code === selectedDivision)?.label || selectedDivision}
-        approverLabel={apprvs.find((a) => a.code === selectedApprover)?.label || selectedApprover}
-        coverLogoDataUrl={templateSettings.coverLogoDataUrl}
-        kopLogoDataUrl={templateSettings.kopLogoDataUrl}
-        coverLogoWidthInches={templateSettings.coverLogoWidthInches || 3.2}
-        kopLogoWidthInches={templateSettings.kopLogoWidthInches || 0.95}
-        initialPaperSize={templateSettings.paperSize === 'F4' ? 'F4' : 'A4'}
-        onCopyCode={() => {
-          navigator.clipboard.writeText(activeCode);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2000);
-        }}
-        onDownloadDocx={handleDownloadDocx}
-        onSaveDocument={(updated) => {
-          setEditedDocPayload(updated);
-          setTitle(updated.title);
-          setIssueDate(updated.issueDate);
-          setRevision(updated.revision);
-          setCreatedBy(updated.preparedBy);
-          setVerifiedBy(updated.verifiedBy);
-          setApprovedBy(updated.approvedBy);
-        }}
-      />
 
       {/* MODAL CEPAT TAMBAH KODE KATEGORI / SUB-KATEGORI */}
       {quickAddModal && (
