@@ -15,6 +15,41 @@ export function formatSequence(seq: number): string {
 }
 
 /**
+ * Ekstrak sequence number dari record dokumen.
+ * Menjadikan 4-digit awal pada `doc.code` (contoh: "0026-CSMS-..." -> 26) sebagai
+ * sumber kebenaran utama (ground truth), dan membandingkan dengan `doc.seqNumber`.
+ */
+export function extractSequenceNumber(doc: { code?: string; seqNumber?: number }): number {
+  if (doc?.code) {
+    const match = doc.code.trim().match(/^(\d{1,5})-/);
+    if (match) {
+      const parsed = parseInt(match[1], 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        return Math.max(parsed, doc.seqNumber || 0);
+      }
+    }
+  }
+  return doc?.seqNumber && !isNaN(doc.seqNumber) && doc.seqNumber > 0 ? doc.seqNumber : 0;
+}
+
+/**
+ * Ekstrak kategori dokumen (typeCode / XXX) dari kode surat atau record.
+ * Contoh: "0026-CSMS-PE/PL-..." -> "CSMS"
+ */
+export function extractDocTypeCode(doc: { code?: string; typeCode?: string }): string {
+  if (doc?.typeCode && doc.typeCode.trim()) {
+    return doc.typeCode.trim().toUpperCase();
+  }
+  if (doc?.code) {
+    const match = doc.code.trim().match(/^\d{1,5}-([A-Za-z0-9]+)-/);
+    if (match) {
+      return match[1].trim().toUpperCase();
+    }
+  }
+  return '';
+}
+
+/**
  * Calculate the next sequential number for a specific document type.
  * Based on NBE Procedure 4.2:
  * "0000: Sequential number of the document, per document type (XXX)"
@@ -23,19 +58,32 @@ export function getNextSequenceNumber(
   documents: DocumentRecord[],
   typeCode: string
 ): number {
-  const filtered = documents.filter(
-    (doc) => doc.typeCode.toUpperCase() === typeCode.toUpperCase()
-  );
+  const targetType = (typeCode || '').trim().toUpperCase();
+  if (!targetType) return 1;
 
-  if (filtered.length === 0) {
-    return 1;
+  let maxSeq = 0;
+  const existingSeqs = new Set<number>();
+
+  for (const doc of documents || []) {
+    const dType = extractDocTypeCode(doc);
+    if (dType === targetType) {
+      const seq = extractSequenceNumber(doc);
+      if (seq > 0) {
+        existingSeqs.add(seq);
+        if (seq > maxSeq) {
+          maxSeq = seq;
+        }
+      }
+    }
   }
 
-  const maxSeq = filtered.reduce((max, doc) => {
-    return Math.max(max, doc.seqNumber || 0);
-  }, 0);
+  let nextSeq = maxSeq + 1;
+  // Pastikan nomor urut yang dihasilkan tidak pernah bertabrakan dengan dokumen yang sudah ada
+  while (existingSeqs.has(nextSeq)) {
+    nextSeq++;
+  }
 
-  return maxSeq + 1;
+  return nextSeq;
 }
 
 /**

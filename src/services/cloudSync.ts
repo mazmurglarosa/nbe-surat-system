@@ -10,6 +10,7 @@ import {
   saveAllDocuments,
   loadDocuments,
   isDocumentDeleted,
+  normalizeDocument,
 } from './storage';
 import { getMasterCodes, saveMasterCodes, normalizeMasterCodes, mergeMasterCodes } from './masterCodes';
 import { loadActivityLogs, saveActivityLogs } from './activityLogs';
@@ -62,12 +63,12 @@ export function mergeDocuments(
   merged: DocumentRecord[];
   needsCloudPush: boolean;
 } {
-  const safeLocal = (Array.isArray(localDocs) ? localDocs : []).filter(
-    (l) => !isDocumentDeleted(l.id, l.code)
-  );
-  const safeCloud = (Array.isArray(cloudDocs) ? cloudDocs : []).filter(
-    (c) => !isDocumentDeleted(c.id, c.code)
-  );
+  const safeLocal = (Array.isArray(localDocs) ? localDocs : [])
+    .filter((l) => !isDocumentDeleted(l.id, l.code))
+    .map(normalizeDocument);
+  const safeCloud = (Array.isArray(cloudDocs) ? cloudDocs : [])
+    .filter((c) => !isDocumentDeleted(c.id, c.code))
+    .map(normalizeDocument);
 
   // Jika cloud kosong tapi lokal memiliki dokumen -> JANGAN HAPUS LOKAL!
   if (safeCloud.length === 0 && safeLocal.length > 0) {
@@ -100,7 +101,7 @@ export function mergeDocuments(
     if (!cDoc || isDocumentDeleted(cDoc.id, cDoc.code)) continue;
     const key = (cDoc.code || cDoc.id || '').trim().toUpperCase();
     if (key) {
-      map.set(key, cDoc);
+      map.set(key, normalizeDocument(cDoc));
     }
   }
 
@@ -113,7 +114,7 @@ export function mergeDocuments(
     const existing = map.get(key);
     if (!existing) {
       // Ada di lokal tapi belum ada di cloud -> pertahankan dan push ke cloud!
-      map.set(key, lDoc);
+      map.set(key, normalizeDocument(lDoc));
       needsPush = true;
     } else {
       // Ada di kedua tempat -> bandingkan versi terbaru
@@ -126,21 +127,23 @@ export function mergeDocuments(
       const preferredFileData = lDoc.fileData || existing.fileData;
 
       if (lRev > cRev || (lRev === cRev && lTime >= cTime)) {
-        map.set(key, { ...existing, ...lDoc, fileData: preferredFileData });
+        map.set(key, normalizeDocument({ ...existing, ...lDoc, fileData: preferredFileData }));
         if (lRev > cRev || lTime > cTime) {
           needsPush = true;
         }
       } else {
-        map.set(key, { ...lDoc, ...existing, fileData: preferredFileData });
+        map.set(key, normalizeDocument({ ...lDoc, ...existing, fileData: preferredFileData }));
       }
     }
   }
 
-  const merged = Array.from(map.values()).sort((a, b) => {
-    const tA = new Date(a.createdAt || a.issueDate || 0).getTime();
-    const tB = new Date(b.createdAt || b.issueDate || 0).getTime();
-    return tB - tA;
-  });
+  const merged = Array.from(map.values())
+    .map(normalizeDocument)
+    .sort((a, b) => {
+      const tA = new Date(a.createdAt || a.issueDate || 0).getTime();
+      const tB = new Date(b.createdAt || b.issueDate || 0).getTime();
+      return tB - tA;
+    });
 
   return {
     merged,

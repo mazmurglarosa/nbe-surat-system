@@ -698,6 +698,9 @@ export async function registerDocumentInDriveViaBot(
         : fileData.dataUrl;
     }
 
+    const seqMatch = (doc.code || '').trim().match(/^(\d{1,5})-/);
+    const parsedSeq = seqMatch ? parseInt(seqMatch[1], 10) : 1;
+
     const payload = {
       action: fileData?.dataUrl ? 'upload' : 'register',
       folderId: folderId,
@@ -706,6 +709,7 @@ export async function registerDocumentInDriveViaBot(
       typeCode: doc.typeCode,
       divisionCode: doc.divisionCode,
       approverCode: doc.approverCode,
+      seqNumber: (doc as any).seqNumber || parsedSeq,
       createdBy: doc.createdBy,
       approvedBy: doc.approvedBy || '',
       issueDate: doc.issueDate,
@@ -1548,6 +1552,12 @@ function doPost(e) {
         }
       }
       if (!matched) {
+        var docSeq = 1;
+        if (data.seqNumber && !isNaN(data.seqNumber)) {
+          docSeq = Number(data.seqNumber);
+        } else if (data.documentCode && data.documentCode.match(/^(\\d+)-/)) {
+          docSeq = parseInt(data.documentCode.match(/^(\\d+)-/)[1], 10);
+        }
         docs.unshift({
           id: "doc-" + new Date().getTime(),
           code: data.documentCode,
@@ -1555,7 +1565,7 @@ function doPost(e) {
           typeCode: data.typeCode || "SOP",
           divisionCode: data.divisionCode || "GNR",
           approverCode: data.approverCode || "CEO",
-          seqNumber: 1,
+          seqNumber: docSeq,
           revision: data.revision || 0,
           status: "Published",
           createdBy: data.uploadedBy || data.createdBy || "Staff",

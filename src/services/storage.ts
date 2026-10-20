@@ -1,4 +1,19 @@
 import { DocumentRecord } from '../types';
+import { extractSequenceNumber, extractDocTypeCode } from '../utils/numbering';
+
+/**
+ * Normalisasi dokumen agar seqNumber dan typeCode selalu selaras dengan kode dokumen (doc.code)
+ */
+export function normalizeDocument(doc: DocumentRecord): DocumentRecord {
+  if (!doc) return doc;
+  const seq = extractSequenceNumber(doc);
+  const type = extractDocTypeCode(doc);
+  return {
+    ...doc,
+    seqNumber: seq > 0 ? seq : doc.seqNumber || 1,
+    typeCode: type || doc.typeCode || 'SOP',
+  };
+}
 
 const STORAGE_KEY = 'nbe_documents_db_v1';
 const DRIVE_SETTINGS_KEY = 'nbe_gdrive_config';
@@ -185,8 +200,8 @@ export async function loadDocuments(): Promise<DocumentRecord[]> {
           saveAllDocuments(docs);
         }
 
-        // Filter out deleted documents
-        const activeDocs = docs.filter((d) => !isDocumentDeleted(d.id, d.code));
+        // Filter out deleted documents & normalize seqNumber
+        const activeDocs = docs.filter((d) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument);
         resolve(activeDocs);
       };
 
@@ -195,7 +210,7 @@ export async function loadDocuments(): Promise<DocumentRecord[]> {
         const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(BACKUP_STORAGE_KEY);
         try {
           const parsed = local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS];
-          resolve(Array.isArray(parsed) ? parsed.filter((d: any) => !isDocumentDeleted(d.id, d.code)) : []);
+          resolve(Array.isArray(parsed) ? parsed.filter((d: any) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument) : []);
         } catch {
           resolve([]);
         }
@@ -206,7 +221,7 @@ export async function loadDocuments(): Promise<DocumentRecord[]> {
     const local = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(BACKUP_STORAGE_KEY);
     try {
       const parsed = local ? JSON.parse(local) : [...INITIAL_SEED_DOCUMENTS];
-      return Array.isArray(parsed) ? parsed.filter((d: any) => !isDocumentDeleted(d.id, d.code)) : [];
+      return Array.isArray(parsed) ? parsed.filter((d: any) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument) : [];
     } catch {
       return [];
     }
@@ -222,20 +237,20 @@ export function getStoredDocumentsSync(): DocumentRecord[] {
     if (local) {
       const parsed = JSON.parse(local);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.filter((d) => !isDocumentDeleted(d.id, d.code));
+        return parsed.filter((d) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument);
       }
     }
     const backup = localStorage.getItem(BACKUP_STORAGE_KEY);
     if (backup) {
       const parsedB = JSON.parse(backup);
       if (Array.isArray(parsedB) && parsedB.length > 0) {
-        return parsedB.filter((d) => !isDocumentDeleted(d.id, d.code));
+        return parsedB.filter((d) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument);
       }
     }
   } catch (e) {
     console.error('Failed reading sync localStorage', e);
   }
-  return [...INITIAL_SEED_DOCUMENTS].filter((d) => !isDocumentDeleted(d.id, d.code));
+  return [...INITIAL_SEED_DOCUMENTS].filter((d) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument);
 }
 
 /**
@@ -244,8 +259,8 @@ export function getStoredDocumentsSync(): DocumentRecord[] {
 export async function saveAllDocuments(docs: DocumentRecord[]): Promise<void> {
   if (!Array.isArray(docs)) return;
 
-  // Filter out any documents that have been marked as deleted
-  const filteredDocs = docs.filter((d) => !isDocumentDeleted(d.id, d.code));
+  // Filter out any documents that have been marked as deleted & normalize seqNumber
+  const filteredDocs = docs.filter((d) => !isDocumentDeleted(d.id, d.code)).map(normalizeDocument);
 
   // 1. Save to LocalStorage (without heavy base64 to prevent quota error)
   try {
