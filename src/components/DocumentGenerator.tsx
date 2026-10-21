@@ -1399,13 +1399,13 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '1.5rem',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '1.25rem',
             marginBottom: '2rem',
           }}
         >
           {/* STEP 1: Pilih Kategori Surat (Document Type code) */}
-          <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.25rem' }}>
             <div
               style={{
                 display: 'flex',
@@ -1447,56 +1447,80 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </div>
 
             <div className="code-list-scroll">
-              {docTypes.map((dt) => (
-                <div
-                  key={dt.code}
-                  onClick={() => setSelectedType(dt.code)}
-                  style={{
-                    padding: '0.75rem 0.95rem',
-                    borderRadius: 'var(--radius-md)',
-                    border:
-                      selectedType === dt.code
+              {docTypes.map((dt) => {
+                const isSelected = selectedType === dt.code;
+                return (
+                  <div
+                    key={dt.code}
+                    onClick={() => setSelectedType(dt.code)}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isSelected
                         ? '1.5px solid var(--primary)'
                         : '1px solid var(--border-subtle)',
-                    background:
-                      selectedType === dt.code
+                      background: isSelected
                         ? 'var(--primary-glow)'
                         : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                      {dt.label}
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '0.65rem',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
+                          lineHeight: 1.35,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          color: isSelected ? 'var(--primary)' : 'var(--text-main)',
+                        }}
+                      >
+                        {dt.label}
+                      </div>
+                      {dt.description && (
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            marginTop: '0.25rem',
+                            lineHeight: 1.35,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {dt.description.replace(/_/g, ' ')}
+                        </div>
+                      )}
                     </div>
-                    <div
+                    <span
+                      className="badge badge-purple mono"
                       style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-secondary)',
-                        marginTop: '0.15rem',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.75rem',
+                        padding: '0.2rem 0.5rem',
+                        fontWeight: 700,
+                        alignSelf: 'flex-start',
                       }}
                     >
-                      {dt.description}
-                    </div>
+                      {dt.code}
+                    </span>
                   </div>
-                  <span
-                    className="badge badge-purple mono"
-                    style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}
-                  >
-                    {dt.code}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* STEP 2: Pilih Sub Kategori Surat (Sub Category - Kode ZZ) */}
-          <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.25rem' }}>
             <div
               style={{
                 display: 'flex',
@@ -1538,58 +1562,80 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </div>
 
             <div className="code-list-scroll">
-              {subCats.map((sc) => (
-                <div
-                  key={sc.code}
-                  onClick={() => setSelectedSubCategory(sc.code)}
-                  style={{
-                    padding: '0.75rem 0.95rem',
-                    borderRadius: 'var(--radius-md)',
-                    border:
-                      selectedSubCategory === sc.code
+              {subCats.map((sc) => {
+                const isSelected = selectedSubCategory === sc.code;
+                return (
+                  <div
+                    key={sc.code}
+                    onClick={() => setSelectedSubCategory(sc.code)}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isSelected
                         ? '1.5px solid #06b6d4'
                         : '1px solid var(--border-subtle)',
-                    background:
-                      selectedSubCategory === sc.code
+                      background: isSelected
                         ? 'rgba(6, 182, 212, 0.15)'
                         : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                      {sc.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-secondary)',
-                        marginTop: '0.15rem',
-                      }}
-                    >
-                      {sc.description}
-                    </div>
-                  </div>
-                  <span
-                    className="badge badge-info mono"
-                    style={{
-                      fontSize: '0.8rem',
-                      padding: '0.2rem 0.5rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '0.65rem',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    {sc.code}
-                  </span>
-                </div>
-              ))}
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
+                          lineHeight: 1.35,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          color: isSelected ? '#06b6d4' : 'var(--text-main)',
+                        }}
+                      >
+                        {sc.label}
+                      </div>
+                      {sc.description && (
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            marginTop: '0.25rem',
+                            lineHeight: 1.35,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {sc.description.replace(/_/g, ' ')}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className="badge badge-info mono"
+                      style={{
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.75rem',
+                        padding: '0.2rem 0.5rem',
+                        fontWeight: 700,
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      {sc.code}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
+
           {/* STEP 3: Pilih Sub-sub Kategori Surat (Kode AA) */}
-          <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.25rem' }}>
             <div
               style={{
                 display: 'flex',
@@ -1631,59 +1677,80 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </div>
 
             <div className="code-list-scroll">
-              {subSubCats.map((ssc) => (
-                <div
-                  key={ssc.code}
-                  onClick={() => setSelectedSubSubCategory(ssc.code)}
-                  style={{
-                    padding: '0.75rem 0.95rem',
-                    borderRadius: 'var(--radius-md)',
-                    border:
-                      selectedSubSubCategory === ssc.code
+              {subSubCats.map((ssc) => {
+                const isSelected = selectedSubSubCategory === ssc.code;
+                return (
+                  <div
+                    key={ssc.code}
+                    onClick={() => setSelectedSubSubCategory(ssc.code)}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isSelected
                         ? '1.5px solid #8b5cf6'
                         : '1px solid var(--border-subtle)',
-                    background:
-                      selectedSubSubCategory === ssc.code
+                      background: isSelected
                         ? 'rgba(139, 92, 246, 0.15)'
                         : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                      {ssc.label}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-secondary)',
-                        marginTop: '0.15rem',
-                      }}
-                    >
-                      {ssc.description}
-                    </div>
-                  </div>
-                  <span
-                    className="badge badge-purple mono"
-                    style={{
-                      fontSize: '0.8rem',
-                      padding: '0.2rem 0.5rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '0.65rem',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    {ssc.code}
-                  </span>
-                </div>
-              ))}
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
+                          lineHeight: 1.35,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          color: isSelected ? '#a855f7' : 'var(--text-main)',
+                        }}
+                      >
+                        {ssc.label}
+                      </div>
+                      {ssc.description && (
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            marginTop: '0.25rem',
+                            lineHeight: 1.35,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {ssc.description.replace(/_/g, ' ')}
+                        </div>
+                      )}
+                    </div>
+                    <span
+                      className="badge badge-purple mono"
+                      style={{
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.75rem',
+                        padding: '0.2rem 0.5rem',
+                        fontWeight: 700,
+                        alignSelf: 'flex-start',
+                      }}
+                    >
+                      {ssc.code}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* STEP 4: Pilih Penerbit Surat (Division code) */}
-          <div className="glass-card" style={{ padding: '1.5rem' }}>
+          <div className="glass-card" style={{ padding: '1.25rem' }}>
             <div
               style={{
                 display: 'flex',
@@ -1726,51 +1793,75 @@ export const DocumentGenerator: React.FC<DocumentGeneratorProps> = ({
             </div>
 
             <div className="code-list-scroll">
-              {divs.map((div) => (
-                <div
-                  key={div.code}
-                  onClick={() => setSelectedDivision(div.code)}
-                  style={{
-                    padding: '0.75rem 0.95rem',
-                    borderRadius: 'var(--radius-md)',
-                    border:
-                      selectedDivision === div.code
+              {divs.map((div) => {
+                const isSelected = selectedDivision === div.code;
+                return (
+                  <div
+                    key={div.code}
+                    onClick={() => setSelectedDivision(div.code)}
+                    style={{
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: isSelected
                         ? '1.5px solid var(--accent-blue)'
                         : '1px solid var(--border-subtle)',
-                    background:
-                      selectedDivision === div.code
+                      background: isSelected
                         ? 'rgba(2, 132, 199, 0.15)'
                         : 'var(--bg-secondary)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: '0.5rem',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>
-                      {div.label}
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '0.65rem',
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
+                          lineHeight: 1.35,
+                          wordBreak: 'break-word',
+                          overflowWrap: 'anywhere',
+                          color: isSelected ? 'var(--accent-blue)' : 'var(--text-main)',
+                        }}
+                      >
+                        {div.label}
+                      </div>
+                      {div.description && (
+                        <div
+                          style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--text-secondary)',
+                            marginTop: '0.25rem',
+                            lineHeight: 1.35,
+                            wordBreak: 'break-word',
+                            overflowWrap: 'anywhere',
+                          }}
+                        >
+                          {div.description.replace(/_/g, ' ')}
+                        </div>
+                      )}
                     </div>
-                    <div
+                    <span
+                      className="badge badge-blue mono"
                       style={{
-                        fontSize: '0.78rem',
-                        color: 'var(--text-secondary)',
-                        marginTop: '0.15rem',
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap',
+                        fontSize: '0.75rem',
+                        padding: '0.2rem 0.5rem',
+                        fontWeight: 700,
+                        alignSelf: 'flex-start',
                       }}
                     >
-                      {div.description}
-                    </div>
+                      {div.code}
+                    </span>
                   </div>
-                  <span
-                    className="badge badge-blue mono"
-                    style={{ fontSize: '0.8rem', padding: '0.2rem 0.5rem' }}
-                  >
-                    {div.code}
-                  </span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

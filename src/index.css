@@ -153,14 +153,19 @@ body {
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  padding-right: 4px;
+  gap: 0.65rem;
+  padding-right: 6px;
+  padding-left: 2px;
+  padding-top: 2px;
+  padding-bottom: 4px;
   scrollbar-width: thin;
   scrollbar-color: var(--border-accent) transparent;
 }
 
 .code-list-scroll > * {
   flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 /* Base Utility Classes */
